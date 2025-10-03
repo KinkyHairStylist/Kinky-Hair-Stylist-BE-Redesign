@@ -1,7 +1,9 @@
 import { Document } from 'mongoose';
 import { User } from '../schemas/user.schema';
+import { OtpVerification } from '../schemas/otp.verification.schema';
 
 export type UserDocument = User & Document;
+export type OtpVerificationDocument = OtpVerification & Document;
 export enum Gender {
   MALE = 'MALE',
   FEMALE = 'FEMALE',
