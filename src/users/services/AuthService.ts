@@ -1,25 +1,38 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
 import { User } from '../schemas/user.schema';
 import { InjectModel } from '@nestjs/mongoose';
 import { RegisterUserDto } from '../dtos/RegisterUserDto';
 import { Model } from 'mongoose';
 import { UserDocument } from '../types/types';
 import { PasswordUtil } from '../utils/PasswordUtil';
+import { OtpService } from './OtpService';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private readonly passwordUtil: PasswordUtil,
+    private readonly otpService: OtpService,
   ) {}
 
   async register(
     registerDto: RegisterUserDto,
   ): Promise<Omit<UserDocument, 'password'>> {
     const { email, password, phoneNumber } = registerDto;
+    const isVerified = await this.otpService.isEmailVerified(email);
+    if (!isVerified) {
+      throw new BadRequestException(
+        'Email must be verified before registration',
+      );
+    }
     await this.checkExistingUser(email, phoneNumber);
     this.passwordUtil.validatePasswordStrength(password);
     const user = await this.createUser(registerDto);
+    await this.otpService.clearOtp(email);
     return this.excludePassword(user);
   }
 

@@ -26,6 +26,14 @@ export class OtpVerification extends Document {
 
   @Prop({ default: Date.now })
   createdAt: Date;
+
+  @Prop({ type: Object })
+  registrationData?: {
+    firstName?: string;
+    surname?: string;
+    phoneNumber?: string;
+    gender?: string;
+  };
 }
 
 export const OtpVerificationSchema =
