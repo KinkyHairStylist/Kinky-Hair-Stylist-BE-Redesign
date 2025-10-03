@@ -1,13 +1,4 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
-
-export enum Gender {
-  MALE = 'MALE',
-  FEMALE = 'FEMALE',
-  CUSTOM = 'CUSTOM',
-}
-
-export type UserDocument = User & Document;
 
 @Schema({ timestamps: true })
 export class User {
@@ -26,8 +17,8 @@ export class User {
   @Prop({ required: true, unique: true })
   phoneNumber: string;
 
-  @Prop({ required: true, enum: Gender })
-  gender: Gender;
+  @Prop({ required: true })
+  gender: string;
 
   @Prop({ default: false })
   isVerified: boolean;
