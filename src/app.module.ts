@@ -1,14 +1,25 @@
+// app.module.ts
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
-
+import { UserModule } from './user/user.module';
 
 @Module({
   imports: [
-    MongooseModule.forRoot('mongodb://localhost:27017/KHS_BE'), 
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    MongooseModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => {
+        const uri = configService.get<string>('MONGODB_URI');
+        console.log('MongoDB URI from env:', uri); // Debug log
+        if (!uri) throw new Error('Missing MONGODB_URI in .env');
+        return { uri };
+      },
+      inject: [ConfigService],
+    }),
+    UserModule,
   ],
-   controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}
