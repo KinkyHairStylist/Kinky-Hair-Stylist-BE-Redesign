@@ -7,10 +7,10 @@ import { OtpVerification } from '../schemas/otp.verification.schema';
 
 describe('OtpService', () => {
   let service: OtpService;
-  let model: jest.Mocked<Model<any>>;
+  let model: Partial<Record<keyof Model<any>, jest.Mock>>;
 
   beforeEach(async () => {
-    const mockModel = {
+    const mockModel: Partial<Record<keyof Model<any>, jest.Mock>> = {
       findOne: jest.fn(),
       findOneAndUpdate: jest.fn(),
       deleteOne: jest.fn(),

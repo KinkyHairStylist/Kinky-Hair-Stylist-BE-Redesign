@@ -41,19 +41,16 @@ export class EmailVerificationController {
         throw new BadRequestException('Email is required');
       }
 
-      // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
         throw new BadRequestException('Invalid email format');
       }
 
-      // Create OTP verification
       const { otp, expiresAt } = await this.otpService.createOtpVerification(
         email,
         { firstName },
       );
 
-      // Send verification email
       const emailSent = await this.emailService.sendVerificationEmail(email, {
         otp,
         firstName,
