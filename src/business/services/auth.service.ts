@@ -17,7 +17,6 @@ import {
   RefreshTokenDocument,
 } from '../schemas/refresh.token.schema';
 import { ForgotPasswordDto } from '../dtos/requests/ForgotPasswordDto';
-import { IEmailService } from './emailService/interfaces/i.email.service';
 import { ResetPasswordDto } from '../dtos/requests/ResetPasswordDto';
 import { OtpService } from './otp.service';
 import { VerifyPasswordOtpDto } from '../dtos/requests/VerifyPasswordOtpDto';
