@@ -9,6 +9,14 @@ import { IEmailService } from '../interfaces/i.email.service';
 export class MockEmailService implements IEmailService {
   private readonly logger = new Logger(MockEmailService.name);
 
+  async sendPasswordReset(email: string, resetLink?: string): Promise<void> {
+    this.logger.warn(`--- MOCK EMAIL SENT ---`);
+    this.logger.warn(`TO: ${email}`);
+    this.logger.warn(`RESET LINK: ${resetLink}`);
+    this.logger.warn(`-----------------------`);
+    return;
+  }
+
   async sendOtp(to: string, otp: string): Promise<void> {
     this.logger.warn(`--- MOCK EMAIL SENT ---`);
     this.logger.warn(`TO: ${to}`);

@@ -1,10 +1,12 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { AuthService } from '../services/auth.service';
 import { CreateUserDto } from '../dtos/requests/CreateUserDto';
-import { Request } from 'express';
 import { OtpService } from '../services/otp.service';
 import { RequestOtpDto } from '../dtos/requests/RequestOtpDto';
 import { VerifyOtpDto } from '../dtos/requests/VerifyOtpDto';
+import { LoginDto } from '../dtos/requests/LoginDto';
+import { RefreshTokenDto } from '../dtos/requests/RefreshTokenDto';
+import { ForgotPasswordDto } from '../dtos/requests/ForgotPasswordDto';
 
 // interface RequestWithUser extends Request {
 //   user: any;
@@ -23,6 +25,14 @@ export class AuthController {
     @Body() createUserDto: CreateUserDto,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     return this.authService.register(createUserDto);
+  }
+
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  async login(
+    @Body() loginDto: LoginDto,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    return this.authService.login(loginDto);
   }
 
   @Post('otp/request')
@@ -50,5 +60,17 @@ export class AuthController {
       message: 'Email successfully verified! Proceed to final registration.',
       verificationToken,
     };
+  }
+
+  @Post('otp/refresh')
+  @HttpCode(HttpStatus.OK)
+  async refreshTokens(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.refreshTokens(refreshTokenDto.refreshToken);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.requestPasswordReset(forgotPasswordDto);
   }
 }

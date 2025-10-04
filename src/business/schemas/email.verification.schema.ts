@@ -30,5 +30,4 @@ export class EmailVerification {
 export const EmailVerificationSchema =
   SchemaFactory.createForClass(EmailVerification);
 
-// Add a compound index to ensure the email field is used for expiration
 EmailVerificationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
