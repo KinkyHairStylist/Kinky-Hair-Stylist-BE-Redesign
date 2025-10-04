@@ -12,5 +12,12 @@ export abstract class IEmailService {
    * @param otp The one-time password to send.
    */
   abstract sendOtp(to: string, otp: string): Promise<void>;
+
+  /**
+   * Sends a reset link to the user's email address.
+   * @param email the recipient's email address.
+   * @param resetLink the link for password reset
+   */
   abstract sendPasswordReset(email: string, resetLink?: string): Promise<void>;
+  abstract sendPasswordChangeConfirmation(to: string): Promise<void>;
 }

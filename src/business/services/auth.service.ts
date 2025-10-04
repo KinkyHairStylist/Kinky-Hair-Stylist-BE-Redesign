@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -17,6 +18,9 @@ import {
 } from '../schemas/refresh.token.schema';
 import { ForgotPasswordDto } from '../dtos/requests/ForgotPasswordDto';
 import { IEmailService } from './emailService/interfaces/i.email.service';
+import { ResetPasswordDto } from '../dtos/requests/ResetPasswordDto';
+import { OtpService } from './otp.service';
+import { VerifyPasswordOtpDto } from '../dtos/requests/VerifyPasswordOtpDto';
 
 @Injectable()
 export class AuthService {
@@ -26,7 +30,7 @@ export class AuthService {
     private refreshTokenModel: Model<RefreshTokenDocument>,
     private jwtService: JwtService,
     private readonly passwordUtil: PasswordUtil,
-    private readonly emailService: IEmailService,
+    private readonly otpService: OtpService,
   ) {}
 
   async register(
@@ -220,30 +224,120 @@ export class AuthService {
       console.log(`Password reset requested for non-existent email: ${email}`);
       return {
         message:
-          'If a user with that email exists, a password reset link has been sent.',
+          'If a user with that email exists, an OTP code has been sent to their email.',
       };
     }
 
-    const payload = { sub: user._id.toString(), email: user.email };
-    const resetToken = await this.jwtService.signAsync(payload, {
-      secret: process.env.JWT_RESET_SECRET,
-      expiresIn: '1h',
-    });
-
-    const resetLink = `[FRONTEND_BASE_URL]/reset-password?token=${resetToken}`;
-
     try {
-      await this.emailService.sendPasswordReset(user.email, resetLink);
+      await this.otpService.requestOtp(email);
     } catch (error) {
-      console.error(
-        `Failed to send password reset email to ${user.email}:`,
-        error,
-      );
+      console.error(`Failed to generate/send OTP for ${user.email}:`, error);
     }
 
     return {
       message:
-        'If a user with that email exists, a password reset link has been sent.',
+        'If a user with that email exists, an OTP code has been sent to their email.',
+    };
+  }
+
+  // async verifyResetToken(
+  //   verifyResetTokenDto: VerifyResetTokenDto,
+  // ): Promise<{ message: string }> {
+  //   const { token } = verifyResetTokenDto;
+  //
+  //   try {
+  //     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  //     const payload = await this.jwtService.verifyAsync(token, {
+  //       secret: process.env.JWT_RESET_SECRET,
+  //     });
+  //
+  //     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  //     const user = await this.userModel.findById(payload.sub).exec();
+  //
+  //     if (!user) {
+  //       throw new NotFoundException('Invalid or expired password reset token.');
+  //     }
+  //
+  //     return { message: 'Password reset token is valid.' };
+  //     // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  //   } catch (error) {
+  //     throw new BadRequestException('Invalid or expired password reset token.');
+  //   }
+  // }
+
+  async verifyPasswordOtp(
+    verifyPasswordOtpDto: VerifyPasswordOtpDto,
+  ): Promise<{ resetToken: string }> {
+    const { email, otp } = verifyPasswordOtpDto;
+
+    const isOtpValid = await this.otpService.verifyOtp(email, otp);
+
+    if (!isOtpValid) {
+      throw new BadRequestException('Invalid or expired OTP code.');
+    }
+
+    const user = await this.userModel
+      .findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } })
+      .exec();
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    const payload = {
+      sub: user._id.toString(),
+      email: user.email,
+      purpose: 'password-reset',
+    };
+    const resetToken = await this.jwtService.signAsync(payload, {
+      secret: process.env.JWT_RESET_SECRET,
+      expiresIn: '15m',
+    });
+
+    await this.otpService.deleteOtp(email);
+
+    return { resetToken };
+  }
+
+  async resetPassword(
+    resetPasswordDto: ResetPasswordDto,
+  ): Promise<{ message: string }> {
+    const { token, newPassword } = resetPasswordDto;
+
+    let payload: { sub: string; email: string };
+    try {
+      payload = await this.jwtService.verifyAsync(token, {
+        secret: process.env.JWT_RESET_SECRET,
+      });
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (error) {
+      throw new BadRequestException('Invalid or expired password reset token.');
+    }
+
+    const hashedPassword = await this.passwordUtil.hashPassword(newPassword);
+
+    // 3. Update the user's password in the database
+    const updateResult = await this.userModel
+      .updateOne({ _id: payload.sub }, { $set: { password: hashedPassword } })
+      .exec();
+
+    if (updateResult.modifiedCount === 0) {
+      throw new NotFoundException(
+        'User not found or password was not updated.',
+      );
+    }
+
+    await this.refreshTokenModel.deleteMany({ user: payload.sub }).exec();
+
+    // try {
+    //     await this.emailService.sendPasswordChangeConfirmation(user.email);
+    // } catch (error) {
+    //     console.error('Failed to send password change confirmation email:', error);
+    // }
+
+    return {
+      message:
+        'Password has been successfully reset. Please log in with your new password.',
     };
   }
 }

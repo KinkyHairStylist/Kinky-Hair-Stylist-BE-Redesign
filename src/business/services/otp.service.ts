@@ -3,6 +3,8 @@ import {
   Injectable,
   Logger,
   ConflictException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -25,6 +27,7 @@ export class OtpService {
     @InjectModel(EmailVerification.name)
     private otpModel: Model<EmailVerificationDocument>,
     private readonly emailService: IEmailService,
+    @Inject(forwardRef(() => AuthService))
     private readonly userService: AuthService,
     private readonly jwtService: JwtService,
   ) {}
@@ -116,6 +119,10 @@ export class OtpService {
       `Email ${email} successfully verified. Verification token issued.`,
     );
     return { verificationToken };
+  }
+
+  async deleteOtp(email: string): Promise<void> {
+    await this.otpModel.deleteOne({ email });
   }
 
   /**

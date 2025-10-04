@@ -22,8 +22,10 @@ export class MockEmailService implements IEmailService {
     this.logger.warn(`TO: ${to}`);
     this.logger.warn(`OTP: ${otp}`);
     this.logger.warn(`-----------------------`);
-    // NOTE: When you implement a real service (e.g., SendGridService),
-    // you would replace this console log with the actual API call.
     return;
+  }
+
+  async sendPasswordChangeConfirmation(to: string): Promise<void> {
+    console.log(`[EMAIL HELPER] Sending Password Change Confirmation to ${to}`);
   }
 }

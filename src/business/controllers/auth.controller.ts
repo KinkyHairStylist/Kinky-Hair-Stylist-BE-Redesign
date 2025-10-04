@@ -7,6 +7,8 @@ import { VerifyOtpDto } from '../dtos/requests/VerifyOtpDto';
 import { LoginDto } from '../dtos/requests/LoginDto';
 import { RefreshTokenDto } from '../dtos/requests/RefreshTokenDto';
 import { ForgotPasswordDto } from '../dtos/requests/ForgotPasswordDto';
+import { ResetPasswordDto } from '../dtos/requests/ResetPasswordDto';
+import { VerifyPasswordOtpDto } from '../dtos/requests/VerifyPasswordOtpDto';
 
 // interface RequestWithUser extends Request {
 //   user: any;
@@ -33,6 +35,24 @@ export class AuthController {
     @Body() loginDto: LoginDto,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     return this.authService.login(loginDto);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.requestPasswordReset(forgotPasswordDto);
+  }
+
+  @Post('verify-password-otp')
+  @HttpCode(HttpStatus.OK)
+  async verifyPasswordOtp(@Body() verifyPasswordOtpDto: VerifyPasswordOtpDto) {
+    return this.authService.verifyPasswordOtp(verifyPasswordOtpDto);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(resetPasswordDto);
   }
 
   @Post('otp/request')
@@ -66,11 +86,5 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async refreshTokens(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refreshTokens(refreshTokenDto.refreshToken);
-  }
-
-  @Post('forgot-password')
-  @HttpCode(HttpStatus.OK)
-  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
-    return this.authService.requestPasswordReset(forgotPasswordDto);
   }
 }
