@@ -42,7 +42,7 @@ export class AuthService {
     try {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const payload = await this.jwtService.verifyAsync(verificationToken, {
-        secret: process.env.JWT_VERIFICATION_SECRET,
+        secret: process.env.JWT_ACCESS_SECRET,
       });
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
@@ -72,7 +72,7 @@ export class AuthService {
 
     try {
       payload = await this.jwtService.verifyAsync(refreshToken, {
-        secret: process.env.JWT_REFRESH_SECRET,
+        secret: process.env.JWT_ACCESS_SECRET,
       });
     } catch (e) {
       throw new UnauthorizedException(`Invalid or expired refresh token. ${e}`);
@@ -190,7 +190,7 @@ export class AuthService {
         expiresIn: '15m',
       }),
       this.jwtService.signAsync(payload, {
-        secret: process.env.JWT_REFRESH_SECRET,
+        secret: process.env.JWT_ACCESS_SECRET,
         expiresIn: '7d',
       }),
     ]);
@@ -228,7 +228,7 @@ export class AuthService {
     }
 
     try {
-      await this.otpService.requestOtp(email);
+      await this.otpService.requestOtpForPasswordReset(email);
     } catch (error) {
       console.error(`Failed to generate/send OTP for ${user.email}:`, error);
     }
@@ -289,7 +289,7 @@ export class AuthService {
       purpose: 'password-reset',
     };
     const resetToken = await this.jwtService.signAsync(payload, {
-      secret: process.env.JWT_RESET_SECRET,
+      secret: process.env.JWT_ACCESS_SECRET,
       expiresIn: '15m',
     });
 
@@ -306,7 +306,7 @@ export class AuthService {
     let payload: { sub: string; email: string };
     try {
       payload = await this.jwtService.verifyAsync(token, {
-        secret: process.env.JWT_RESET_SECRET,
+        secret: process.env.JWT_ACCESS_SECRET,
       });
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
