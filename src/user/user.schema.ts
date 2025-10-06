@@ -28,10 +28,16 @@ export class User {
   isVerified: boolean;
 
   @Prop()
-  verificationCode: string;
+  verificationCode: string ;
 
   @Prop()
-  verificationExpires: Date;
+  verificationExpires: Date  ;
+
+  @Prop()
+  resetPasswordToken: string;
+
+  @Prop()
+  resetPasswordExpires: Date;
 
   @Prop({ default: Date.now })
   createdAt: Date;

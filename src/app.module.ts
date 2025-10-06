@@ -1,7 +1,12 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { EmailModule } from './email/email.module'; // Add this
+import { UserModule } from './user/user.module';
+import { BusinessModule } from './business/business.module';
+import { EmailModule } from './email/email.module';
+import { AppService } from './app.service';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -26,7 +31,18 @@ import { EmailModule } from './email/email.module'; // Add this
       }),
       inject: [ConfigService],
     }),
-    EmailModule, // Add this
+    MongooseModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        uri: configService.get<string>('MONGO_URI'),
+      }),
+      inject: [ConfigService],
+    }),
+    UserModule,
+    BusinessModule,
+    EmailModule,
   ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
