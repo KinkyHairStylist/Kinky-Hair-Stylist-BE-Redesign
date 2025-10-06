@@ -28,10 +28,10 @@ export class User {
   isVerified: boolean;
 
   @Prop()
-  verificationCode: string;
+  verificationCode: string ;
 
   @Prop()
-  verificationExpires: Date;
+  verificationExpires: Date  ;
 
   @Prop({ default: Date.now })
   createdAt: Date;
