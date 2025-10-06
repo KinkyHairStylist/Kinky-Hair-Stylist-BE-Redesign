@@ -213,7 +213,7 @@ app.post('/api/signup', async (req, res) => {
     // Generate JWT token
     const token = jwt.sign(
       { id: user._id, email: user.email },
-      process.env.JWT_SECRET,
+      "process.env.JWT_SECRET",
       { expiresIn: '7d' }
     );
 

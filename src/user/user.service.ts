@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 import * as nodemailer from 'nodemailer';
 import { User, UserDocument } from './user.schema';
@@ -43,7 +43,7 @@ export class UserService {
   private generateToken(userId: string): string {
     return jwt.sign(
       { sub: userId },
-      this.configService.get('JWT_SECRET'),
+      "process.env.JWT_SECRET",
       { expiresIn: '7d' },
     );
   }
