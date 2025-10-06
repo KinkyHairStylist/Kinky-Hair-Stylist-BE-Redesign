@@ -3,6 +3,8 @@ import {
   Injectable,
   Logger,
   ConflictException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -17,7 +19,7 @@ import { AuthService } from './auth.service';
 @Injectable()
 export class OtpService {
   private readonly logger = new Logger(OtpService.name);
-  private readonly OTP_LENGTH = 6;
+  private readonly OTP_LENGTH = 5;
   private readonly EXPIRATION_MINUTES = 15;
   private readonly MAX_TRIALS = 5;
 
@@ -25,9 +27,34 @@ export class OtpService {
     @InjectModel(EmailVerification.name)
     private otpModel: Model<EmailVerificationDocument>,
     private readonly emailService: IEmailService,
+    @Inject(forwardRef(() => AuthService))
     private readonly userService: AuthService,
     private readonly jwtService: JwtService,
   ) {}
+
+  async requestOtpForPasswordReset(email: string): Promise<void> {
+    const otp = this.generateOtp();
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + this.EXPIRATION_MINUTES);
+
+    await this.otpModel.findOneAndUpdate(
+      { email },
+      {
+        otp,
+        expiresAt,
+        trials: 0,
+        maxTrials: this.MAX_TRIALS,
+      },
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+      },
+    );
+    this.logger.debug(`OTP generated for email ${email}: ${otp}`);
+
+    await this.emailService.sendOtp(email, otp);
+  }
 
   /**
    * Generates, saves, and sends a new OTP for the given email (User does not exist yet).
@@ -107,7 +134,7 @@ export class OtpService {
     const verificationToken = await this.jwtService.signAsync(
       { email },
       {
-        secret: process.env.JWT_VERIFICATION_SECRET,
+        secret: process.env.JWT_ACCESS_SECRET,
         expiresIn: '5m',
       },
     );
@@ -116,6 +143,10 @@ export class OtpService {
       `Email ${email} successfully verified. Verification token issued.`,
     );
     return { verificationToken };
+  }
+
+  async deleteOtp(email: string): Promise<void> {
+    await this.otpModel.deleteOne({ email });
   }
 
   /**
