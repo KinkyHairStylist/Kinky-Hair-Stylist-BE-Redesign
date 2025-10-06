@@ -1,6 +1,6 @@
+// app.module.ts
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BusinessModule } from './business/business.module';
 import { EmailModule } from './business/services/emailService/email.module';
