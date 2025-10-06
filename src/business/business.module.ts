@@ -15,6 +15,10 @@ import {
   EmailVerification,
   EmailVerificationSchema,
 } from './schemas/email.verification.schema';
+import {
+  RefreshToken,
+  RefreshTokenSchema,
+} from './schemas/refresh.token.schema';
 
 @Module({
   imports: [
@@ -22,6 +26,7 @@ import {
       { name: User.name, schema: UserSchema },
       { name: Business.name, schema: BusinessSchema },
       { name: EmailVerification.name, schema: EmailVerificationSchema },
+      { name: RefreshToken.name, schema: RefreshTokenSchema },
     ]),
     JwtModule.register({}),
     EmailModule,

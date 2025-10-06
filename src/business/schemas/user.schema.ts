@@ -21,7 +21,7 @@ export class User {
   @Prop({ required: true, unique: true, trim: true, lowercase: true })
   phone: string;
 
-  @Prop({ type: String, enum: {}, required: true })
+  @Prop({ type: String, enum: Gender, required: true })
   gender: Gender;
 
   @Prop({ default: false })

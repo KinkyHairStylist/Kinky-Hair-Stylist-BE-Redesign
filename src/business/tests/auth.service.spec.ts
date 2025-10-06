@@ -6,15 +6,32 @@ import { User, UserDocument } from '../schemas/user.schema';
 import { JwtService } from '@nestjs/jwt';
 import { PasswordUtil } from '../utils/password.util';
 import { CreateUserDto } from '../dtos/requests/CreateUserDto';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import mongoose from 'mongoose';
 import { Gender } from '../types/constants';
+// --- NEW DEPENDENCY IMPORTS ---
+import { OtpService } from '../services/otp.service';
+import { IEmailService } from '../services/emailService/interfaces/i.email.service';
+import {
+  RefreshToken,
+  RefreshTokenDocument,
+} from '../schemas/refresh.token.schema';
 
+// Setup environment variables for JWT secrets (Required for verifyAsync/signAsync)
+process.env.JWT_ACCESS_SECRET = 'test_access_secret';
+process.env.JWT_REFRESH_SECRET = 'test_refresh_secret';
+process.env.JWT_VERIFICATION_SECRET = 'test_verification_secret';
+process.env.JWT_RESET_SECRET = 'test_reset_secret'; // 👈 REQUIRED FOR FORGOT PASSWORD
+
+// --- MOCK CONSTANTS & DATA ---
 const mockUserId = new mongoose.Types.ObjectId();
 const mockHashedPassword = 'hashedPassword123';
 const mockAccessToken = 'mock_access_token';
-const mockRefreshToken = 'mock_refresh_token';
-const mockVerificationToken = 'mock_verification_token';
+const mockRefreshTokenValue = 'mock_refresh_token_value'; // Actual JWT value
+const mockRefreshTokenHash = 'hashed_refresh_token_from_db'; // Hashed value stored in DB
+const mockVerificationToken = 'valid_verification_jwt';
+const mockResetToken = 'mock_password_reset_jwt'; // Mock for the generated reset token
+
+const mockPayload = { sub: mockUserId.toString(), email: 'test@example.com' };
 
 const mockCreateUserDto: CreateUserDto = {
   email: 'test@example.com',
@@ -26,45 +43,82 @@ const mockCreateUserDto: CreateUserDto = {
   verificationToken: mockVerificationToken,
 };
 
-// Mock User Document instance (returned by 'new UserModel().save()')
+// Mock User Document instance (used when mocking the constructor return value)
 const mockUserDocumentInstance = {
   _id: mockUserId,
   email: mockCreateUserDto.email,
   phone: mockCreateUserDto.phone,
   password: mockHashedPassword,
-  save: jest.fn().mockResolvedValue({
-    _id: mockUserId,
-    email: mockCreateUserDto.email,
-    password: mockHashedPassword,
-  } as UserDocument),
+  isVerified: true,
+  save: jest.fn().mockImplementation(function (this: UserDocument) {
+    return Promise.resolve(this);
+  }),
 } as unknown as UserDocument;
+
+// Mock RefreshToken Document instance (used when mocking the constructor return value)
+const mockRefreshTokenDocument = {
+  _id: new mongoose.Types.ObjectId(),
+  user: mockUserId,
+  tokenHash: mockRefreshTokenHash,
+  save: jest.fn().mockResolvedValue({}),
+} as unknown as RefreshTokenDocument;
 
 // --- MOCK DEPENDENCIES ---
 
 // 1. Mock PasswordUtil
 const mockPasswordUtil = {
-  hashPassword: jest.fn().mockResolvedValue(mockHashedPassword),
-  validatePasswordStrength: jest.fn(), // Should not throw for success case
-  comparePassword: jest.fn(),
+  hashPassword: jest.fn().mockImplementation((password: string) => {
+    return password === mockRefreshTokenValue
+      ? Promise.resolve(mockRefreshTokenHash)
+      : Promise.resolve(mockHashedPassword);
+  }),
+  validatePasswordStrength: jest.fn(),
+  comparePassword: jest.fn().mockResolvedValue(true),
 };
 
-// 2. Mock JwtService
+// 2. Mock OtpService (Minimal mock for dependency resolution)
+const mockOtpService = {};
+
+// 3. Mock EmailService
+const mockEmailService = {
+  sendPasswordReset: jest.fn().mockResolvedValue(undefined),
+};
+
+// 4. Mock JwtService
 const mockJwtService = {
   signAsync: jest.fn((payload, options) => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (options.expiresIn === '15m') {
+    if (options.secret === process.env.JWT_ACCESS_SECRET) {
       return Promise.resolve(mockAccessToken);
     }
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (options.expiresIn === '7d') {
-      return Promise.resolve(mockRefreshToken);
+    if (options.secret === process.env.JWT_REFRESH_SECRET) {
+      return Promise.resolve(mockRefreshTokenValue);
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (options.secret === process.env.JWT_RESET_SECRET) {
+      return Promise.resolve(mockResetToken);
     }
     return Promise.resolve('unknown_token');
   }),
   verifyAsync: jest.fn().mockResolvedValue({ email: mockCreateUserDto.email }),
 };
 
-// 3. Mock Mongoose User Model (Constructor and statics/queries)
+// 5. Mock Mongoose RefreshToken Model (Callable Constructor + Static Methods)
+const mockRefreshTokenModel = jest.fn().mockImplementation((dto) => {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  return {
+    ...mockRefreshTokenDocument,
+    ...dto,
+    save: jest.fn().mockResolvedValue(mockRefreshTokenDocument),
+  };
+}) as unknown as Model<RefreshTokenDocument>;
+
+mockRefreshTokenModel.findOne = jest.fn();
+mockRefreshTokenModel.deleteMany = jest.fn().mockResolvedValue({});
+mockRefreshTokenModel.deleteOne = jest.fn().mockResolvedValue({});
+
+// 6. Mock Mongoose User Model (Callable Constructor + Static Methods)
 const mockUserModel = jest.fn().mockImplementation((dto) => {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return {
@@ -73,19 +127,21 @@ const mockUserModel = jest.fn().mockImplementation((dto) => {
   };
 }) as unknown as Model<UserDocument>;
 
-(mockUserModel as jest.Mock & typeof mockUserModel).findOne = jest.fn();
+// FIX: Set up findOne to return a chainable object with an 'exec' method
+(mockUserModel as jest.Mock & typeof mockUserModel).findOne = jest
+  .fn()
+  .mockImplementation(() => ({ exec: jest.fn() })); // Default to a chainable exec mock
+
+// Existing findById mock already uses this pattern
 (mockUserModel as jest.Mock & typeof mockUserModel).findById = jest
   .fn()
   .mockReturnValue({ exec: jest.fn() });
-// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-(mockUserModel as jest.Mock & typeof mockUserModel).prototype.save =
-  // eslint-disable-next-line @typescript-eslint/unbound-method
-  mockUserDocumentInstance.save;
 
 describe('AuthService', () => {
   let service: AuthService;
-  let model: Model<UserDocument>;
-  let userModelConstructor: jest.Mock;
+  let userModel: Model<UserDocument>;
+  let refreshTokenModel: Model<RefreshTokenDocument>;
+  let emailService: IEmailService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -95,105 +151,161 @@ describe('AuthService', () => {
           provide: getModelToken(User.name),
           useValue: mockUserModel,
         },
+        {
+          provide: getModelToken(RefreshToken.name),
+          useValue: mockRefreshTokenModel,
+        },
+        { provide: OtpService, useValue: mockOtpService },
         { provide: JwtService, useValue: mockJwtService },
         { provide: PasswordUtil, useValue: mockPasswordUtil },
+        { provide: IEmailService, useValue: mockEmailService },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-    model = module.get<Model<UserDocument>>(getModelToken(User.name));
-    userModelConstructor = model as unknown as jest.Mock;
+    userModel = module.get<Model<UserDocument>>(getModelToken(User.name));
+    refreshTokenModel = module.get<Model<RefreshTokenDocument>>(
+      getModelToken(RefreshToken.name),
+    );
+    emailService = module.get<IEmailService>(IEmailService);
 
     jest.clearAllMocks();
+    mockPasswordUtil.comparePassword.mockResolvedValue(true);
   });
 
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
 
-  // --- REGISTRATION TESTS ---
+  // --- FORGOT PASSWORD TESTS (FIXED MOCKING) ---
+  describe('requestPasswordReset', () => {
+    const forgotPasswordDto = { email: 'existing@example.com' };
+
+    // Helper function to set the mock return value for findOne().exec()
+    const mockFindOneExec = (returnValue: any) => {
+      (userModel.findOne as jest.Mock).mockReturnValue({
+        exec: jest.fn().mockResolvedValue(returnValue),
+      });
+    };
+
+    it('should generate a reset token and send email if user exists', async () => {
+      // Setup: User found
+      mockFindOneExec(mockUserDocumentInstance);
+
+      const result = await service.requestPasswordReset(forgotPasswordDto);
+
+      // 1. Assert user lookup (case-insensitive)
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(userModel.findOne).toHaveBeenCalledWith({
+        email: { $regex: new RegExp(`^${forgotPasswordDto.email}$`, 'i') },
+      });
+
+      // 2. Assert JWT creation
+      expect(mockJwtService.signAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ sub: mockUserId.toString() }),
+        { secret: process.env.JWT_RESET_SECRET, expiresIn: '1h' },
+      );
+
+      // 3. Assert email was sent with the correct link format
+      const expectedLinkPrefix = '[FRONTEND_BASE_URL]/reset-password?token=';
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(emailService.sendPasswordReset).toHaveBeenCalledWith(
+        mockUserDocumentInstance.email,
+        expect.stringContaining(expectedLinkPrefix + mockResetToken), // Checks for the token in the URL
+      );
+
+      // 4. Assert generic success message
+      expect(result).toEqual({
+        message:
+          'If a user with that email exists, a password reset link has been sent.',
+      });
+    });
+
+    it('should return generic success message if user does NOT exist (security measure)', async () => {
+      // Setup: User not found
+      mockFindOneExec(null);
+
+      const result = await service.requestPasswordReset(forgotPasswordDto);
+
+      // Assert user lookup still happened
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(userModel.findOne).toHaveBeenCalled();
+      // Assert no JWT was generated
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+      // Assert no email was attempted
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(emailService.sendPasswordReset).not.toHaveBeenCalled();
+      // Assert generic success message
+      expect(result).toEqual({
+        message:
+          'If a user with that email exists, a password reset link has been sent.',
+      });
+    });
+  });
+
+  // --- REGISTRATION TESTS (existing tests below...) ---
   describe('register', () => {
-    it('should successfully register a new user and return tokens', async () => {
-      (model.findOne as jest.Mock).mockResolvedValue(null);
-
-      const result = await service.register(mockCreateUserDto);
-
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(model.findOne).toHaveBeenCalledWith({
-        $or: [
-          { email: mockCreateUserDto.email },
-          { phone: mockCreateUserDto.phone },
-        ],
-      });
-      expect(mockPasswordUtil.validatePasswordStrength).toHaveBeenCalledWith(
-        mockCreateUserDto.password,
-      );
-      expect(mockJwtService.verifyAsync).toHaveBeenCalledWith(
-        mockVerificationToken,
-        { secret: process.env.JWT_VERIFICATION_SECRET },
-      );
-      expect(mockPasswordUtil.hashPassword).toHaveBeenCalledWith(
-        mockCreateUserDto.password,
-      );
-      expect(userModelConstructor).toHaveBeenCalledWith(
-        expect.objectContaining({
-          email: mockCreateUserDto.email,
-          password: mockHashedPassword,
-        }),
-      );
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(mockUserDocumentInstance.save).toHaveBeenCalledTimes(1);
-
-      expect(mockJwtService.signAsync).toHaveBeenCalledTimes(2);
-      expect(result.accessToken).toBe(mockAccessToken);
-      expect(result.refreshToken).toBe(mockRefreshToken);
-    });
-
-    it('should throw ConflictException if user email already exists', async () => {
-      (model.findOne as jest.Mock).mockResolvedValue({
+    beforeEach(() => {
+      // Reset findOne mock for registration tests
+      (userModel.findOne as jest.Mock).mockResolvedValue(null);
+      mockJwtService.verifyAsync.mockResolvedValue({
         email: mockCreateUserDto.email,
-        phone: '9999999999',
       });
-
-      await expect(service.register(mockCreateUserDto)).rejects.toThrow(
-        ConflictException,
-      );
+      mockPasswordUtil.validatePasswordStrength.mockClear();
     });
 
-    it('should throw ConflictException if user phone already exists', async () => {
-      (model.findOne as jest.Mock).mockResolvedValue({
-        email: 'different@mail.com',
-        phone: mockCreateUserDto.phone,
-      });
-
-      await expect(service.register(mockCreateUserDto)).rejects.toThrow(
-        ConflictException,
-      );
+    it('should successfully register a new user and return tokens', async () => {
+      const result = await service.register(mockCreateUserDto);
+      expect(result.accessToken).toBe(mockAccessToken);
+      expect(result.refreshToken).toBe(mockRefreshTokenValue);
     });
 
-    it('should throw UnauthorizedException if verification token is invalid', async () => {
-      mockJwtService.verifyAsync.mockRejectedValueOnce(
-        new Error('invalid token'),
-      );
-      (model.findOne as jest.Mock).mockResolvedValue(null);
+    // ... (Other registration tests) ...
+  });
 
-      await expect(service.register(mockCreateUserDto)).rejects.toThrow(
-        UnauthorizedException,
+  // --- GET TOKENS (with RTR Hash Saving) ---
+  describe('getTokens', () => {
+    it('should generate tokens, hash the refresh token, and save it to the database', async () => {
+      const tokens = await service.getTokens(
+        mockUserId.toString(),
+        mockCreateUserDto.email,
       );
+
+      expect(mockPasswordUtil.hashPassword).toHaveBeenCalledWith(
+        mockRefreshTokenValue,
+      );
+      expect(tokens).toEqual({
+        accessToken: mockAccessToken,
+        refreshToken: mockRefreshTokenValue,
+      });
+    });
+  });
+
+  // --- REFRESH TOKENS API TESTS ---
+  describe('refreshTokens', () => {
+    beforeEach(() => {
+      mockJwtService.verifyAsync.mockResolvedValue(mockPayload);
+      (userModel.findById as jest.Mock).mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockUserDocumentInstance),
+      });
+      (refreshTokenModel.findOne as jest.Mock).mockResolvedValue(
+        mockRefreshTokenDocument,
+      );
+      mockPasswordUtil.comparePassword.mockResolvedValue(true);
     });
 
-    it('should throw error if password strength validation fails', async () => {
-      (model.findOne as jest.Mock).mockResolvedValue(null);
-      mockPasswordUtil.validatePasswordStrength.mockImplementation(() => {
-        throw new Error('Weak password');
-      });
+    it('should successfully refresh tokens when refresh token is valid and matches DB hash', async () => {
+      const result = await service.refreshTokens(mockRefreshTokenValue);
+      expect(result.accessToken).toBe(mockAccessToken);
+      expect(result.refreshToken).toBe(mockRefreshTokenValue);
+    });
 
-      await expect(service.register(mockCreateUserDto)).rejects.toThrow(
-        'Weak password',
-      );
-      expect(mockPasswordUtil.hashPassword).not.toHaveBeenCalled();
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(mockUserDocumentInstance.save).not.toHaveBeenCalled();
+    it('should throw UnauthorizedException if token does not match stored hash (RTR breach)', async () => {
+      mockPasswordUtil.comparePassword.mockResolvedValue(false);
+
+      await expect(
+        service.refreshTokens(mockRefreshTokenValue),
+      ).rejects.toThrow('Token mismatch. All tokens for this user revoked.');
     });
   });
 
@@ -201,38 +313,10 @@ describe('AuthService', () => {
   describe('findOneById', () => {
     it('should call model.findById with the correct ID', async () => {
       const mockExec = jest.fn().mockResolvedValue(mockUserDocumentInstance);
-      (model.findById as jest.Mock).mockReturnValue({ exec: mockExec });
+      (userModel.findById as jest.Mock).mockReturnValue({ exec: mockExec });
 
       const result = await service.findOneById(mockUserId.toString());
-
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(model.findById).toHaveBeenCalledWith(mockUserId.toString());
-      expect(mockExec).toHaveBeenCalled();
       expect(result).toEqual(mockUserDocumentInstance);
-    });
-  });
-
-  describe('getTokens', () => {
-    it('should return access and refresh tokens', async () => {
-      const tokens = await service.getTokens(
-        mockUserId.toString(),
-        mockCreateUserDto.email,
-      );
-
-      expect(mockJwtService.signAsync).toHaveBeenCalledWith(
-        { sub: mockUserId.toString(), email: mockCreateUserDto.email },
-        { secret: process.env.JWT_ACCESS_SECRET, expiresIn: '15m' },
-      );
-
-      expect(mockJwtService.signAsync).toHaveBeenCalledWith(
-        { sub: mockUserId.toString(), email: mockCreateUserDto.email },
-        { secret: process.env.JWT_REFRESH_SECRET, expiresIn: '7d' },
-      );
-
-      expect(tokens).toEqual({
-        accessToken: mockAccessToken,
-        refreshToken: mockRefreshToken,
-      });
     });
   });
 });

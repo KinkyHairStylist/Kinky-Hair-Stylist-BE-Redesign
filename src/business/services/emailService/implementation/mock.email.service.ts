@@ -9,13 +9,23 @@ import { IEmailService } from '../interfaces/i.email.service';
 export class MockEmailService implements IEmailService {
   private readonly logger = new Logger(MockEmailService.name);
 
+  async sendPasswordReset(email: string, resetLink?: string): Promise<void> {
+    this.logger.warn(`--- MOCK EMAIL SENT ---`);
+    this.logger.warn(`TO: ${email}`);
+    this.logger.warn(`RESET LINK: ${resetLink}`);
+    this.logger.warn(`-----------------------`);
+    return;
+  }
+
   async sendOtp(to: string, otp: string): Promise<void> {
     this.logger.warn(`--- MOCK EMAIL SENT ---`);
     this.logger.warn(`TO: ${to}`);
     this.logger.warn(`OTP: ${otp}`);
     this.logger.warn(`-----------------------`);
-    // NOTE: When you implement a real service (e.g., SendGridService),
-    // you would replace this console log with the actual API call.
     return;
+  }
+
+  async sendPasswordChangeConfirmation(to: string): Promise<void> {
+    console.log(`[EMAIL HELPER] Sending Password Change Confirmation to ${to}`);
   }
 }
