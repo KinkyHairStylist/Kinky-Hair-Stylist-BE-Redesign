@@ -29,7 +29,7 @@ export class AuthService {
     try {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const payload = await this.jwtService.verifyAsync(verificationToken, {
-        secret: process.env.JWT_VERIFICATION_SECRET,
+        secret: process.env.JWT_ACCESS_SECRET,
       });
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
@@ -108,7 +108,7 @@ export class AuthService {
         expiresIn: '15m',
       }),
       this.jwtService.signAsync(payload, {
-        secret: process.env.JWT_REFRESH_SECRET,
+        secret: process.env.JWT_ACCESS_SECRET,
         expiresIn: '7d',
       }),
     ]);
