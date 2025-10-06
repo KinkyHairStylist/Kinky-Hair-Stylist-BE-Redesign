@@ -7,7 +7,7 @@ import { EmailModule } from './business/services/emailService/email.module';
 
 @Module({
   imports: [
-    MongooseModule.forRoot('mongodb://localhost:27017/KHS_BE'),
+    MongooseModule.forRoot('mongodb+srv://Esther:Esther2004@cluster0.byfqhoj.mongodb.net/KHS_BE?retryWrites=true&w=majority&appName=Cluster0'),
     BusinessModule,
     EmailModule,
   ],
