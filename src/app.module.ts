@@ -1,5 +1,7 @@
 import { Module, OnModuleInit } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ConfigModule } from '@nestjs/config';
+import { UserModule } from './user/user.module';
 import { BusinessModule } from './business/business.module';
 import { EmailModule } from './business/services/emailService/email.module';
 import { AppService } from './app.service';
@@ -8,9 +10,13 @@ import mongoose from 'mongoose';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
     MongooseModule.forRoot(
-      'mongodb+srv://Esther:Esther2004@cluster0.byfqhoj.mongodb.net/KHS_BE?retryWrites=true&w=majority&appName=Cluster0',
+      process.env.MONGODB_URI as string
     ),
+    UserModule,
     BusinessModule,
     EmailModule,
   ],
