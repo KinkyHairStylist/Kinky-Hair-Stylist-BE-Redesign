@@ -1,6 +1,5 @@
-// src/user/user.dto.ts
-
-import { IsEmail, IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsEmail, IsString, IsNotEmpty } from 'class-validator';
+import { SanitizedUser } from './user.service';
 
 export class GetStartedDto {
   @IsEmail()
@@ -50,7 +49,6 @@ export class SignUpDto {
   gender: string;
 }
 
-// 👇 NEW: Login DTO
 export class LoginDto {
   @IsEmail()
   @IsNotEmpty()
@@ -61,12 +59,12 @@ export class LoginDto {
   password: string;
 }
 
-// 👇 NEW: Forgot Password DTO
 export class ForgotPasswordDto {
   @IsEmail()
   @IsNotEmpty()
   email: string;
 }
+
 
 export class AuthResponseDto {
   message: string;

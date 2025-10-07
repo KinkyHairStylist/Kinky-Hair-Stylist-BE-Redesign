@@ -1,20 +1,28 @@
-// src/user/user.service.ts
-
 import { Injectable, BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import * as nodemailer from 'nodemailer';
-import { v4 as uuidv4 } from 'uuid';
 import { User, UserDocument } from './user.schema';
+
+export interface SanitizedUser {
+  id: string;
+  email: string;
+  firstName?: string;
+  surname?: string;
+  phoneNumber?: string;
+  gender?: string;
+  isVerified: boolean;
+}
+
 import { 
   GetStartedDto, 
   VerifyCodeDto, 
   ResendCodeDto, 
   SignUpDto, 
-  LoginDto,           // 👈 NEW
-  ForgotPasswordDto,  // 👈 NEW
+  LoginDto,
+  ForgotPasswordDto,
   AuthResponseDto 
 } from './user.dto';
 
@@ -47,7 +55,6 @@ export class UserService {
     await this.transporter.sendMail(mailOptions);
   }
 
-  // 👇 NEW: Send password reset email
   private async sendPasswordResetEmail(email: string): Promise<void> {
     const mailOptions = {
       from: process.env.EMAIL_USER,
@@ -106,9 +113,8 @@ export class UserService {
     }
 
     user.isVerified = true;
-    user.verificationCode = '';
-    user.verificationExpires = new Date(); 
-
+    user.verificationCode =  '';
+    user.verificationExpires = new Date();
     await user.save();
 
     return { message: 'Email verified successfully', user: this.sanitizeUser(user) };
@@ -171,7 +177,6 @@ export class UserService {
     };
   }
 
-  // 👇 NEW: Login method
   async login(dto: LoginDto): Promise<AuthResponseDto> {
     const { email, password } = dto;
 
@@ -204,27 +209,30 @@ export class UserService {
     };
   }
 
-  // 👇 NEW: Forgot password method
   async forgotPassword(dto: ForgotPasswordDto): Promise<AuthResponseDto> {
     const { email } = dto;
 
     const user = await this.userModel.findOne({ email });
 
-    // Don't reveal if user doesn't exist (security)
     if (!user) {
       return { message: 'If account exists, reset link sent' };
     }
 
-    // In production, generate a reset token and store it in DB
-    // For now, just send email
     await this.sendPasswordResetEmail(email);
 
     return { message: 'Reset link sent to your email' };
   }
 
-  private sanitizeUser(user: UserDocument): any {
+  async findById(id: string): Promise<UserDocument | null> {
+    if (!Types.ObjectId.isValid(id)) {
+      return null;
+    }
+    return this.userModel.findById(id).exec();
+  }
+
+  public sanitizeUser(user: UserDocument): SanitizedUser {
     return {
-      id: user._id,
+      id: user._id.toString(),
       email: user.email,
       firstName: user.firstName,
       surname: user.surname,
