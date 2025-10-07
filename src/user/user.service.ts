@@ -1,6 +1,12 @@
-import { Injectable, BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
+import { v4 as uuidv4 } from 'uuid';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
@@ -17,14 +23,14 @@ export interface SanitizedUser {
   isVerified: boolean;
 }
 
-import { 
-  GetStartedDto, 
-  VerifyCodeDto, 
-  ResendCodeDto, 
-  SignUpDto, 
+import {
+  GetStartedDto,
+  VerifyCodeDto,
+  ResendCodeDto,
+  SignUpDto,
   LoginDto,
   ForgotPasswordDto,
-  AuthResponseDto 
+  AuthResponseDto,
 } from './user.dto';
 
 @Injectable()
@@ -46,14 +52,15 @@ export class UserService {
   }
 
   private generateToken(userId: string): string {
-    return jwt.sign(
-      { sub: userId },
-      process.env.JWT_SECRET!,
-      { expiresIn: '7d' },
-    );
+    return jwt.sign({ sub: userId }, process.env.JWT_SECRET!, {
+      expiresIn: '7d',
+    });
   }
 
-  private async sendVerificationEmail(email: string, code: string): Promise<void> {
+  private async sendVerificationEmail(
+    email: string,
+    code: string,
+  ): Promise<void> {
     try {
       const mailOptions = {
         from: process.env.EMAIL_USER,
@@ -117,11 +124,14 @@ export class UserService {
     }
 
     user.isVerified = true;
-    user.verificationCode =  '';
+    user.verificationCode = '';
     user.verificationExpires = new Date();
     await user.save();
 
-    return { message: 'Email verified successfully', user: this.sanitizeUser(user) };
+    return {
+      message: 'Email verified successfully',
+      user: this.sanitizeUser(user),
+    };
   }
 
   async resendCode(dto: ResendCodeDto): Promise<AuthResponseDto> {
@@ -224,10 +234,16 @@ export class UserService {
       await user.save();
       await this.sendPasswordResetEmail(user.email, token);
     }
-    return { message: 'If your email is registered, you will receive a password reset link.' };
+    return {
+      message:
+        'If your email is registered, you will receive a password reset link.',
+    };
   }
 
-  private async sendPasswordResetEmail(email: string, token: string): Promise<void> {
+  private async sendPasswordResetEmail(
+    email: string,
+    token: string,
+  ): Promise<void> {
     const resetLink = `http://yourapp.com/reset-password?token=${token}`;
     try {
       await this.transporter.sendMail({

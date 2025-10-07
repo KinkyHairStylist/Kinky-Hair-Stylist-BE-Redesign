@@ -65,7 +65,6 @@ export class ForgotPasswordDto {
   email: string;
 }
 
-
 export class AuthResponseDto {
   message: string;
   token?: string;

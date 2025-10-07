@@ -1,9 +1,21 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import session from 'express-session';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors();
+
+  app.use(
+    session({
+      secret: process.env.SESSION_SECRET || 'a-very-secret-key',
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        maxAge: 3600000 * 24 * 7, // 1 week
+      },
+    }),
+  );
 
   const port = 3000;
   await app.listen(port, '0.0.0.0');

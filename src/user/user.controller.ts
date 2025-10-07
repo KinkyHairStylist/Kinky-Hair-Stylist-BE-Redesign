@@ -1,14 +1,23 @@
-import { Controller, Post, Body, UsePipes, ValidationPipe, Req, Res, Get } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UsePipes,
+  ValidationPipe,
+  Req,
+  Res,
+  Get,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { UserService } from './user.service';
-import { 
-  GetStartedDto, 
-  VerifyCodeDto, 
-  ResendCodeDto, 
-  SignUpDto, 
+import {
+  GetStartedDto,
+  VerifyCodeDto,
+  ResendCodeDto,
+  SignUpDto,
   LoginDto,
   ForgotPasswordDto,
-  AuthResponseDto 
+  AuthResponseDto,
 } from './user.dto';
 
 @Controller('api')
@@ -47,7 +56,7 @@ export class UserController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponseDto> {
     const result = await this.userService.login(dto);
-    
+
     if (result.user) {
       req.session.userId = result.user.id;
       req.session.isAuthenticated = true;
@@ -56,7 +65,7 @@ export class UserController {
       req.session.userId = undefined;
       req.session.isAuthenticated = false;
     }
-    
+
     return result;
   }
 
@@ -79,7 +88,7 @@ export class UserController {
     if (!req.session.userId) {
       return { isAuthenticated: false };
     }
-    
+
     const user = await this.userService.findById(req.session.userId);
     return {
       isAuthenticated: true,
@@ -89,7 +98,9 @@ export class UserController {
 
   @Post('forgot-password')
   @UsePipes(new ValidationPipe())
-  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<AuthResponseDto> {
+  async forgotPassword(
+    @Body() dto: ForgotPasswordDto,
+  ): Promise<AuthResponseDto> {
     return this.userService.forgotPassword(dto);
   }
 }
