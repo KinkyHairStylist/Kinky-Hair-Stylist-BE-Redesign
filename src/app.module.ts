@@ -13,9 +13,7 @@ import mongoose from 'mongoose';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    MongooseModule.forRoot(
-      process.env.MONGODB_URI as string
-    ),
+    MongooseModule.forRoot(process.env.MONGODB_URI as string),
     UserModule,
     BusinessModule,
     EmailModule,
