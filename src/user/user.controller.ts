@@ -1,3 +1,5 @@
+// src/user/user.controller.ts
+
 import {
   Controller,
   Post,
@@ -16,7 +18,9 @@ import {
   ResendCodeDto,
   SignUpDto,
   LoginDto,
-  ForgotPasswordDto,
+  ResetPasswordStartDto, // 👈 NEW
+  ResetPasswordVerifyDto, // 👈 NEW
+  ResetPasswordFinishDto, // 👈 NEW
   AuthResponseDto,
 } from './user.dto';
 
@@ -53,17 +57,12 @@ export class UserController {
   async login(
     @Body() dto: LoginDto,
     @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponseDto> {
     const result = await this.userService.login(dto);
 
     if (result.user) {
       req.session.userId = result.user.id;
       req.session.isAuthenticated = true;
-    } else {
-      // Clear any existing session data if login was not successful
-      req.session.userId = undefined;
-      req.session.isAuthenticated = false;
     }
 
     return result;
@@ -96,11 +95,29 @@ export class UserController {
     };
   }
 
-  @Post('forgot-password')
+  // 👇 NEW: Password Reset Endpoints
+
+  @Post('reset-password/start')
   @UsePipes(new ValidationPipe())
-  async forgotPassword(
-    @Body() dto: ForgotPasswordDto,
+  async startResetPassword(
+    @Body() dto: ResetPasswordStartDto,
   ): Promise<AuthResponseDto> {
-    return this.userService.forgotPassword(dto);
+    return this.userService.startResetPassword(dto);
+  }
+
+  @Post('reset-password/verify')
+  @UsePipes(new ValidationPipe())
+  async verifyResetCode(
+    @Body() dto: ResetPasswordVerifyDto,
+  ): Promise<AuthResponseDto> {
+    return this.userService.verifyResetCode(dto);
+  }
+
+  @Post('reset-password/finish')
+  @UsePipes(new ValidationPipe())
+  async finishResetPassword(
+    @Body() dto: ResetPasswordFinishDto,
+  ): Promise<AuthResponseDto> {
+    return this.userService.finishResetPassword(dto);
   }
 }

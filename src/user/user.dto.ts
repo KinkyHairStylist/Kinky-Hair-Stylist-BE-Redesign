@@ -1,5 +1,6 @@
+// src/user/user.dto.ts
+
 import { IsEmail, IsString, IsNotEmpty } from 'class-validator';
-import { SanitizedUser } from './user.service';
 
 export class GetStartedDto {
   @IsEmail()
@@ -59,10 +60,35 @@ export class LoginDto {
   password: string;
 }
 
-export class ForgotPasswordDto {
+// 👇 NEW: Password Reset DTOs
+export class ResetPasswordStartDto {
   @IsEmail()
   @IsNotEmpty()
   email: string;
+}
+
+export class ResetPasswordVerifyDto {
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @IsString()
+  @IsNotEmpty()
+  code: string;
+}
+
+export class ResetPasswordFinishDto {
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @IsString()
+  @IsNotEmpty()
+  newPassword: string;
+
+  @IsString()
+  @IsNotEmpty()
+  confirmPassword: string;
 }
 
 export class AuthResponseDto {
@@ -77,4 +103,5 @@ export class AuthResponseDto {
     gender?: string;
     isVerified: boolean;
   };
+  success:boolean
 }

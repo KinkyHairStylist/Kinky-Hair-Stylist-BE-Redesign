@@ -1,12 +1,12 @@
+// src/user/user.schema.ts
+
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document } from 'mongoose';
 
 export type UserDocument = User & Document;
 
 @Schema()
 export class User {
-  _id: Types.ObjectId;
-
   @Prop({ required: true, unique: true })
   email: string;
 
@@ -29,16 +29,17 @@ export class User {
   isVerified: boolean;
 
   @Prop()
-  verificationCode: string;
+  verificationCode: string; // For signup
 
   @Prop()
-  verificationExpires: Date;
+  verificationExpires: Date; // For signup
+
+  // 👇 NEW: For password reset
+  @Prop()
+  resetCode: string;
 
   @Prop()
-  resetPasswordToken: string;
-
-  @Prop()
-  resetPasswordExpires: Date;
+  resetCodeExpires: Date;
 
   @Prop({ default: Date.now })
   createdAt: Date;

@@ -1,3 +1,5 @@
+// src/user/user.service.ts
+
 import {
   Injectable,
   BadRequestException,
@@ -6,30 +8,20 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { v4 as uuidv4 } from 'uuid';
-import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 import * as nodemailer from 'nodemailer';
+import { v4 as uuidv4 } from 'uuid';
 import { User, UserDocument } from './user.schema';
-
-export interface SanitizedUser {
-  id: string;
-  email: string;
-  firstName?: string;
-  surname?: string;
-  phoneNumber?: string;
-  gender?: string;
-  isVerified: boolean;
-}
-
 import {
   GetStartedDto,
   VerifyCodeDto,
   ResendCodeDto,
   SignUpDto,
   LoginDto,
-  ForgotPasswordDto,
+  ResetPasswordStartDto, // 👈 NEW
+  ResetPasswordVerifyDto, // 👈 NEW
+  ResetPasswordFinishDto, // 👈 NEW
   AuthResponseDto,
 } from './user.dto';
 
@@ -39,11 +31,17 @@ export class UserService {
 
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {
     this.transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false, // use STARTTLS
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
+      connectionTimeout: 10000, // 10 seconds
+      greetingTimeout: 10000, // 10 seconds
+      socketTimeout: 10000, // 10 seconds
+      dnsTimeout: 10000, // 10 seconds
     });
   }
 
@@ -51,30 +49,30 @@ export class UserService {
     return Math.floor(10000 + Math.random() * 90000).toString();
   }
 
-  private generateToken(userId: string): string {
-    return jwt.sign({ sub: userId }, process.env.JWT_SECRET!, {
-      expiresIn: '7d',
-    });
-  }
-
   private async sendVerificationEmail(
     email: string,
     code: string,
   ): Promise<void> {
-    try {
-      const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: 'Your KHS Email Verification Code',
-        text: `Your verification code is: ${code}. It is valid for 10 minutes.`,
-      };
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Your KHS Email Verification Code',
+      text: `Your verification code is: ${code}. It is valid for 10 minutes.`,
+    };
 
-      await this.transporter.verify();
-      await this.transporter.sendMail(mailOptions);
-    } catch (error) {
-      console.error('Email sending failed:', error);
-      throw new BadRequestException('Failed to send verification email');
-    }
+    await this.transporter.sendMail(mailOptions);
+  }
+
+  // 👇 NEW: Send password reset code
+  private async sendResetCodeEmail(email: string, code: string): Promise<void> {
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Password Reset Code',
+      text: `Your password reset code is: ${code}. It is valid for 10 minutes.`,
+    };
+
+    await this.transporter.sendMail(mailOptions);
   }
 
   async getStarted(dto: GetStartedDto): Promise<AuthResponseDto> {
@@ -99,7 +97,7 @@ export class UserService {
     await user.save();
     await this.sendVerificationEmail(user.email, user.verificationCode);
 
-    return { message: 'Verification code sent' };
+    return { message: 'Verification code sent',  success:true };
   }
 
   async verifyCode(dto: VerifyCodeDto): Promise<AuthResponseDto> {
@@ -112,7 +110,7 @@ export class UserService {
     }
 
     if (user.isVerified) {
-      return { message: 'Already verified', user: this.sanitizeUser(user) };
+      return { message: 'Already verified', user: this.sanitizeUser(user) , success:true};
     }
 
     if (user.verificationCode !== code) {
@@ -131,6 +129,7 @@ export class UserService {
     return {
       message: 'Email verified successfully',
       user: this.sanitizeUser(user),
+      success:true
     };
   }
 
@@ -144,7 +143,7 @@ export class UserService {
     }
 
     if (user.isVerified) {
-      return { message: 'Already verified' };
+      return { message: 'Already verified' , success:true};
     }
 
     user.verificationCode = this.generateCode();
@@ -153,7 +152,7 @@ export class UserService {
 
     await this.sendVerificationEmail(user.email, user.verificationCode);
 
-    return { message: 'New verification code sent' };
+    return { message: 'New verification code sent' , success:true};
   }
 
   async signUp(dto: SignUpDto): Promise<AuthResponseDto> {
@@ -180,7 +179,7 @@ export class UserService {
 
     const token = jwt.sign(
       { id: user._id, email: user.email },
-      process.env.JWT_SECRET!,
+      process.env.JWT_SECRET as string,
       { expiresIn: '7d' },
     );
 
@@ -188,6 +187,7 @@ export class UserService {
       message: 'Signup successful',
       token,
       user: this.sanitizeUser(user),
+      success:true
     };
   }
 
@@ -212,7 +212,7 @@ export class UserService {
 
     const token = jwt.sign(
       { id: user._id, email: user.email },
-      process.env.JWT_SECRET!,
+      process.env.JWT_SECRET as string,
       { expiresIn: '7d' },
     );
 
@@ -220,46 +220,98 @@ export class UserService {
       message: 'Login successful',
       token,
       user: this.sanitizeUser(user),
+      success:true
     };
   }
 
-  async forgotPassword(dto: ForgotPasswordDto): Promise<AuthResponseDto> {
+  // 👇 NEW: Start password reset
+  async startResetPassword(
+    dto: ResetPasswordStartDto,
+  ): Promise<AuthResponseDto> {
     const { email } = dto;
+
     const user = await this.userModel.findOne({ email });
-    if (user) {
-      const token = uuidv4();
-      const expires = new Date(Date.now() + 3600000);
-      user.resetPasswordToken = token;
-      user.resetPasswordExpires = expires;
-      await user.save();
-      await this.sendPasswordResetEmail(user.email, token);
+
+    if (!user) {
+      // Don't reveal if user doesn't exist
+      return { message: 'If account exists, reset code sent', success:true };
     }
-    return {
-      message:
-        'If your email is registered, you will receive a password reset link.',
-    };
+
+    // Generate reset code
+    const resetCode = this.generateCode();
+    const resetCodeExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    user.resetCode = resetCode;
+    user.resetCodeExpires = resetCodeExpires;
+    await user.save();
+
+    await this.sendResetCodeEmail(email, resetCode);
+
+    return { message: 'Password reset code sent' , success:true};
   }
 
-  private async sendPasswordResetEmail(
-    email: string,
-    token: string,
-  ): Promise<void> {
-    const resetLink = `http://yourapp.com/reset-password?token=${token}`;
-    try {
-      await this.transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: 'Password Reset Request',
-        html: `
-          <p>You requested a password reset. Click the link below to reset your password:</p>
-          <a href="${resetLink}">${resetLink}</a>
-          <p>This link will expire in one hour.</p>
-        `,
-      });
-    } catch (error) {
-      console.error('Password reset email sending failed:', error);
-      throw new BadRequestException('Failed to send password reset email');
+  // 👇 NEW: Verify reset code
+  async verifyResetCode(dto: ResetPasswordVerifyDto): Promise<AuthResponseDto> {
+    const { email, code } = dto;
+
+    const user = await this.userModel.findOne({ email });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
+
+    if (!user.resetCode || user.resetCode !== code) {
+      throw new BadRequestException('Invalid reset code');
+    }
+
+    if (new Date() > user.resetCodeExpires) {
+      throw new BadRequestException('Reset code expired');
+    }
+
+    // Mark code as used by clearing it (or you can keep it until password change)
+    // user.resetCode = null;
+    // user.resetCodeExpires = null;
+    // await user.save();
+
+    return { message: 'Reset code verified', user: this.sanitizeUser(user), success:true };
+  }
+
+  // 👇 NEW: Finish password reset
+  async finishResetPassword(
+    dto: ResetPasswordFinishDto,
+  ): Promise<AuthResponseDto> {
+    const { email, newPassword, confirmPassword } = dto;
+
+    if (newPassword !== confirmPassword) {
+      throw new BadRequestException('Passwords do not match');
+    }
+
+    const user = await this.userModel.findOne({ email });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!user.resetCode) {
+      throw new BadRequestException('No active reset request');
+    }
+
+    // Verify reset code is still valid
+    if (new Date() > user.resetCodeExpires) {
+      throw new BadRequestException('Reset code expired');
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+
+    // Clear reset code
+    user.resetCode = '';
+    user.resetCodeExpires = new Date();
+
+    await user.save();
+
+    return { message: 'Password reset successful', success:true };
   }
 
   async findById(id: string): Promise<UserDocument | null> {
@@ -269,9 +321,9 @@ export class UserService {
     return this.userModel.findById(id).exec();
   }
 
-  public sanitizeUser(user: UserDocument): SanitizedUser {
+  public sanitizeUser(user: UserDocument): any {
     return {
-      id: user._id.toString(),
+      id: user._id,
       email: user.email,
       firstName: user.firstName,
       surname: user.surname,
