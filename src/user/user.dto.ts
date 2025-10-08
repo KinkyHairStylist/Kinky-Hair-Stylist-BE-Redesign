@@ -1,4 +1,6 @@
-import { IsEmail, IsString, IsNotEmpty, IsOptional } from 'class-validator';
+// src/user/user.dto.ts
+
+import { IsEmail, IsString, IsNotEmpty } from 'class-validator';
 
 export class GetStartedDto {
   @IsEmail()
@@ -48,6 +50,47 @@ export class SignUpDto {
   gender: string;
 }
 
+export class LoginDto {
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+}
+
+// 👇 NEW: Password Reset DTOs
+export class ResetPasswordStartDto {
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+}
+
+export class ResetPasswordVerifyDto {
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @IsString()
+  @IsNotEmpty()
+  code: string;
+}
+
+export class ResetPasswordFinishDto {
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @IsString()
+  @IsNotEmpty()
+  newPassword: string;
+
+  @IsString()
+  @IsNotEmpty()
+  confirmPassword: string;
+}
+
 export class AuthResponseDto {
   message: string;
   token?: string;
@@ -60,4 +103,5 @@ export class AuthResponseDto {
     gender?: string;
     isVerified: boolean;
   };
+  success:boolean
 }

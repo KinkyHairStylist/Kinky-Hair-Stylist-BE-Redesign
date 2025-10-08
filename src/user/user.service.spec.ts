@@ -1,12 +1,22 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import * as bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 import * as nodemailer from 'nodemailer';
 import { v4 as uuidv4 } from 'uuid';
 import { User, UserDocument } from './user.schema';
-import { GetStartedDto, VerifyCodeDto, ResendCodeDto, SignUpDto, AuthResponseDto } from './user.dto';
+import {
+  GetStartedDto,
+  VerifyCodeDto,
+  ResendCodeDto,
+  SignUpDto,
+  AuthResponseDto,
+} from './user.dto';
 
 @Injectable()
 export class UserService {
@@ -26,7 +36,10 @@ export class UserService {
     return Math.floor(10000 + Math.random() * 90000).toString();
   }
 
-  private async sendVerificationEmail(email: string, code: string): Promise<void> {
+  private async sendVerificationEmail(
+    email: string,
+    code: string,
+  ): Promise<void> {
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: email,
@@ -88,7 +101,10 @@ export class UserService {
     user.verificationExpires = new Date(0);
     await user.save();
 
-    return { message: 'Email verified successfully', user: this.sanitizeUser(user) };
+    return {
+      message: 'Email verified successfully',
+      user: this.sanitizeUser(user),
+    };
   }
 
   async resendCode(dto: ResendCodeDto): Promise<AuthResponseDto> {
@@ -137,7 +153,7 @@ export class UserService {
 
     const token = jwt.sign(
       { id: user._id, email: user.email },
-      process.env.JWT_SECRET,
+      ' process.env.JWT_SECRET',
       { expiresIn: '7d' },
     );
 

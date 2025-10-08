@@ -1,3 +1,5 @@
+// src/user/user.schema.ts
+
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
@@ -8,7 +10,6 @@ export class User {
   @Prop({ required: true, unique: true })
   email: string;
 
-  // @Prop({ required: true })
   @Prop()
   password: string;
 
@@ -28,10 +29,17 @@ export class User {
   isVerified: boolean;
 
   @Prop()
-  verificationCode: string;
+  verificationCode: string; // For signup
 
   @Prop()
-  verificationExpires: Date;
+  verificationExpires: Date; // For signup
+
+  // 👇 NEW: For password reset
+  @Prop()
+  resetCode: string;
+
+  @Prop()
+  resetCodeExpires: Date;
 
   @Prop({ default: Date.now })
   createdAt: Date;
