@@ -1,44 +1,34 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { JwtModule } from '@nestjs/jwt';
+
 import { AuthService } from './services/auth.service';
 import { AuthController } from './controllers/auth.controller';
-import { MongooseModule } from '@nestjs/mongoose';
-import { User, UserSchema } from './schemas/user.schema';
-import { JwtModule } from '@nestjs/jwt';
-import { PasswordUtil } from './utils/password.util';
 import { JwtStrategy } from './middlewares/strategies/jwt.strategy';
-import { BusinessService } from './services/business.service';
-import { Business, BusinessSchema } from './schemas/business.schema';
-import { BusinessController } from './controllers/business.controller';
-import { EmailModule } from './services/emailService/email.module';
+import { PasswordUtil } from './utils/password.util';
 import { OtpService } from './services/otp.service';
-import {
-  EmailVerification,
-  EmailVerificationSchema,
-} from './schemas/email.verification.schema';
-import {
-  RefreshToken,
-  RefreshTokenSchema,
-} from './schemas/refresh.token.schema';
+import { BusinessService } from './services/business.service';
+import { BusinessController } from './controllers/business.controller';
+
+import { User } from './entities/user.entity';
+import { Business } from './entities/business.entity';
+import { RefreshToken } from './entities/refresh.token.entity';
+import { EmailVerification } from './entities/email-verification.entity';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: User.name, schema: UserSchema },
-      { name: Business.name, schema: BusinessSchema },
-      { name: EmailVerification.name, schema: EmailVerificationSchema },
-      { name: RefreshToken.name, schema: RefreshTokenSchema },
-    ]),
+    TypeOrmModule.forFeature([User, Business, RefreshToken, EmailVerification]),
     JwtModule.register({}),
     EmailModule,
-    forwardRef(() => BusinessModule),
   ],
   controllers: [AuthController, BusinessController],
   providers: [
     AuthService,
-    PasswordUtil,
-    JwtStrategy,
     BusinessService,
     OtpService,
+    PasswordUtil,
+    JwtStrategy,
   ],
   exports: [AuthService, BusinessService, OtpService],
 })

@@ -5,64 +5,64 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { User, UserDocument } from '../schemas/user.schema';
-import { Model } from 'mongoose';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
+import { User } from '../entities/user.entity';
+import { RefreshToken } from '../entities/refresh.token.entity';
 import { CreateUserDto } from '../dtos/requests/CreateUserDto';
-import { PasswordUtil } from '../utils/password.util';
 import { LoginDto } from '../dtos/requests/LoginDto';
-import {
-  RefreshToken,
-  RefreshTokenDocument,
-} from '../schemas/refresh.token.schema';
 import { ForgotPasswordDto } from '../dtos/requests/ForgotPasswordDto';
 import { ResetPasswordDto } from '../dtos/requests/ResetPasswordDto';
-import { OtpService } from './otp.service';
 import { VerifyPasswordOtpDto } from '../dtos/requests/VerifyPasswordOtpDto';
+import { PasswordUtil } from '../utils/password.util';
+import { OtpService } from './otp.service';
+
+export interface TokenPair {
+  accessToken: string;
+  refreshToken: string;
+}
 
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectModel(User.name) private userModel: Model<UserDocument>,
-    @InjectModel(RefreshToken.name)
-    private refreshTokenModel: Model<RefreshTokenDocument>,
-    private jwtService: JwtService,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+
+    @InjectRepository(RefreshToken)
+    private readonly refreshTokenRepo: Repository<RefreshToken>,
+
+    private readonly jwtService: JwtService,
     private readonly passwordUtil: PasswordUtil,
     private readonly otpService: OtpService,
   ) {}
 
-  async register(
-    createUserDto: CreateUserDto,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
+  async register(createUserDto: CreateUserDto): Promise<TokenPair> {
     const { email, password, phone, verificationToken } = createUserDto;
 
     let verifiedEmail: string;
-
+    let payload: { sub: string; email: string };
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const payload = await this.jwtService.verifyAsync(verificationToken, {
+      payload = await this.jwtService.verifyAsync(verificationToken, {
         secret: process.env.JWT_ACCESS_SECRET,
       });
-
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
       if (payload.email.toLowerCase() !== email.toLowerCase()) {
         throw new BadRequestException(
           'Token email mismatch. Registration aborted.',
         );
       }
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-member-access
       verifiedEmail = payload.email;
     } catch (e) {
       throw new UnauthorizedException(
-        `Invalid or expired verification token. Please verify your email again. ${e}`,
+        `Invalid or expired verification token. ${e}`,
       );
     }
 
     await this.checkExistingUser(verifiedEmail, phone);
     this.passwordUtil.validatePasswordStrength(password);
+
     const user = await this.createUser(createUserDto);
-    return await this.getTokens(user._id.toString(), user.email);
+    return this.getTokens(user.id, user.email);
   }
 
   async refreshTokens(
@@ -78,14 +78,15 @@ export class AuthService {
       throw new UnauthorizedException(`Invalid or expired refresh token. ${e}`);
     }
 
-    const userId = payload.sub;
-    const user = await this.findOneById(userId);
-
+    const user = await this.userRepo.findOne({ where: { id: payload.sub } });
     if (!user) {
       throw new UnauthorizedException('User associated with token not found.');
     }
 
-    const storedToken = await this.refreshTokenModel.findOne({ user: userId });
+    const storedToken = await this.refreshTokenRepo.findOne({
+      where: { user: { id: user.id } },
+      relations: ['user'],
+    });
 
     if (!storedToken) {
       throw new UnauthorizedException('Invalidated refresh token.');
@@ -97,20 +98,23 @@ export class AuthService {
     );
 
     if (!hashMatch) {
-      await this.refreshTokenModel.deleteMany({ user: userId });
-      throw new UnauthorizedException(
-        'Token mismatch. All tokens for this user revoked.',
-      );
+      await this.refreshTokenRepo.delete({ user: { id: user.id } });
+      throw new UnauthorizedException('Token mismatch. All tokens revoked.');
     }
-    await this.refreshTokenModel.deleteOne({ _id: storedToken._id });
-    return this.getTokens(user._id.toString(), user.email);
+
+    await this.refreshTokenRepo.delete(storedToken.id);
+    return this.getTokens(user.id, user.email);
   }
 
   async login(
     loginDto: LoginDto,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const { email, password } = loginDto;
-    const user = await this.findByEmail(email);
+
+    const user = await this.userRepo.findOne({
+      where: { email: email.toLowerCase() },
+      select: ['id', 'email', 'password', 'isVerified'],
+    });
 
     if (!user || !user.password) {
       throw new UnauthorizedException('Invalid credentials.');
@@ -126,30 +130,29 @@ export class AuthService {
       password,
       user.password,
     );
-
     if (!passwordMatch) {
       throw new UnauthorizedException('Invalid credentials.');
     }
 
-    return this.getTokens(user._id.toString(), user.email);
+    return this.getTokens(user.id, user.email);
   }
 
-  private async createUser(
-    createUserDto: CreateUserDto,
-  ): Promise<UserDocument> {
+  private async createUser(createUserDto: CreateUserDto): Promise<User> {
     const { password, ...rest } = createUserDto;
     const hashedPassword = await this.passwordUtil.hashPassword(password);
-    const newUser = new this.userModel({
+
+    const newUser = this.userRepo.create({
       ...rest,
       password: hashedPassword,
       isVerified: true,
     });
-    return newUser.save();
+
+    return this.userRepo.save(newUser);
   }
 
   private async checkExistingUser(email: string, phone: string): Promise<void> {
-    const existingUser = await this.userModel.findOne({
-      $or: [{ email }, { phone }],
+    const existingUser = await this.userRepo.findOne({
+      where: [{ email }, { phone }],
     });
 
     if (existingUser) {
@@ -164,18 +167,8 @@ export class AuthService {
     }
   }
 
-  async findOneById(id: string): Promise<UserDocument | null> {
-    return this.userModel.findById(id).exec();
-  }
-
-  async findByEmail(email: string): Promise<UserDocument | null> {
-    return this.userModel.findOne({ email }).select('+password').exec();
-  }
-
   async markEmailVerified(userId: string): Promise<void> {
-    await this.userModel
-      .updateOne({ _id: userId }, { $set: { isVerified: true } })
-      .exec();
+    await this.userRepo.update(userId, { isVerified: true });
   }
 
   async getTokens(
@@ -196,18 +189,15 @@ export class AuthService {
     ]);
 
     const tokenHash = await this.passwordUtil.hashPassword(refreshToken);
-    await this.refreshTokenModel.deleteMany({ user: userId });
+    await this.refreshTokenRepo.delete({ user: { id: userId } });
 
-    const newRefreshToken = new this.refreshTokenModel({
-      user: userId,
-      tokenHash: tokenHash,
+    const newRefreshToken = this.refreshTokenRepo.create({
+      user: { id: userId },
+      tokenHash,
     });
-    await newRefreshToken.save();
+    await this.refreshTokenRepo.save(newRefreshToken);
 
-    return {
-      accessToken,
-      refreshToken,
-    };
+    return { accessToken, refreshToken };
   }
 
   async requestPasswordReset(
@@ -215,9 +205,9 @@ export class AuthService {
   ): Promise<{ message: string }> {
     const { email } = forgotPasswordDto;
 
-    const user = await this.userModel
-      .findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } })
-      .exec();
+    const user = await this.userRepo.findOne({
+      where: { email: email.toLowerCase() },
+    });
 
     if (!user) {
       console.log(`Password reset requested for non-existent email: ${email}`);
@@ -230,7 +220,7 @@ export class AuthService {
     try {
       await this.otpService.requestOtpForPasswordReset(email);
     } catch (error) {
-      console.error(`Failed to generate/send OTP for ${user.email}:`, error);
+      console.error(`Failed to generate/send OTP for ${email}:`, error);
     }
 
     return {
@@ -239,52 +229,26 @@ export class AuthService {
     };
   }
 
-  // async verifyResetToken(
-  //   verifyResetTokenDto: VerifyResetTokenDto,
-  // ): Promise<{ message: string }> {
-  //   const { token } = verifyResetTokenDto;
-  //
-  //   try {
-  //     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  //     const payload = await this.jwtService.verifyAsync(token, {
-  //       secret: process.env.JWT_RESET_SECRET,
-  //     });
-  //
-  //     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  //     const user = await this.userModel.findById(payload.sub).exec();
-  //
-  //     if (!user) {
-  //       throw new NotFoundException('Invalid or expired password reset token.');
-  //     }
-  //
-  //     return { message: 'Password reset token is valid.' };
-  //     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //   } catch (error) {
-  //     throw new BadRequestException('Invalid or expired password reset token.');
-  //   }
-  // }
-
   async verifyPasswordOtp(
     verifyPasswordOtpDto: VerifyPasswordOtpDto,
   ): Promise<{ resetToken: string }> {
     const { email, otp } = verifyPasswordOtpDto;
 
     const isOtpValid = await this.otpService.verifyOtp(email, otp);
-
     if (!isOtpValid) {
       throw new BadRequestException('Invalid or expired OTP code.');
     }
 
-    const user = await this.userModel
-      .findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } })
-      .exec();
+    const user = await this.userRepo.findOne({
+      where: { email: email.toLowerCase() },
+    });
 
     if (!user) {
       throw new NotFoundException('User not found.');
     }
 
     const payload = {
-      sub: user._id.toString(),
+      sub: user.id,
       email: user.email,
       purpose: 'password-reset',
     };
@@ -294,7 +258,6 @@ export class AuthService {
     });
 
     await this.otpService.deleteOtp(email);
-
     return { resetToken };
   }
 
@@ -308,35 +271,36 @@ export class AuthService {
       payload = await this.jwtService.verifyAsync(token, {
         secret: process.env.JWT_ACCESS_SECRET,
       });
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (error) {
+    } catch {
       throw new BadRequestException('Invalid or expired password reset token.');
     }
 
     const hashedPassword = await this.passwordUtil.hashPassword(newPassword);
 
-    // 3. Update the user's password in the database
-    const updateResult = await this.userModel
-      .updateOne({ _id: payload.sub }, { $set: { password: hashedPassword } })
-      .exec();
+    const result = await this.userRepo.update(payload.sub, {
+      password: hashedPassword,
+    });
 
-    if (updateResult.modifiedCount === 0) {
-      throw new NotFoundException(
-        'User not found or password was not updated.',
-      );
+    if (result.affected === 0) {
+      throw new NotFoundException('User not found or password not updated.');
     }
 
-    await this.refreshTokenModel.deleteMany({ user: payload.sub }).exec();
-
-    // try {
-    //     await this.emailService.sendPasswordChangeConfirmation(user.email);
-    // } catch (error) {
-    //     console.error('Failed to send password change confirmation email:', error);
-    // }
+    await this.refreshTokenRepo.delete({ user: { id: payload.sub } });
 
     return {
       message:
-        'Password has been successfully reset. Please log in with your new password.',
+        'Password reset successfully. Please log in with your new password.',
     };
+  }
+
+  async findOneById(id: string): Promise<User | null> {
+    return this.userRepo.findOne({ where: { id } });
+  }
+
+  async findByEmail(email: string): Promise<User | null> {
+    return this.userRepo.findOne({
+      where: { email: email.toLowerCase() },
+      select: ['id', 'email', 'password', 'isVerified', 'phone'],
+    });
   }
 }

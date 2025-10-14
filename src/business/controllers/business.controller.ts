@@ -1,19 +1,23 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { JwtAuthGuard } from '../middlewares/guards/jwt-auth.guard';
-import { UserDocument } from '../schemas/user.schema';
+import { User } from '../entities/user.entity';
 import { BusinessService } from '../services/business.service';
 import { CreateBusinessDto } from '../dtos/requests/CreateBusinessDto';
+import { BookingPoliciesData, BusinessServiceData } from '../types/constants';
+import { Public } from '../middlewares/public.decorator';
 
 interface RequestWithUser extends Request {
-  user: UserDocument;
+  user: User;
 }
 
 @Controller('business')
@@ -33,10 +37,25 @@ export class BusinessController {
       createBusinessDto,
       owner,
     );
+
     return {
       message: 'Business created successfully.',
-      businessId: business._id,
+      businessId: business.id,
       businessName: business.businessName,
     };
+  }
+
+  @Public()
+  @Get('/list-services')
+  @HttpCode(HttpStatus.OK)
+  getServices(): BusinessServiceData[] {
+    return this.businessService.getServices();
+  }
+
+  @Public()
+  @Get('/list-booking-policies')
+  @HttpCode(HttpStatus.OK)
+  getBookingPoliciesConfigs(): BookingPoliciesData[] {
+    return this.businessService.getBookingPoliciesConfiguration();
   }
 }

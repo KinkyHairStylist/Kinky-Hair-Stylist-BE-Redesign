@@ -1,29 +1,43 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Business, BusinessDocument } from '../schemas/business.schema';
-import { Model } from 'mongoose';
-import { UserDocument } from '../schemas/user.schema';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Business } from '../entities/business.entity';
+import { User } from '../entities/user.entity';
 import { CreateBusinessDto } from '../dtos/requests/CreateBusinessDto';
+import { getBusinessServices } from '../data/business.services';
+import { BookingPoliciesData, BusinessServiceData } from '../types/constants';
+import { getBookingPoliciesConfiguration } from '../data/booking-policies';
 
 @Injectable()
 export class BusinessService {
   constructor(
-    @InjectModel(Business.name) private businessModel: Model<BusinessDocument>,
+    @InjectRepository(Business)
+    private readonly businessRepo: Repository<Business>,
   ) {}
 
   /**
    * Creates a new business linked to the authenticated user.
    * @param createBusinessDto The data for the new business.
-   * @param owner The user document of the business owner.
-   * @returns The created business document.
+   * @param owner The user entity of the business owner.
+   * @returns The created business entity.
    */
   async create(
     createBusinessDto: CreateBusinessDto,
-    owner: UserDocument,
-  ): Promise<BusinessDocument> {
-    return new this.businessModel({
+    owner: User,
+  ): Promise<Business> {
+    const business = this.businessRepo.create({
       ...createBusinessDto,
-      owner: owner._id,
-    }).save();
+      owner,
+    });
+
+    return await this.businessRepo.save(business);
+  }
+
+  getServices(): BusinessServiceData[] {
+    return getBusinessServices();
+  }
+
+  getBookingPoliciesConfiguration(): BookingPoliciesData[] {
+    return getBookingPoliciesConfiguration();
   }
 }
