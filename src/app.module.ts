@@ -2,12 +2,14 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EmailModule } from './email/email.module'; // Add this
+import { GiftcardService } from './giftcard/giftcard.service';
+import { GiftcardModule } from './giftcard/giftcard.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-    }),
+    }),     
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -21,12 +23,14 @@ import { EmailModule } from './email/email.module'; // Add this
           rejectUnauthorized: false,
         },
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: false,
+        synchronize: true,
         logging: true,
       }),
       inject: [ConfigService],
     }),
-    EmailModule, // Add this
+    EmailModule,
+    GiftcardModule, 
   ],
+  providers: [],
 })
 export class AppModule {}
