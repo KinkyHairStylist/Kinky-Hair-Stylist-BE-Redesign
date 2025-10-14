@@ -17,6 +17,7 @@ import { ResetPasswordDto } from '../dtos/requests/ResetPasswordDto';
 import { VerifyPasswordOtpDto } from '../dtos/requests/VerifyPasswordOtpDto';
 import { PasswordUtil } from '../utils/password.util';
 import { OtpService } from './otp.service';
+import { Gender } from '../types/constants';
 
 export interface TokenPair {
   accessToken: string;
@@ -46,6 +47,7 @@ export class AuthService {
       payload = await this.jwtService.verifyAsync(verificationToken, {
         secret: process.env.JWT_ACCESS_SECRET,
       });
+
       if (payload.email.toLowerCase() !== email.toLowerCase()) {
         throw new BadRequestException(
           'Token email mismatch. Registration aborted.',
@@ -57,11 +59,21 @@ export class AuthService {
         `Invalid or expired verification token. ${e}`,
       );
     }
+    if (createUserDto.gender) {
+      const genderValue = createUserDto.gender.toUpperCase();
+      if (!(genderValue in Gender)) {
+        throw new BadRequestException(
+          `Invalid gender value: ${createUserDto.gender}`,
+        );
+      }
+      createUserDto.gender = Gender[genderValue as keyof typeof Gender];
+    }
 
     await this.checkExistingUser(verifiedEmail, phone);
     this.passwordUtil.validatePasswordStrength(password);
 
     const user = await this.createUser(createUserDto);
+    // const user = await this.userRepo.save(newUser);
     return this.getTokens(user.id, user.email);
   }
 
@@ -141,12 +153,14 @@ export class AuthService {
     const { password, ...rest } = createUserDto;
     const hashedPassword = await this.passwordUtil.hashPassword(password);
 
+    // @ts-ignore
     const newUser = this.userRepo.create({
       ...rest,
       password: hashedPassword,
       isVerified: true,
     });
 
+    // @ts-ignore
     return this.userRepo.save(newUser);
   }
 
