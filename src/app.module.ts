@@ -1,12 +1,14 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { MongooseModule } from '@nestjs/mongoose';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UserModule } from './user/user.module';
 import { BusinessModule } from './business/business.module';
 import { EmailModule } from './email/email.module';
+import { SalonModule } from './user/salon/salon.module';
 import { AppService } from './app.service';
 import { AppController } from './app.controller';
+import { typeOrmConfig } from './config/database';
+import { SeedsModule } from './user/salon/seeds/seed.module';
 
 @Module({
   imports: [
@@ -38,11 +40,13 @@ import { AppController } from './app.controller';
       }),
       inject: [ConfigService],
     }),
+    TypeOrmModule.forRoot(typeOrmConfig),
     UserModule,
-    BusinessModule,
-    EmailModule,
+    SalonModule,
+    SeedsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
+export class AppModule {}
 export class AppModule {}
