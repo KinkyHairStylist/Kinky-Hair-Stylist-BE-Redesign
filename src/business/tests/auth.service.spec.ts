@@ -11,10 +11,7 @@ import { Gender } from '../types/constants';
 // --- NEW DEPENDENCY IMPORTS ---
 import { OtpService } from '../services/otp.service';
 import { IEmailService } from '../services/emailService/interfaces/i.email.service';
-import {
-  RefreshToken,
-  RefreshTokenDocument,
-} from '../schemas/refresh.token.schema';
+import { RefreshToken, RefreshTokenDocument } from '../schemas/refresh.token.schema';
 
 // Setup environment variables for JWT secrets (Required for verifyAsync/signAsync)
 process.env.JWT_ACCESS_SECRET = 'test_access_secret';
@@ -164,9 +161,7 @@ describe('AuthService', () => {
 
     service = module.get<AuthService>(AuthService);
     userModel = module.get<Model<UserDocument>>(getModelToken(User.name));
-    refreshTokenModel = module.get<Model<RefreshTokenDocument>>(
-      getModelToken(RefreshToken.name),
-    );
+    refreshTokenModel = module.get<Model<RefreshTokenDocument>>(getModelToken(RefreshToken.name));
     emailService = module.get<IEmailService>(IEmailService);
 
     jest.clearAllMocks();
@@ -203,7 +198,7 @@ describe('AuthService', () => {
       // 2. Assert JWT creation
       expect(mockJwtService.signAsync).toHaveBeenCalledWith(
         expect.objectContaining({ sub: mockUserId.toString() }),
-        { secret: process.env.JWT_RESET_SECRET, expiresIn: '1h' },
+        { secret: process.env.JWT_RESET_SECRET, expiresIn: '1h' }
       );
 
       // 3. Assert email was sent with the correct link format
@@ -211,13 +206,12 @@ describe('AuthService', () => {
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(emailService.sendPasswordReset).toHaveBeenCalledWith(
         mockUserDocumentInstance.email,
-        expect.stringContaining(expectedLinkPrefix + mockResetToken), // Checks for the token in the URL
+        expect.stringContaining(expectedLinkPrefix + mockResetToken) // Checks for the token in the URL
       );
 
       // 4. Assert generic success message
       expect(result).toEqual({
-        message:
-          'If a user with that email exists, a password reset link has been sent.',
+        message: 'If a user with that email exists, a password reset link has been sent.',
       });
     });
 
@@ -237,8 +231,7 @@ describe('AuthService', () => {
       expect(emailService.sendPasswordReset).not.toHaveBeenCalled();
       // Assert generic success message
       expect(result).toEqual({
-        message:
-          'If a user with that email exists, a password reset link has been sent.',
+        message: 'If a user with that email exists, a password reset link has been sent.',
       });
     });
   });
@@ -266,14 +259,9 @@ describe('AuthService', () => {
   // --- GET TOKENS (with RTR Hash Saving) ---
   describe('getTokens', () => {
     it('should generate tokens, hash the refresh token, and save it to the database', async () => {
-      const tokens = await service.getTokens(
-        mockUserId.toString(),
-        mockCreateUserDto.email,
-      );
+      const tokens = await service.getTokens(mockUserId.toString(), mockCreateUserDto.email);
 
-      expect(mockPasswordUtil.hashPassword).toHaveBeenCalledWith(
-        mockRefreshTokenValue,
-      );
+      expect(mockPasswordUtil.hashPassword).toHaveBeenCalledWith(mockRefreshTokenValue);
       expect(tokens).toEqual({
         accessToken: mockAccessToken,
         refreshToken: mockRefreshTokenValue,
@@ -288,9 +276,7 @@ describe('AuthService', () => {
       (userModel.findById as jest.Mock).mockReturnValue({
         exec: jest.fn().mockResolvedValue(mockUserDocumentInstance),
       });
-      (refreshTokenModel.findOne as jest.Mock).mockResolvedValue(
-        mockRefreshTokenDocument,
-      );
+      (refreshTokenModel.findOne as jest.Mock).mockResolvedValue(mockRefreshTokenDocument);
       mockPasswordUtil.comparePassword.mockResolvedValue(true);
     });
 
@@ -303,9 +289,9 @@ describe('AuthService', () => {
     it('should throw UnauthorizedException if token does not match stored hash (RTR breach)', async () => {
       mockPasswordUtil.comparePassword.mockResolvedValue(false);
 
-      await expect(
-        service.refreshTokens(mockRefreshTokenValue),
-      ).rejects.toThrow('Token mismatch. All tokens for this user revoked.');
+      await expect(service.refreshTokens(mockRefreshTokenValue)).rejects.toThrow(
+        'Token mismatch. All tokens for this user revoked.'
+      );
     });
   });
 

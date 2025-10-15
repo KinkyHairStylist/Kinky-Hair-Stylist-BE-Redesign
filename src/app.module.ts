@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { EmailModule } from './email/email.module'; // Add this
+import { EmailModule } from './email/email.module';
+import { CustomerModule } from './customer/customer.module'; // Add this
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
@@ -21,12 +24,14 @@ import { EmailModule } from './email/email.module'; // Add this
           rejectUnauthorized: false,
         },
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: false,
+        synchronize: true,
         logging: true,
       }),
       inject: [ConfigService],
     }),
     EmailModule, // Add this
+    CustomerModule
   ],
+
 })
 export class AppModule {}

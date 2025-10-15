@@ -1,0 +1,8 @@
+export enum GiftCardStatus {
+  ACTIVE = 'ACTIVE',
+  REDEEMED = 'REDEEMED',
+  EXPIRED = 'EXPIRED',
+  INACTIVE = 'INACTIVE',
+  PENDING = 'PENDING',
+  USED = 'USED'
+}

@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  HttpCode,
-  HttpStatus,
-  Post,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../middlewares/guards/jwt-auth.guard';
 import { UserDocument } from '../schemas/user.schema';
 import { BusinessService } from '../services/business.service';
@@ -23,16 +15,10 @@ export class BusinessController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async create(
-    @Body() createBusinessDto: CreateBusinessDto,
-    @Req() req: RequestWithUser,
-  ) {
+  async create(@Body() createBusinessDto: CreateBusinessDto, @Req() req: RequestWithUser) {
     const owner = req.user;
 
-    const business = await this.businessService.create(
-      createBusinessDto,
-      owner,
-    );
+    const business = await this.businessService.create(createBusinessDto, owner);
     return {
       message: 'Business created successfully.',
       businessId: business._id,

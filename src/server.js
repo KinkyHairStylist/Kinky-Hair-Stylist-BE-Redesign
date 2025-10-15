@@ -12,12 +12,13 @@ const app = express();
 app.use(express.json());
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log('✅ MongoDB connected'))
-.catch(err => console.log('❌ MongoDB connection error:', err));
+mongoose
+  .connect(process.env.MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log('✅ MongoDB connected'))
+  .catch((err) => console.log('❌ MongoDB connection error:', err));
 
 // User Schema
 const userSchema = new mongoose.Schema({
@@ -30,7 +31,7 @@ const userSchema = new mongoose.Schema({
   isVerified: { type: Boolean, default: false },
   verificationCode: String,
   verificationExpires: Date,
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
 });
 
 const User = mongoose.model('User', userSchema);
@@ -40,8 +41,8 @@ const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
+    pass: process.env.EMAIL_PASS,
+  },
 });
 
 // Helper: Generate 5-digit code
@@ -53,7 +54,7 @@ const sendVerificationEmail = async (email, code) => {
     from: process.env.EMAIL_USER,
     to: email,
     subject: 'Your KHS Email Verification Code',
-    text: `Your verification code is: ${code}. It is valid for 10 minutes.`
+    text: `Your verification code is: ${code}. It is valid for 10 minutes.`,
   };
 
   await transporter.sendMail(mailOptions);
@@ -84,7 +85,7 @@ app.post('/api/get-started', async (req, res) => {
         email,
         isVerified: false,
         verificationCode: generateCode(),
-        verificationExpires: Date.now() + 10 * 60 * 1000 // 10 minutes
+        verificationExpires: Date.now() + 10 * 60 * 1000, // 10 minutes
       });
 
       await user.save();
@@ -211,11 +212,9 @@ app.post('/api/signup', async (req, res) => {
     await user.save();
 
     // Generate JWT token
-    const token = jwt.sign(
-      { id: user._id, email: user.email },
-      "process.env.JWT_SECRET",
-      { expiresIn: '7d' }
-    );
+    const token = jwt.sign({ id: user._id, email: user.email }, 'process.env.JWT_SECRET', {
+      expiresIn: '7d',
+    });
 
     res.status(200).json({
       message: 'Signup successful',
@@ -227,8 +226,8 @@ app.post('/api/signup', async (req, res) => {
         surname: user.surname,
         phoneNumber: user.phoneNumber,
         gender: user.gender,
-        isVerified: user.isVerified
-      }
+        isVerified: user.isVerified,
+      },
     });
   } catch (err) {
     console.error(err);

@@ -1,6 +1,12 @@
 import { Controller, Post, Body, UsePipes, ValidationPipe } from '@nestjs/common';
 import { UserService } from './user.service';
-import { GetStartedDto, VerifyCodeDto, ResendCodeDto, SignUpDto, AuthResponseDto } from './user.dto';
+import {
+  GetStartedDto,
+  VerifyCodeDto,
+  ResendCodeDto,
+  SignUpDto,
+  AuthResponseDto,
+} from './user.dto';
 
 @Controller('api')
 export class UserController {

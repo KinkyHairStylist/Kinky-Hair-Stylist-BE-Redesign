@@ -9,10 +9,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { JwtService } from '@nestjs/jwt';
-import {
-  EmailVerification,
-  EmailVerificationDocument,
-} from '../schemas/email.verification.schema';
+import { EmailVerification, EmailVerificationDocument } from '../schemas/email.verification.schema';
 import { IEmailService } from './emailService/interfaces/i.email.service';
 import { AuthService } from './auth.service';
 
@@ -29,7 +26,7 @@ export class OtpService {
     private readonly emailService: IEmailService,
     @Inject(forwardRef(() => AuthService))
     private readonly userService: AuthService,
-    private readonly jwtService: JwtService,
+    private readonly jwtService: JwtService
   ) {}
 
   async requestOtpForPasswordReset(email: string): Promise<void> {
@@ -49,7 +46,7 @@ export class OtpService {
         upsert: true,
         new: true,
         setDefaultsOnInsert: true,
-      },
+      }
     );
     this.logger.debug(`OTP generated for email ${email}: ${otp}`);
 
@@ -63,9 +60,7 @@ export class OtpService {
   async requestOtp(email: string): Promise<void> {
     const existingUser = await this.userService.findByEmail(email);
     if (existingUser && existingUser.isVerified) {
-      throw new ConflictException(
-        'This email is already registered and verified.',
-      );
+      throw new ConflictException('This email is already registered and verified.');
     }
 
     const otp = this.generateOtp();
@@ -84,7 +79,7 @@ export class OtpService {
         upsert: true,
         new: true,
         setDefaultsOnInsert: true,
-      },
+      }
     );
     this.logger.debug(`OTP generated for email ${email}: ${otp}`);
 
@@ -97,22 +92,17 @@ export class OtpService {
    * @param email The email being verified.
    * @param providedOtp The OTP entered by the user.
    */
-  async verifyOtp(
-    email: string,
-    providedOtp: string,
-  ): Promise<{ verificationToken: string }> {
+  async verifyOtp(email: string, providedOtp: string): Promise<{ verificationToken: string }> {
     const otpDocument = await this.otpModel.findOne({ email });
 
     if (!otpDocument) {
-      throw new BadRequestException(
-        'Verification required. Please request a new OTP.',
-      );
+      throw new BadRequestException('Verification required. Please request a new OTP.');
     }
 
     if (otpDocument.trials >= otpDocument.maxTrials) {
       await this.otpModel.deleteOne({ email });
       throw new ConflictException(
-        'Maximum verification attempts reached. Please request a new OTP.',
+        'Maximum verification attempts reached. Please request a new OTP.'
       );
     }
 
@@ -124,9 +114,7 @@ export class OtpService {
 
     if (new Date() > otpDocument.expiresAt) {
       await this.otpModel.deleteOne({ email });
-      throw new BadRequestException(
-        'OTP has expired. Please request a new one.',
-      );
+      throw new BadRequestException('OTP has expired. Please request a new one.');
     }
 
     await this.otpModel.deleteOne({ email });
@@ -136,12 +124,10 @@ export class OtpService {
       {
         secret: process.env.JWT_ACCESS_SECRET,
         expiresIn: '5m',
-      },
+      }
     );
 
-    this.logger.log(
-      `Email ${email} successfully verified. Verification token issued.`,
-    );
+    this.logger.log(`Email ${email} successfully verified. Verification token issued.`);
     return { verificationToken };
   }
 
@@ -154,8 +140,7 @@ export class OtpService {
    */
   private generateOtp(): string {
     return Math.floor(
-      Math.pow(10, this.OTP_LENGTH - 1) +
-        Math.random() * 9 * Math.pow(10, this.OTP_LENGTH - 1),
+      Math.pow(10, this.OTP_LENGTH - 1) + Math.random() * 9 * Math.pow(10, this.OTP_LENGTH - 1)
     ).toString();
   }
 }

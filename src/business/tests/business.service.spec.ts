@@ -94,10 +94,7 @@ describe('BusinessService', () => {
   describe('create', () => {
     it('should correctly instantiate and save a new business document', async () => {
       // 1. Call the method being tested
-      const result = await service.create(
-        mockCreateBusinessDto,
-        mockUserDocument as UserDocument,
-      );
+      const result = await service.create(mockCreateBusinessDto, mockUserDocument as UserDocument);
 
       // 2. Assertions
 

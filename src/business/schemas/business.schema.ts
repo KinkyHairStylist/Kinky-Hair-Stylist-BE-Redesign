@@ -23,14 +23,7 @@ const BookingPoliciesSchema = SchemaFactory.createForClass(BookingPolicies);
 @Schema({ _id: false })
 class BookingDay {
   @Prop({ required: true })
-  day:
-    | 'Monday'
-    | 'Tuesday'
-    | 'Wednesday'
-    | 'Thursday'
-    | 'Friday'
-    | 'Saturday'
-    | 'Sunday';
+  day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
 
   @Prop({ default: false })
   isOpen: boolean;

@@ -27,7 +27,6 @@ export class EmailVerification {
   maxTrials: number;
 }
 
-export const EmailVerificationSchema =
-  SchemaFactory.createForClass(EmailVerification);
+export const EmailVerificationSchema = SchemaFactory.createForClass(EmailVerification);
 
 EmailVerificationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });

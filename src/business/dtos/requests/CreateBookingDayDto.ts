@@ -1,10 +1,4 @@
-import {
-  IsString,
-  IsIn,
-  IsBoolean,
-  IsNotEmpty,
-  IsOptional,
-} from 'class-validator';
+import { IsString, IsIn, IsBoolean, IsNotEmpty, IsOptional } from 'class-validator';
 
 const VALID_DAYS = [
   'Monday',

@@ -18,7 +18,7 @@ import {
 export class UserService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
-    private configService: ConfigService,
+    private configService: ConfigService
   ) {}
 
   private transporter: nodemailer.Transporter;
@@ -41,11 +41,7 @@ export class UserService {
   }
 
   private generateToken(userId: string): string {
-    return jwt.sign(
-      { sub: userId },
-      "process.env.JWT_SECRET",
-      { expiresIn: '7d' },
-    );
+    return jwt.sign({ sub: userId }, 'process.env.JWT_SECRET', { expiresIn: '7d' });
   }
 
   async getStarted(dto: GetStartedDto): Promise<AuthResponseDto> {
@@ -85,11 +81,7 @@ export class UserService {
     const { email, code } = dto;
     const user = await this.userModel.findOne({ email });
 
-    if (
-      !user ||
-      user.verificationCode !== code ||
-      user.verificationExpires < new Date()
-    ) {
+    if (!user || user.verificationCode !== code || user.verificationExpires < new Date()) {
       throw new Error('Invalid or expired code');
     }
 

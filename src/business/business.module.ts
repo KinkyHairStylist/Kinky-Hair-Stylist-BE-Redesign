@@ -11,14 +11,8 @@ import { Business, BusinessSchema } from './schemas/business.schema';
 import { BusinessController } from './controllers/business.controller';
 import { EmailModule } from './services/emailService/email.module';
 import { OtpService } from './services/otp.service';
-import {
-  EmailVerification,
-  EmailVerificationSchema,
-} from './schemas/email.verification.schema';
-import {
-  RefreshToken,
-  RefreshTokenSchema,
-} from './schemas/refresh.token.schema';
+import { EmailVerification, EmailVerificationSchema } from './schemas/email.verification.schema';
+import { RefreshToken, RefreshTokenSchema } from './schemas/refresh.token.schema';
 
 @Module({
   imports: [
@@ -33,13 +27,7 @@ import {
     forwardRef(() => BusinessModule),
   ],
   controllers: [AuthController, BusinessController],
-  providers: [
-    AuthService,
-    PasswordUtil,
-    JwtStrategy,
-    BusinessService,
-    OtpService,
-  ],
+  providers: [AuthService, PasswordUtil, JwtStrategy, BusinessService, OtpService],
   exports: [AuthService, BusinessService, OtpService],
 })
 export class BusinessModule {}

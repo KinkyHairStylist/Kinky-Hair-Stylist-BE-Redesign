@@ -7,9 +7,7 @@ import { CreateBusinessDto } from '../dtos/requests/CreateBusinessDto';
 
 @Injectable()
 export class BusinessService {
-  constructor(
-    @InjectModel(Business.name) private businessModel: Model<BusinessDocument>,
-  ) {}
+  constructor(@InjectModel(Business.name) private businessModel: Model<BusinessDocument>) {}
 
   /**
    * Creates a new business linked to the authenticated user.
@@ -19,7 +17,7 @@ export class BusinessService {
    */
   async create(
     createBusinessDto: CreateBusinessDto,
-    owner: UserDocument,
+    owner: UserDocument
   ): Promise<BusinessDocument> {
     return new this.businessModel({
       ...createBusinessDto,

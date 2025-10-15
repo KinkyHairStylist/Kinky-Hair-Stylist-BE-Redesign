@@ -14,9 +14,8 @@ export class ResetPasswordDto {
       minSymbols: 1,
     },
     {
-      message:
-        'Password too weak: must include uppercase, lowercase, number, and symbol.',
-    },
+      message: 'Password too weak: must include uppercase, lowercase, number, and symbol.',
+    }
   )
   readonly newPassword: string;
 }

@@ -12,10 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import { CreateUserDto } from '../dtos/requests/CreateUserDto';
 import { PasswordUtil } from '../utils/password.util';
 import { LoginDto } from '../dtos/requests/LoginDto';
-import {
-  RefreshToken,
-  RefreshTokenDocument,
-} from '../schemas/refresh.token.schema';
+import { RefreshToken, RefreshTokenDocument } from '../schemas/refresh.token.schema';
 import { ForgotPasswordDto } from '../dtos/requests/ForgotPasswordDto';
 import { ResetPasswordDto } from '../dtos/requests/ResetPasswordDto';
 import { OtpService } from './otp.service';
@@ -29,11 +26,11 @@ export class AuthService {
     private refreshTokenModel: Model<RefreshTokenDocument>,
     private jwtService: JwtService,
     private readonly passwordUtil: PasswordUtil,
-    private readonly otpService: OtpService,
+    private readonly otpService: OtpService
   ) {}
 
   async register(
-    createUserDto: CreateUserDto,
+    createUserDto: CreateUserDto
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const { email, password, phone, verificationToken } = createUserDto;
 
@@ -47,15 +44,13 @@ export class AuthService {
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
       if (payload.email.toLowerCase() !== email.toLowerCase()) {
-        throw new BadRequestException(
-          'Token email mismatch. Registration aborted.',
-        );
+        throw new BadRequestException('Token email mismatch. Registration aborted.');
       }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-member-access
       verifiedEmail = payload.email;
     } catch (e) {
       throw new UnauthorizedException(
-        `Invalid or expired verification token. Please verify your email again. ${e}`,
+        `Invalid or expired verification token. Please verify your email again. ${e}`
       );
     }
 
@@ -66,7 +61,7 @@ export class AuthService {
   }
 
   async refreshTokens(
-    refreshToken: string,
+    refreshToken: string
   ): Promise<{ accessToken: string; refreshToken: string }> {
     let payload: { sub: string; email: string };
 
@@ -91,24 +86,17 @@ export class AuthService {
       throw new UnauthorizedException('Invalidated refresh token.');
     }
 
-    const hashMatch = await this.passwordUtil.comparePassword(
-      refreshToken,
-      storedToken.tokenHash,
-    );
+    const hashMatch = await this.passwordUtil.comparePassword(refreshToken, storedToken.tokenHash);
 
     if (!hashMatch) {
       await this.refreshTokenModel.deleteMany({ user: userId });
-      throw new UnauthorizedException(
-        'Token mismatch. All tokens for this user revoked.',
-      );
+      throw new UnauthorizedException('Token mismatch. All tokens for this user revoked.');
     }
     await this.refreshTokenModel.deleteOne({ _id: storedToken._id });
     return this.getTokens(user._id.toString(), user.email);
   }
 
-  async login(
-    loginDto: LoginDto,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
+  async login(loginDto: LoginDto): Promise<{ accessToken: string; refreshToken: string }> {
     const { email, password } = loginDto;
     const user = await this.findByEmail(email);
 
@@ -117,15 +105,10 @@ export class AuthService {
     }
 
     if (!user.isVerified) {
-      throw new UnauthorizedException(
-        'Account is not verified. Please verify your email.',
-      );
+      throw new UnauthorizedException('Account is not verified. Please verify your email.');
     }
 
-    const passwordMatch = await this.passwordUtil.comparePassword(
-      password,
-      user.password,
-    );
+    const passwordMatch = await this.passwordUtil.comparePassword(password, user.password);
 
     if (!passwordMatch) {
       throw new UnauthorizedException('Invalid credentials.');
@@ -134,9 +117,7 @@ export class AuthService {
     return this.getTokens(user._id.toString(), user.email);
   }
 
-  private async createUser(
-    createUserDto: CreateUserDto,
-  ): Promise<UserDocument> {
+  private async createUser(createUserDto: CreateUserDto): Promise<UserDocument> {
     const { password, ...rest } = createUserDto;
     const hashedPassword = await this.passwordUtil.hashPassword(password);
     const newUser = new this.userModel({
@@ -157,9 +138,7 @@ export class AuthService {
         throw new ConflictException('User with this email already exists');
       }
       if (existingUser.phone === phone) {
-        throw new ConflictException(
-          'User with this phone number already exists',
-        );
+        throw new ConflictException('User with this phone number already exists');
       }
     }
   }
@@ -173,14 +152,12 @@ export class AuthService {
   }
 
   async markEmailVerified(userId: string): Promise<void> {
-    await this.userModel
-      .updateOne({ _id: userId }, { $set: { isVerified: true } })
-      .exec();
+    await this.userModel.updateOne({ _id: userId }, { $set: { isVerified: true } }).exec();
   }
 
   async getTokens(
     userId: string,
-    email: string,
+    email: string
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const payload = { sub: userId, email };
 
@@ -210,9 +187,7 @@ export class AuthService {
     };
   }
 
-  async requestPasswordReset(
-    forgotPasswordDto: ForgotPasswordDto,
-  ): Promise<{ message: string }> {
+  async requestPasswordReset(forgotPasswordDto: ForgotPasswordDto): Promise<{ message: string }> {
     const { email } = forgotPasswordDto;
 
     const user = await this.userModel
@@ -222,8 +197,7 @@ export class AuthService {
     if (!user) {
       console.log(`Password reset requested for non-existent email: ${email}`);
       return {
-        message:
-          'If a user with that email exists, an OTP code has been sent to their email.',
+        message: 'If a user with that email exists, an OTP code has been sent to their email.',
       };
     }
 
@@ -234,8 +208,7 @@ export class AuthService {
     }
 
     return {
-      message:
-        'If a user with that email exists, an OTP code has been sent to their email.',
+      message: 'If a user with that email exists, an OTP code has been sent to their email.',
     };
   }
 
@@ -265,7 +238,7 @@ export class AuthService {
   // }
 
   async verifyPasswordOtp(
-    verifyPasswordOtpDto: VerifyPasswordOtpDto,
+    verifyPasswordOtpDto: VerifyPasswordOtpDto
   ): Promise<{ resetToken: string }> {
     const { email, otp } = verifyPasswordOtpDto;
 
@@ -298,9 +271,7 @@ export class AuthService {
     return { resetToken };
   }
 
-  async resetPassword(
-    resetPasswordDto: ResetPasswordDto,
-  ): Promise<{ message: string }> {
+  async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<{ message: string }> {
     const { token, newPassword } = resetPasswordDto;
 
     let payload: { sub: string; email: string };
@@ -321,9 +292,7 @@ export class AuthService {
       .exec();
 
     if (updateResult.modifiedCount === 0) {
-      throw new NotFoundException(
-        'User not found or password was not updated.',
-      );
+      throw new NotFoundException('User not found or password was not updated.');
     }
 
     await this.refreshTokenModel.deleteMany({ user: payload.sub }).exec();
@@ -335,8 +304,7 @@ export class AuthService {
     // }
 
     return {
-      message:
-        'Password has been successfully reset. Please log in with your new password.',
+      message: 'Password has been successfully reset. Please log in with your new password.',
     };
   }
 }

@@ -18,22 +18,20 @@ import { VerifyPasswordOtpDto } from '../dtos/requests/VerifyPasswordOtpDto';
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly otpService: OtpService,
+    private readonly otpService: OtpService
   ) {}
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(
-    @Body() createUserDto: CreateUserDto,
+    @Body() createUserDto: CreateUserDto
   ): Promise<{ accessToken: string; refreshToken: string }> {
     return this.authService.register(createUserDto);
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(
-    @Body() loginDto: LoginDto,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
+  async login(@Body() loginDto: LoginDto): Promise<{ accessToken: string; refreshToken: string }> {
     return this.authService.login(loginDto);
   }
 
@@ -73,7 +71,7 @@ export class AuthController {
   async verifyOtp(@Body() verifyOtpDto: VerifyOtpDto) {
     const { verificationToken } = await this.otpService.verifyOtp(
       verifyOtpDto.email,
-      verifyOtpDto.otp,
+      verifyOtpDto.otp
     );
 
     return {

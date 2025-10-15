@@ -6,7 +6,13 @@ import * as jwt from 'jsonwebtoken';
 import * as nodemailer from 'nodemailer';
 import { v4 as uuidv4 } from 'uuid';
 import { User, UserDocument } from './user.schema';
-import { GetStartedDto, VerifyCodeDto, ResendCodeDto, SignUpDto, AuthResponseDto } from './user.dto';
+import {
+  GetStartedDto,
+  VerifyCodeDto,
+  ResendCodeDto,
+  SignUpDto,
+  AuthResponseDto,
+} from './user.dto';
 
 @Injectable()
 export class UserService {
@@ -135,11 +141,9 @@ export class UserService {
 
     await user.save();
 
-    const token = jwt.sign(
-      { id: user._id, email: user.email },
-     " process.env.JWT_SECRET",
-      { expiresIn: '7d' },
-    );
+    const token = jwt.sign({ id: user._id, email: user.email }, ' process.env.JWT_SECRET', {
+      expiresIn: '7d',
+    });
 
     return {
       message: 'Signup successful',
