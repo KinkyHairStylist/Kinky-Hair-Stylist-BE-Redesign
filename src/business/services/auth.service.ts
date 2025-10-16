@@ -19,6 +19,9 @@ import { PasswordUtil } from '../utils/password.util';
 import { OtpService } from './otp.service';
 import { Gender } from '../types/constants';
 import { VerifyResetTokenDto } from '../dtos/requests/VerifyResetTokenDto';
+import { RequestPhoneOtpDto } from '../dtos/requests/RequestPhoneOtpDto';
+import { VerifyPhoneOtpDto } from '../dtos/requests/VerifyPhoneOtpDto';
+
 
 export interface TokenPair {
   accessToken: string;
@@ -37,6 +40,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly passwordUtil: PasswordUtil,
     private readonly otpService: OtpService,
+
   ) {}
 
   async register(createUserDto: CreateUserDto): Promise<TokenPair> {
@@ -332,7 +336,42 @@ export class AuthService {
   }
 
 
-  async findOneById(id: string): Promise<User | null> {
+
+  async requestPhoneOtp(requestPhoneOtpDto: RequestPhoneOtpDto) {
+    const { phone } = requestPhoneOtpDto;
+
+    const otp = await this.otpService.generatePhoneOtp(phone);
+    await this.otpService.sendPhoneSmsOtp(phone, otp);
+
+    return {
+      message: 'OTP sent successfully to your phone number.',
+      phone,
+    };
+  }
+
+  async verifyPhoneNumber(verifyPhoneOtpDto: VerifyPhoneOtpDto) {
+    const { phone, otp } = verifyPhoneOtpDto;
+
+    const isValid = await this.otpService.verifyPhoneOtpService(phone, otp);
+    if (!isValid) {
+      throw new BadRequestException('Invalid or expired OTP.');
+    }
+
+    const user = await this.userRepo.findOne({ where: { phone } });
+    if (user) {
+      user.isVerified = true;
+      await this.userRepo.save(user);
+    }
+
+    return {
+      message: 'Phone number verified successfully.',
+      verified: true,
+      phone,
+    };
+  }
+
+
+async findOneById(id: string): Promise<User | null> {
     return this.userRepo.findOne({ where: { id } });
   }
 

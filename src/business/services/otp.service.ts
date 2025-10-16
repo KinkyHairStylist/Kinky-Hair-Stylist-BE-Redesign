@@ -12,13 +12,18 @@ import { JwtService } from '@nestjs/jwt';
 import { EmailVerification } from '../entities/email-verification.entity';
 import { AuthService } from './auth.service';
 import { EmailService } from '../../email/email.service';
+import * as crypto from 'crypto';
 
+
+// @ts-ignore
 @Injectable()
 export class OtpService {
+
   private readonly logger = new Logger(OtpService.name);
   private readonly OTP_LENGTH = 5;
   private readonly EXPIRATION_MINUTES = 15;
   private readonly MAX_TRIALS = 5;
+  private otpStore: Map<string, string> = new Map();
 
   constructor(
     @InjectRepository(EmailVerification)
@@ -27,7 +32,8 @@ export class OtpService {
     @Inject(forwardRef(() => AuthService))
     private readonly userService: AuthService,
     private readonly jwtService: JwtService,
-  ) {}
+  ) {
+  }
 
   async requestOtpForPasswordReset(email: string): Promise<void> {
     const otp = this.generateOtp();
@@ -152,4 +158,22 @@ export class OtpService {
       Math.random() * 9 * Math.pow(10, this.OTP_LENGTH - 1),
     ).toString();
   }
+
+  async generatePhoneOtp(phone: string): Promise<string> {
+    const otp = crypto.randomInt(100000, 999999).toString();
+    this.otpStore.set(phone, otp);
+
+    setTimeout(() => this.otpStore.delete(phone), 15 * 60 * 1000);
+    return otp;
+  }
+
+  async sendPhoneSmsOtp(phone: string, otp: string): Promise<void> {
+    console.log(`OTP for ${phone}: ${otp}`);
+  }
+
+  async verifyPhoneOtpService(phone: string, otp: string): Promise<boolean> {
+    const storedOtp = this.otpStore.get(phone);
+    return storedOtp === otp;
+  }
 }
+

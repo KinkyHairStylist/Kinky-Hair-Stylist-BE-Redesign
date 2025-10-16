@@ -10,6 +10,8 @@ import { ForgotPasswordDto } from '../dtos/requests/ForgotPasswordDto';
 import { ResetPasswordDto } from '../dtos/requests/ResetPasswordDto';
 import { VerifyPasswordOtpDto } from '../dtos/requests/VerifyPasswordOtpDto';
 import { VerifyResetTokenDto } from '../dtos/requests/VerifyResetTokenDto';
+import { RequestPhoneOtpDto } from '../dtos/requests/RequestPhoneOtpDto';
+import { VerifyPhoneOtpDto } from '../dtos/requests/VerifyPhoneOtpDto';
 
 // interface RequestWithUser extends Request {
 //   user: any;
@@ -96,4 +98,15 @@ export class AuthController {
     return this.authService.refreshTokens(refreshTokenDto.refreshToken);
   }
 
+  @Post('request-phone-otp')
+  @HttpCode(HttpStatus.OK)
+  async requestPhoneOtp(@Body() requestPhoneOtpDto: RequestPhoneOtpDto) {
+    return this.authService.requestPhoneOtp(requestPhoneOtpDto);
+  }
+
+  @Post('verify-phone-number')
+  @HttpCode(HttpStatus.OK)
+  async verifyPhoneNumber(@Body() verifyPhoneOtpDto: VerifyPhoneOtpDto) {
+    return this.authService.verifyPhoneNumber(verifyPhoneOtpDto);
+  }
 }

@@ -1,4 +1,5 @@
 import { IsEmail, IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { Column } from 'typeorm';
 
 export class GetStartedDto {
   @IsEmail()
@@ -46,6 +47,9 @@ export class SignUpDto {
   @IsString()
   @IsNotEmpty()
   gender: string;
+
+  @Column({ nullable: true, default: false })
+  isPhoneVerified?: boolean;
 }
 
 export class AuthResponseDto {
