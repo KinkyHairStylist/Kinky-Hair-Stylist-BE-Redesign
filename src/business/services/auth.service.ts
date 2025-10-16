@@ -54,11 +54,13 @@ export class AuthService {
         );
       }
       verifiedEmail = payload.email;
+
     } catch (e) {
       throw new UnauthorizedException(
         `Invalid or expired verification token. ${e}`,
       );
     }
+
     if (createUserDto.gender) {
       const genderValue = createUserDto.gender.toUpperCase();
       if (!(genderValue in Gender)) {
@@ -73,6 +75,7 @@ export class AuthService {
     this.passwordUtil.validatePasswordStrength(password);
 
     const user = await this.createUser(createUserDto);
+
     // const user = await this.userRepo.save(newUser);
     return this.getTokens(user.id, user.email);
   }
@@ -138,6 +141,10 @@ export class AuthService {
       );
     }
 
+    if(user.isSuspended){
+      throw new UnauthorizedException("user has been suspended")
+    }
+
     const passwordMatch = await this.passwordUtil.comparePassword(
       password,
       user.password,
@@ -145,6 +152,7 @@ export class AuthService {
     if (!passwordMatch) {
       throw new UnauthorizedException('Invalid credentials.');
     }
+
 
     return this.getTokens(user.id, user.email);
   }
@@ -158,6 +166,8 @@ export class AuthService {
       ...rest,
       password: hashedPassword,
       isVerified: true,
+      suspensionHistory: ".",
+      isSuspended: false
     });
 
     // @ts-ignore

@@ -10,6 +10,12 @@ export enum Gender {
   CUSTOM = 'CUSTOM',
 }
 
+export enum ApplicationStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
+
 export interface Payload {
   sub: string;
   email: string;

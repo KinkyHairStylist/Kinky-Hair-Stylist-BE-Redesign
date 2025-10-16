@@ -15,6 +15,15 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({default: "just now"})
+  activity: string;
+
+  @Column({default: 0})
+  booking: number;
+
+  @Column({default: 0})
+  spent: number
+
   @Column({ unique: true })
   email: string;
 
@@ -35,6 +44,12 @@ export class User {
 
   @Column({ default: false })
   isVerified: boolean;
+
+  @Column({ default: false })
+  isSuspended: boolean;
+
+  @Column({default:"."})
+  suspensionHistory: string;
 
   @OneToMany(() => RefreshToken, (token) => token.user)
   refreshTokens: RefreshToken[];
