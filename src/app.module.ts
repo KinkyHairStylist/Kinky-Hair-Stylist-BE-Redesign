@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { EmailModule } from './email/email.module'; // Add this
+import { EmailModule } from './email/email.module';
+import { ClientModule } from './business/client.module'; 
 
 @Module({
   imports: [
@@ -26,7 +27,8 @@ import { EmailModule } from './email/email.module'; // Add this
       }),
       inject: [ConfigService],
     }),
-    EmailModule, // Add this
+    EmailModule,
+    ClientModule // Add this
   ],
 })
 export class AppModule {}
