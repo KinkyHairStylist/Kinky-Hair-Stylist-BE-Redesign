@@ -18,6 +18,7 @@ import { VerifyPasswordOtpDto } from '../dtos/requests/VerifyPasswordOtpDto';
 import { PasswordUtil } from '../utils/password.util';
 import { OtpService } from './otp.service';
 import { Gender } from '../types/constants';
+import { VerifyResetTokenDto } from '../dtos/requests/VerifyResetTokenDto';
 
 export interface TokenPair {
   accessToken: string;
@@ -266,12 +267,15 @@ export class AuthService {
       email: user.email,
       purpose: 'password-reset',
     };
+
     const resetToken = await this.jwtService.signAsync(payload, {
       secret: process.env.JWT_ACCESS_SECRET,
       expiresIn: '15m',
     });
 
+    // Remove OTP after use
     await this.otpService.deleteOtp(email);
+
     return { resetToken };
   }
 
@@ -306,6 +310,27 @@ export class AuthService {
         'Password reset successfully. Please log in with your new password.',
     };
   }
+
+  async verifyResetToken(
+    verifyResetTokenDto: VerifyResetTokenDto,
+  ): Promise<{ message: string }> {
+    const { token } = verifyResetTokenDto;
+
+    try {
+      const payload = await this.jwtService.verifyAsync(token, {
+        secret: process.env.JWT_ACCESS_SECRET,
+      });
+
+      if (payload.purpose !== 'password-reset') {
+        throw new BadRequestException('Invalid token purpose.');
+      }
+
+      return { message: 'Reset token is valid.' };
+    } catch {
+      throw new BadRequestException('Invalid or expired reset token.');
+    }
+  }
+
 
   async findOneById(id: string): Promise<User | null> {
     return this.userRepo.findOne({ where: { id } });

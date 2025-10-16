@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, HttpCode, HttpStatus, NotFoundException, Post } from '@nestjs/common';
 import { AuthService } from '../services/auth.service';
 import { CreateUserDto } from '../dtos/requests/CreateUserDto';
 import { OtpService } from '../services/otp.service';
@@ -9,6 +9,7 @@ import { RefreshTokenDto } from '../dtos/requests/RefreshTokenDto';
 import { ForgotPasswordDto } from '../dtos/requests/ForgotPasswordDto';
 import { ResetPasswordDto } from '../dtos/requests/ResetPasswordDto';
 import { VerifyPasswordOtpDto } from '../dtos/requests/VerifyPasswordOtpDto';
+import { VerifyResetTokenDto } from '../dtos/requests/VerifyResetTokenDto';
 
 // interface RequestWithUser extends Request {
 //   user: any;
@@ -49,11 +50,18 @@ export class AuthController {
     return this.authService.verifyPasswordOtp(verifyPasswordOtpDto);
   }
 
+  @Post('verify-reset-token')
+  @HttpCode(HttpStatus.OK)
+  async verifyResetToken(@Body() verifyResetTokenDto: VerifyResetTokenDto) {
+    return this.authService.verifyResetToken(verifyResetTokenDto);
+  }
+
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     return this.authService.resetPassword(resetPasswordDto);
   }
+
 
   @Post('otp/request')
   @HttpCode(HttpStatus.OK)
@@ -87,4 +95,5 @@ export class AuthController {
   async refreshTokens(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refreshTokens(refreshTokenDto.refreshToken);
   }
+
 }
