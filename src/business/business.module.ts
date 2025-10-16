@@ -1,32 +1,30 @@
 import { forwardRef, Module } from '@nestjs/common';
+import { PassportModule } from '@nestjs/passport';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthService } from './services/auth.service';
 import { AuthController } from './controllers/auth.controller';
-import { MongooseModule } from '@nestjs/mongoose';
-import { User, UserSchema } from './schemas/user.schema';
 import { JwtModule } from '@nestjs/jwt';
 import { PasswordUtil } from './utils/password.util';
 import { JwtStrategy } from './middlewares/strategies/jwt.strategy';
 import { BusinessService } from './services/business.service';
-import { Business, BusinessSchema } from './schemas/business.schema';
 import { BusinessController } from './controllers/business.controller';
 import { EmailModule } from './services/emailService/email.module';
 import { OtpService } from './services/otp.service';
-import {
-  EmailVerification,
-  EmailVerificationSchema,
-} from './schemas/email.verification.schema';
-import {
-  RefreshToken,
-  RefreshTokenSchema,
-} from './schemas/refresh.token.schema';
+
+// Import entities
+import { UserEntity } from './entities/user.entity';
+import { BusinessEntity } from './entities/business.entity';
+import { EmailVerificationEntity } from './entities/email-verification.entity';
+import { RefreshTokenEntity } from './entities/refresh-token.entity';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: User.name, schema: UserSchema },
-      { name: Business.name, schema: BusinessSchema },
-      { name: EmailVerification.name, schema: EmailVerificationSchema },
-      { name: RefreshToken.name, schema: RefreshTokenSchema },
+    PassportModule, // ✅ This should be a separate import
+    TypeOrmModule.forFeature([
+      UserEntity,
+      BusinessEntity,
+      EmailVerificationEntity,
+      RefreshTokenEntity,
     ]),
     JwtModule.register({}),
     EmailModule,

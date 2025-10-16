@@ -1,119 +1,80 @@
-export interface Client{
-    id : string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    dateOfBirth: Date | string;
-    gender?: string;
-    pronouns?: string;
-    address?: string;
-    clientSource?: string;
-    profileImage?: string;
-    businessId: string;
-    isActive: boolean;
-    createdAt: Date;
-    updatedAt: Date;
+// src/business/types/client.types.ts
 
-
+export interface ClientProfile {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  dateOfBirth?: Date;
+  gender?: string;
+  pronouns?: string;
+  occupation?: string;
+  clientSource: string;
+  profileImage?: string;
 }
 
-
-
-export interface ClientAddress{
-
-
-    id : string;
-    clientId: string;
-    addressName: string;
-    addressLine1: string;
-    addressLine2?: string | null;
-    location: string;
-    city: string | null;
-    state: string;
-    zipCode: string;
-    country: string;
-    isPrimary: boolean;
-    createdAt: Date;
-    updatedAt: Date;
+export interface ClientAddress {
+  addressName: string;
+  addressLine1: string;
+  addressLine2?: string;
+  location: string;
+  city?: string;
+  state: string;
+  zipCode: string;
+  country: string;
+  isPrimary?: boolean;
 }
 
-
-export interface EmergencyContact{
-    id: string;
-    clientId: string;
-    firstName: string;
-    lastName?: string;
-    email: string;
-    relationship: string;
-    phone: string;
-    createdAt: Date;
-    updatedAt: Date;
+export interface EmergencyContact {
+  firstName: string;
+  lastName: string;
+  email: string;
+  relationship: string;
+  phone: string;
 }
 
-
-
-
-export interface ClientSettings{
-
-    id: string;
-    clientId: string;
-    emailNotifications: boolean;
-    smsNotifications: boolean;
-    marketingEmails: boolean;
-    clientType: 'regular' | 'vip' | 'new';
-    notes?: string;
-
-    preferences: {
-    preferredContactMethod: 'email' | 'sms' | 'phone';
-    timeZone: string;
-    language: string;
-    };
-    createdAt: Date;
-    updatedAt: Date;
-
+export interface ClientPreferences {
+  preferredContactMethod?: string;
+  language?: string;
+  timezone?: string;
 }
 
-export interface ClientFormData{
-
-    profile: Omit<Client, 'id' | 'businessId' | 'isActive' | 'createdAt' | 'updatedAt'>;
-    addresses?: Omit<ClientAddress, 'id' | 'clientId' | 'createdAt' | 'updatedAt'>[];
-    emergencyContacts?: Omit<EmergencyContact, 'id' | 'clientId' | 'createdAt' | 'updatedAt'>[];
-    settings: Omit<ClientSettings, 'id' | 'clientId' | 'createdAt' | 'updatedAt'>;
+export interface ClientSettings {
+  emailNotifications?: boolean;
+  smsNotifications?: boolean;
+  marketingEmails?: boolean;
+  clientType?: 'regular' | 'vip' | 'new';
+  notes?: string;
+  preferences?: ClientPreferences;
 }
 
-
-
-
-export interface ClientFilters{
-
-    search?: string;
-    clientType?: 'regular' | 'vip' | 'new'|'all';
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-    page?: number;
-    limit?: number;
+export interface ClientFormData {
+  profile: ClientProfile;
+  addresses?: ClientAddress[];
+  emergencyContacts?: EmergencyContact[];
+  settings?: ClientSettings;
 }
 
-
-
-
-
-export interface ApiResponse<T>{
-    data?: T;
-    message?: string;
-    success: boolean;
-    error?: string;
-    
+export interface ClientFilters {
+  search?: string;
+  clientType?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc' | undefined; // Changed to lowercase
+  page?: number;
+  limit?: number;
 }
 
+export interface ClientlistResponse {
+  clients: any[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
 
-
-
-export interface ClientlistResponse{
-    clients: Client[];
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
+export interface ApiResponse<T = any> {
+  success: boolean;
+  message: string;
+  data?: T;
+  error?: string;
 }

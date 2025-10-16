@@ -1,209 +1,226 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { 
-  Client, 
-  ClientAddress, 
-  EmergencyContact, 
-  ClientSettings,
   ClientFormData,
   ClientFilters,
   ClientlistResponse,
-  ApiResponse 
+  ApiResponse,
+  ClientSettings
 } from '../types/client.types';
-import { ClientModel } from '../schemas/client.schema';
-import { ClientAddressModel } from '../schemas/client-address.schema';
-import { EmergencyContact as EmergencyContactModel } from '../schemas/emergency-contact.schema';
-import { ClientSettingsModel } from '../schemas/client-settings.schema';
+
+// Import entities
+import { ClientEntity } from '../entities/client.entity';
+import { ClientAddressEntity } from '../entities/client-address.entity';
+import { EmergencyContactEntity } from '../entities/emergency-contact.entity';
+import { ClientSettingsEntity } from '../entities/client-settings.entity';
+import { BusinessEntity } from '../entities/business.entity';
 
 @Injectable()
 export class ClientService {
   constructor(
-    @InjectModel(ClientModel.name) private clientModel: Model<Client>,
-    @InjectModel(ClientAddressModel.name) private addressModel: Model<ClientAddress>,
-    @InjectModel(EmergencyContactModel.name) private emergencyContactModel: Model<EmergencyContact>,
-    @InjectModel(ClientSettingsModel.name) private settingsModel: Model<ClientSettings>,
-    @InjectModel('Business') private businessModel: Model<any>,
+    @InjectRepository(ClientEntity)
+    private clientRepository: Repository<ClientEntity>,
+    @InjectRepository(ClientAddressEntity)
+    private addressRepository: Repository<ClientAddressEntity>,
+    @InjectRepository(EmergencyContactEntity)
+    private emergencyContactRepository: Repository<EmergencyContactEntity>,
+    @InjectRepository(ClientSettingsEntity)
+    private settingsRepository: Repository<ClientSettingsEntity>,
+    @InjectRepository(BusinessEntity)
+    private businessRepository: Repository<BusinessEntity>,
   ) {}
 
-  async createClient(clientData: ClientFormData, ownerId: string): Promise<ApiResponse<any>> {
-    try {
-       
-      const business = await this.businessModel.findOne({ ownerId: new Types.ObjectId(ownerId) });
-      if (!business) {
-        return {
-          success: false,
-          error: 'Business not found',
-          message: 'No business found for this user',
-        };
-      }
-
-       
-      const existingClient = await this.clientModel.findOne({
-        email: clientData.profile.email,
-        businessId: business._id,
-        isActive: true
-      });
-
-      if (existingClient) {
-        return {
-          success: false,
-          error: 'Client already exists',
-          message: 'A client with this email already exists in your business',
-        };
-      }
-
-       
-      const client = new this.clientModel({
-        ...clientData.profile,
-        ownerId: new Types.ObjectId(ownerId),
-        businessId: business._id,
-      });
-
-      const savedClient = await client.save();
-
-       
-      if (clientData.addresses && clientData.addresses.length > 0) {
-        const addresses = clientData.addresses.map(address => ({
-          ...address,
-          clientId: savedClient._id,
-        }));
-        await this.addressModel.insertMany(addresses);
-      }
-
-       
-      if (clientData.emergencyContacts && clientData.emergencyContacts.length > 0) {
-        const contacts = clientData.emergencyContacts.map(contact => ({
-          ...contact,
-          clientId: savedClient._id,
-        }));
-        await this.emergencyContactModel.insertMany(contacts);
-      }
-
-      // Create settings
-      const settingsData = clientData.settings || {};
-      const settings = new this.settingsModel({
-        ...settingsData,
-        clientId: savedClient._id,
-        preferences: {
-          ...(settingsData.preferences || {}),
-          language: 'en',
-          timezone: 'Australia/Sydney',
-          preferredContactMethod: settingsData.preferences?.preferredContactMethod || 'email'
-        }
-      });
-      await settings.save();
-
-      // Return populated client
-      const populatedClient = await this.getClientWithRelations(savedClient._id);
-
-      return {
-        success: true,
-        data: populatedClient,
-        message: 'Client created successfully',
-      };
-    } catch (error) {
-      console.error('Create client error:', error);
+ async createClient(clientData: ClientFormData, ownerId: string): Promise<ApiResponse<any>> {
+  try {
+    const business = await this.businessRepository.findOne({
+      where: { ownerId },
+    });
+    
+    if (!business) {
       return {
         success: false,
-        error: error.message,
-        message: 'Failed to create client',
+        error: 'Business not found',
+        message: 'No business found for this user',
       };
     }
-  }
 
-  async getClients(ownerId: string, filters: ClientFilters): Promise<ApiResponse<ClientlistResponse>> {
-    try {
-      const business = await this.businessModel.findOne({ ownerId: new Types.ObjectId(ownerId) });
-      if (!business) {
-        return {
-          success: false,
-          error: 'Business not found',
-          message: 'No business found for this user',
-          data: { clients: [], total: 0, page: 1, limit: 10, totalPages: 0 }
-        };
-      }
+    const existingClient = await this.clientRepository.findOne({
+      where: {
+        email: clientData.profile.email,
+        businessId: business.id,
+        isActive: true,
+      },
+    });
 
-      const {
-        search,
-        clientType,
-        sortBy = 'createdAt',
-        sortOrder = 'desc',
-        page = 1,
-        limit = 10,
-      } = filters;
-
-      const query: any = { 
-        businessId: business._id, 
-        isActive: true 
+    if (existingClient) {
+      return {
+        success: false,
+        error: 'Client already exists',
+        message: 'A client with this email already exists in your business',
       };
+    }
 
-      // Search filter
-      if (search) {
-        query.$or = [
-          { firstName: { $regex: search, $options: 'i' } },
-          { lastName: { $regex: search, $options: 'i' } },
-          { email: { $regex: search, $options: 'i' } },
-          { phone: { $regex: search, $options: 'i' } },
-        ];
-      }
+    const client = this.clientRepository.create({
+      ...clientData.profile,
+      ownerId,
+      businessId: business.id,
+    });
 
-      // Client type filter
-      if (clientType && clientType !== 'all') {
-        const clientIdsWithType = await this.settingsModel
-          .find({ clientType })
-          .distinct('clientId');
-        query._id = { $in: clientIdsWithType };
-      }
+    const savedClient = await this.clientRepository.save(client);
 
-      const skip = (page - 1) * limit;
-      const sort: any = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
-
-      const [clients, total] = await Promise.all([
-        this.clientModel
-          .find(query)
-          .sort(sort)
-          .skip(skip)
-          .limit(limit)
-          .lean(),
-        this.clientModel.countDocuments(query),
-      ]);
-
-      // Get settings for each client
-      const clientsWithSettings = await Promise.all(
-        clients.map(async (client) => {
-          const settings = await this.settingsModel.findOne({ clientId: client._id }).lean();
-          return {
-            ...client,
-            settings
-          };
+    if (clientData.addresses && clientData.addresses.length > 0) {
+      const addresses = clientData.addresses.map(address => 
+        this.addressRepository.create({
+          ...address,
+          clientId: savedClient.id,
         })
       );
+      await this.addressRepository.save(addresses);
+    }
 
-      return {
-        success: true,
-        data: {
-          clients: clientsWithSettings,
-          total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit),
-        },
-        message: 'Clients retrieved successfully',
-      };
-    } catch (error) {
-      console.error('Get clients error:', error);
+    if (clientData.emergencyContacts && clientData.emergencyContacts.length > 0) {
+      const contacts = clientData.emergencyContacts.map(contact => 
+        this.emergencyContactRepository.create({
+          ...contact,
+          clientId: savedClient.id,
+        })
+      );
+      await this.emergencyContactRepository.save(contacts);
+    }
+
+    const settingsData: ClientSettings = clientData.settings || {};
+    const preferencesData = settingsData.preferences || {};
+
+    // Fix: Create settings with proper type casting
+    const settings = this.settingsRepository.create({
+      emailNotifications: settingsData.emailNotifications ?? true,
+      smsNotifications: settingsData.smsNotifications ?? true,
+      marketingEmails: settingsData.marketingEmails ?? false,
+      clientType: settingsData.clientType || 'regular',
+      notes: settingsData.notes || null,
+      clientId: savedClient.id,
+      preferences: {
+        preferredContactMethod: preferencesData.preferredContactMethod || 'email',
+        language: preferencesData.language || 'en',
+        timezone: preferencesData.timezone || 'Australia/Sydney',
+      },
+    } as ClientSettingsEntity);
+
+    await this.settingsRepository.save(settings);
+
+    const populatedClient = await this.getClientWithRelations(savedClient.id);
+
+    return {
+      success: true,
+      data: populatedClient,
+      message: 'Client created successfully',
+    };
+  } catch (error) {
+    console.error('Create client error:', error);
+    return {
+      success: false,
+      error: error.message,
+      message: 'Failed to create client',
+    };
+  }
+}
+  // In the getClients method, update the sortOrder handling:
+async getClients(ownerId: string, filters: ClientFilters): Promise<ApiResponse<ClientlistResponse>> {
+  try {
+    const business = await this.businessRepository.findOne({
+      where: { ownerId },
+    });
+    
+    if (!business) {
       return {
         success: false,
-        error: error.message,
-        message: 'Failed to fetch clients',
+        error: 'Business not found',
+        message: 'No business found for this user',
+        data: { clients: [], total: 0, page: 1, limit: 10, totalPages: 0 },
       };
     }
+
+    const {
+      search,
+      clientType,
+      sortBy = 'createdAt',
+      sortOrder = 'desc', // Changed to lowercase
+      page = 1,
+      limit = 10,
+    } = filters;
+
+    const queryBuilder = this.clientRepository
+      .createQueryBuilder('client')
+      .where('client.businessId = :businessId', { businessId: business.id })
+      .andWhere('client.isActive = :isActive', { isActive: true });
+
+    if (search) {
+      queryBuilder.andWhere(
+        '(client.firstName ILIKE :search OR client.lastName ILIKE :search OR client.email ILIKE :search OR client.phone ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    if (clientType && clientType !== 'all') {
+      const subQuery = this.settingsRepository
+        .createQueryBuilder('settings')
+        .select('settings.clientId')
+        .where('settings.clientType = :clientType', { clientType });
+      
+      queryBuilder.andWhere(`client.id IN (${subQuery.getQuery()})`);
+    }
+
+    const skip = (page - 1) * limit;
+
+    // Convert lowercase to uppercase for TypeORM
+    const typeormSortOrder = sortOrder === 'asc' ? 'ASC' : 'DESC';
+
+    const [clients, total] = await queryBuilder
+      .orderBy(`client.${sortBy}`, typeormSortOrder)
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
+
+    const clientsWithSettings = await Promise.all(
+      clients.map(async (client) => {
+        const settings = await this.settingsRepository.findOne({
+          where: { clientId: client.id },
+        });
+        return {
+          ...client,
+          settings,
+        };
+      }),
+    );
+
+    return {
+      success: true,
+      data: {
+        clients: clientsWithSettings,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+      message: 'Clients retrieved successfully',
+    };
+  } catch (error) {
+    console.error('Get clients error:', error);
+    return {
+      success: false,
+      error: error.message,
+      message: 'Failed to fetch clients',
+    };
   }
+}
 
   async getClientDetails(clientId: string, ownerId: string): Promise<ApiResponse<any>> {
     try {
-      const business = await this.businessModel.findOne({ ownerId: new Types.ObjectId(ownerId) });
+      const business = await this.businessRepository.findOne({
+        where: { ownerId },
+      });
+      
       if (!business) {
         return {
           success: false,
@@ -212,10 +229,12 @@ export class ClientService {
         };
       }
 
-      const client = await this.clientModel.findOne({
-        _id: new Types.ObjectId(clientId),
-        businessId: business._id,
-        isActive: true
+      const client = await this.clientRepository.findOne({
+        where: {
+          id: clientId,
+          businessId: business.id,
+          isActive: true,
+        },
       });
 
       if (!client) {
@@ -226,7 +245,7 @@ export class ClientService {
         };
       }
 
-      const populatedClient = await this.getClientWithRelations(client._id);
+      const populatedClient = await this.getClientWithRelations(client.id);
 
       return {
         success: true,
@@ -246,10 +265,13 @@ export class ClientService {
   async updateClient(
     clientId: string,
     ownerId: string,
-    updates: Partial<Client>,
-  ): Promise<ApiResponse<Client>> {
+    updates: Partial<ClientEntity>,
+  ): Promise<ApiResponse<ClientEntity>> {
     try {
-      const business = await this.businessModel.findOne({ ownerId: new Types.ObjectId(ownerId) });
+      const business = await this.businessRepository.findOne({
+        where: { ownerId },
+      });
+      
       if (!business) {
         return {
           success: false,
@@ -258,15 +280,13 @@ export class ClientService {
         };
       }
 
-      const client = await this.clientModel.findOneAndUpdate(
-        { 
-          _id: new Types.ObjectId(clientId), 
-          businessId: business._id, 
-          isActive: true 
+      const client = await this.clientRepository.findOne({
+        where: {
+          id: clientId,
+          businessId: business.id,
+          isActive: true,
         },
-        { ...updates, updatedAt: new Date() },
-        { new: true, runValidators: true },
-      );
+      });
 
       if (!client) {
         return {
@@ -276,9 +296,12 @@ export class ClientService {
         };
       }
 
+      Object.assign(client, updates);
+      const updatedClient = await this.clientRepository.save(client);
+
       return {
         success: true,
-        data: client,
+        data: updatedClient,
         message: 'Client updated successfully',
       };
     } catch (error) {
@@ -293,7 +316,10 @@ export class ClientService {
 
   async deleteClient(clientId: string, ownerId: string): Promise<ApiResponse<boolean>> {
     try {
-      const business = await this.businessModel.findOne({ ownerId: new Types.ObjectId(ownerId) });
+      const business = await this.businessRepository.findOne({
+        where: { ownerId },
+      });
+      
       if (!business) {
         return {
           success: false,
@@ -302,14 +328,12 @@ export class ClientService {
         };
       }
 
-      const client = await this.clientModel.findOneAndUpdate(
-        { 
-          _id: new Types.ObjectId(clientId), 
-          businessId: business._id 
+      const client = await this.clientRepository.findOne({
+        where: {
+          id: clientId,
+          businessId: business.id,
         },
-        { isActive: false, updatedAt: new Date() },
-        { new: true },
-      );
+      });
 
       if (!client) {
         return {
@@ -318,6 +342,9 @@ export class ClientService {
           message: 'Client not found or access denied',
         };
       }
+
+      client.isActive = false;
+      await this.clientRepository.save(client);
 
       return {
         success: true,
@@ -334,19 +361,19 @@ export class ClientService {
     }
   }
 
-  private async getClientWithRelations(clientId: Types.ObjectId): Promise<any> {
+  private async getClientWithRelations(clientId: string): Promise<any> {
     const [client, addresses, emergencyContacts, settings] = await Promise.all([
-      this.clientModel.findById(clientId).lean(),
-      this.addressModel.find({ clientId }).lean(),
-      this.emergencyContactModel.find({ clientId }).lean(),
-      this.settingsModel.findOne({ clientId }).lean(),
+      this.clientRepository.findOne({ where: { id: clientId } }),
+      this.addressRepository.find({ where: { clientId } }),
+      this.emergencyContactRepository.find({ where: { clientId } }),
+      this.settingsRepository.findOne({ where: { clientId } }),
     ]);
 
     return {
       ...client,
       addresses,
       emergencyContacts,
-      settings
+      settings,
     };
   }
 }

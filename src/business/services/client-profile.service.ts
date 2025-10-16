@@ -1,23 +1,23 @@
-
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Client, ApiResponse } from '../types/client.types';
-import { ClientModel } from '../schemas/client.schema';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { ApiResponse } from '../types/client.types';
+import { ClientEntity } from '../entities/client.entity';
 
 @Injectable()
 export class ClientProfileService {
   constructor(
-    @InjectModel(ClientModel.name) private clientModel: Model<Client>,
+    @InjectRepository(ClientEntity)
+    private clientRepository: Repository<ClientEntity>,
   ) {}
 
-  async createClientProfile(profileData: Partial<Client>, businessId: string): Promise<ApiResponse<Client>> {
+  async createClientProfile(profileData: Partial<ClientEntity>, businessId: string): Promise<ApiResponse<ClientEntity>> {
     try {
-      const client = new this.clientModel({
+      const client = this.clientRepository.create({
         ...profileData,
         businessId,
       });
-      const savedClient = await client.save();
+      const savedClient = await this.clientRepository.save(client);
 
       return {
         success: true,
@@ -33,12 +33,14 @@ export class ClientProfileService {
     }
   }
 
-  async getClientProfile(clientId: string, businessId: string): Promise<ApiResponse<Client>> {
+  async getClientProfile(clientId: string, businessId: string): Promise<ApiResponse<ClientEntity>> {
     try {
-      const client = await this.clientModel.findOne({
-        _id: clientId,
-        businessId,
-        isActive: true,
+      const client = await this.clientRepository.findOne({
+        where: {
+          id: clientId,
+          businessId,
+          isActive: true,
+        },
       });
 
       if (!client) {
@@ -66,14 +68,16 @@ export class ClientProfileService {
   async updateClientProfile(
     clientId: string,
     businessId: string,
-    updates: Partial<Client>,
-  ): Promise<ApiResponse<Client>> {
+    updates: Partial<ClientEntity>,
+  ): Promise<ApiResponse<ClientEntity>> {
     try {
-      const client = await this.clientModel.findOneAndUpdate(
-        { _id: clientId, businessId, isActive: true },
-        { ...updates, updatedAt: new Date() },
-        { new: true, runValidators: true },
-      );
+      const client = await this.clientRepository.findOne({
+        where: {
+          id: clientId,
+          businessId,
+          isActive: true,
+        },
+      });
 
       if (!client) {
         return {
@@ -83,9 +87,12 @@ export class ClientProfileService {
         };
       }
 
+      Object.assign(client, updates);
+      const updatedClient = await this.clientRepository.save(client);
+
       return {
         success: true,
-        data: client,
+        data: updatedClient,
         message: 'Client profile updated successfully',
       };
     } catch (error) {
@@ -97,7 +104,7 @@ export class ClientProfileService {
     }
   }
 
-  async validateClientProfile(profileData: Partial<Client>): Promise<ApiResponse<boolean>> {
+  async validateClientProfile(profileData: Partial<ClientEntity>): Promise<ApiResponse<boolean>> {
     try {
       const requiredFields = ['firstName', 'lastName', 'email', 'phone'];
       const missingFields = requiredFields.filter(field => !profileData[field]);
@@ -111,11 +118,12 @@ export class ClientProfileService {
         };
       }
 
-      // Check if email already exists
       if (profileData.email) {
-        const existingClient = await this.clientModel.findOne({
-          email: profileData.email,
-          isActive: true,
+        const existingClient = await this.clientRepository.findOne({
+          where: {
+            email: profileData.email,
+            isActive: true,
+          },
         });
         if (existingClient) {
           return {

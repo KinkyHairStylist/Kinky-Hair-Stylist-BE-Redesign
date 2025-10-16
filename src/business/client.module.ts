@@ -1,23 +1,26 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { ClientController } from './controllers/client.controller';
 import { ClientService } from './services/client.service';
 import { ClientProfileService } from './services/client-profile.service';
 import { ClientAddressService } from './services/client-address.service';
 import { EmergencyContactService } from './services/emergency-contact.service';
-import { ClientModel, ClientSchema } from './schemas/client.schema';
-import { ClientAddressModel, ClientAddressSchema } from './schemas/client-address.schema';
-import { EmergencyContact } from './schemas/emergency-contact.schema';
-import { ClientSettingsModel, ClientSettingsSchema } from './schemas/client-settings.schema';
+
+// Import entities
+import { ClientEntity } from './entities/client.entity';
+import { ClientAddressEntity } from './entities/client-address.entity';
+import { EmergencyContactEntity } from './entities/emergency-contact.entity';
+import { ClientSettingsEntity } from './entities/client-settings.entity';
+import { BusinessEntity } from './entities/business.entity';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: ClientModel.name, schema: ClientSchema },
-      { name: ClientAddressModel.name, schema: ClientAddressSchema },
-      { name: EmergencyContact.name, schema: EmergencyContact },
-      { name: ClientSettingsModel.name, schema: ClientSettingsSchema },
-      { name: 'Business', schema: require('./schemes/business.schema').BusinessSchema },
+    TypeOrmModule.forFeature([
+      ClientEntity,
+      ClientAddressEntity,
+      EmergencyContactEntity,
+      ClientSettingsEntity,
+      BusinessEntity,
     ]),
   ],
   controllers: [ClientController],

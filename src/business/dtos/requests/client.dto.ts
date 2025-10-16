@@ -1,23 +1,34 @@
-
 import { 
+  IsString, 
   IsEmail, 
   IsPhoneNumber, 
+  IsDate, 
   IsOptional, 
-  IsEnum, 
   IsBoolean, 
+  IsEnum, 
   IsArray, 
-  ValidateNested, 
-  IsString,
+  ValidateNested,
   MinLength,
-  IsNumber,
-  Min,
-  IsMongoId, 
-  IsDateString
+  IsObject
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { Types } from 'mongoose';
 
-export class CreateClientProfileDto {
+// Define ClientPreferencesDto FIRST to avoid circular dependency
+export class ClientPreferencesDto {
+  @IsOptional()
+  @IsEnum(['email', 'sms', 'phone'])
+  preferredContactMethod?: string;
+
+  @IsOptional()
+  @IsString()
+  language?: string;
+
+  @IsOptional()
+  @IsString()
+  timezone?: string;
+}
+
+export class ClientProfileDto {
   @IsString()
   @MinLength(1)
   firstName: string;
@@ -34,25 +45,189 @@ export class CreateClientProfileDto {
   phone: string;
 
   @IsOptional()
-  @IsDateString()
-  dateOfBirth?: string;
+  @IsDate()
+  @Type(() => Date)
+  dateOfBirth?: Date;
 
   @IsOptional()
-  @IsEnum(['male', 'female', 'other', 'prefer-not-to-say'])
+  @IsString()
   gender?: string;
 
   @IsOptional()
-  @IsEnum(['he-him', 'she-her', 'they-them', 'other'])
+  @IsString()
   pronouns?: string;
 
   @IsOptional()
+  @IsString()
   occupation?: string;
 
-  @IsEnum(['walk-in', 'referral', 'instagram', 'website', 'facebook', 'other'])
+  @IsString()
+  @MinLength(1)
   clientSource: string;
 
   @IsOptional()
+  @IsString()
   profileImage?: string;
+}
+
+export class ClientAddressDto {
+  @IsString()
+  @MinLength(1)
+  addressName: string;
+
+  @IsString()
+  @MinLength(1)
+  addressLine1: string;
+
+  @IsOptional()
+  @IsString()
+  addressLine2?: string;
+
+  @IsString()
+  @MinLength(1)
+  location: string;
+
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @IsString()
+  @MinLength(1)
+  state: string;
+
+  @IsString()
+  @MinLength(1)
+  zipCode: string;
+
+  @IsString()
+  @MinLength(1)
+  country: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isPrimary?: boolean;
+}
+
+export class EmergencyContactDto {
+  @IsString()
+  @MinLength(1)
+  firstName: string;
+
+  @IsString()
+  @MinLength(1)
+  lastName: string;
+
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @MinLength(1)
+  relationship: string;
+
+  @IsString()
+  @MinLength(1)
+  phone: string;
+}
+
+export class ClientSettingsDto {
+  @IsOptional()
+  @IsBoolean()
+  emailNotifications?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  smsNotifications?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  marketingEmails?: boolean;
+
+  @IsOptional()
+  @IsEnum(['regular', 'vip', 'new'])
+  clientType?: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ClientPreferencesDto)
+  preferences?: ClientPreferencesDto;
+}
+
+export class CreateClientDto {
+  @ValidateNested()
+  @Type(() => ClientProfileDto)
+  profile: ClientProfileDto;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ClientAddressDto)
+  addresses?: ClientAddressDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => EmergencyContactDto)
+  emergencyContacts?: EmergencyContactDto[];
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ClientSettingsDto)
+  settings?: ClientSettingsDto;
+}
+
+export class UpdateClientDto {
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ClientProfileDto)
+  profile?: ClientProfileDto;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ClientAddressDto)
+  addresses?: ClientAddressDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => EmergencyContactDto)
+  emergencyContacts?: EmergencyContactDto[];
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ClientSettingsDto)
+  settings?: ClientSettingsDto;
+}
+
+export class ClientFiltersDto {
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsEnum(['regular', 'vip', 'new', 'all'])
+  clientType?: string;
+
+  @IsOptional()
+  @IsString()
+  sortBy?: string;
+
+  @IsOptional()
+  @IsEnum(['asc', 'desc'])
+  sortOrder?: string;
+
+  @IsOptional()
+  @IsOptional()
+  @Type(() => Number)
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  limit?: number;
 }
 
 export class CreateClientAddressDto {
@@ -65,6 +240,7 @@ export class CreateClientAddressDto {
   addressLine1: string;
 
   @IsOptional()
+  @IsString()
   addressLine2?: string;
 
   @IsString()
@@ -72,22 +248,27 @@ export class CreateClientAddressDto {
   location: string;
 
   @IsOptional()
+  @IsString()
   city?: string;
 
-  @IsOptional()
-  state?: string;
+  @IsString()
+  @MinLength(1)
+  state: string;
+
+  @IsString()
+  @MinLength(1)
+  zipCode: string;
+
+  @IsString()
+  @MinLength(1)
+  country: string;
 
   @IsOptional()
-  zipCode?: string;
-
-  @IsOptional()
-  country?: string;
-
   @IsBoolean()
-  @IsOptional()
   isPrimary?: boolean;
 
-  @IsMongoId()
+  @IsString()
+  @MinLength(1)
   clientId: string;
 }
 
@@ -96,8 +277,9 @@ export class CreateEmergencyContactDto {
   @MinLength(1)
   firstName: string;
 
-  @IsOptional()
-  lastName?: string;
+  @IsString()
+  @MinLength(1)
+  lastName: string;
 
   @IsEmail()
   email: string;
@@ -110,123 +292,7 @@ export class CreateEmergencyContactDto {
   @MinLength(1)
   phone: string;
 
-  @IsMongoId()
+  @IsString()
+  @MinLength(1)
   clientId: string;
-}
-
-export class CreateClientSettingsDto {
-  @IsBoolean()
-  @IsOptional()
-  emailNotifications?: boolean;
-
-  @IsBoolean()
-  @IsOptional()
-  smsNotifications?: boolean;
-
-  @IsBoolean()
-  @IsOptional()
-  marketingEmails?: boolean;
-
-  @IsEnum(['vip', 'regular', 'new'])
-  @IsOptional()
-  clientType?: string;
-
-  @IsOptional()
-  notes?: string;
-
-  @IsOptional()
-  preferences?: {
-    preferredContactMethod?: 'email' | 'sms' | 'phone';
-    language?: string;
-    timezone?: string;
-  };
-}
-
-export class CreateClientDto {
-  @ValidateNested()
-  @Type(() => CreateClientProfileDto)
-  profile: CreateClientProfileDto;
-
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateClientAddressDto)
-  @IsOptional()
-  addresses?: CreateClientAddressDto[];
-
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateEmergencyContactDto)
-  @IsOptional()
-  emergencyContacts?: CreateEmergencyContactDto[];
-
-  @ValidateNested()
-  @Type(() => CreateClientSettingsDto)
-  @IsOptional()
-  settings?: CreateClientSettingsDto;
-}
-
-export class UpdateClientDto {
-  @IsOptional()
-  @IsString()
-  firstName?: string;
-
-  @IsOptional()
-  @IsString()
-  lastName?: string;
-
-  @IsOptional()
-  @IsEmail()
-  email?: string;
-
-  @IsOptional()
-  @IsString()
-  phone?: string;
-
-  @IsOptional()
-  @IsDateString()
-  dateOfBirth?: string;
-
-  @IsOptional()
-  @IsEnum(['male', 'female', 'other', 'prefer-not-to-say'])
-  gender?: string;
-
-  @IsOptional()
-  @IsEnum(['he-him', 'she-her', 'they-them', 'other'])
-  pronouns?: string;
-
-  @IsOptional()
-  occupation?: string;
-
-  @IsOptional()
-  @IsEnum(['walk-in', 'referral', 'instagram', 'website', 'facebook', 'other'])
-  clientSource?: string;
-
-  @IsOptional()
-  profileImage?: string;
-}
-
-export class ClientFiltersDto {
-  @IsOptional()
-  search?: string;
-
-  @IsOptional()
-  @IsEnum(['vip', 'regular', 'new', 'all'])
-  clientType?: string;
-
-  @IsOptional()
-  sortBy?: string;
-
-  @IsOptional()
-  @IsEnum(['asc', 'desc'])
-  sortOrder?: string;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  page?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  limit?: number;
 }

@@ -1,4 +1,4 @@
- import { 
+import { 
   Controller, 
   Post, 
   Get, 
@@ -27,6 +27,7 @@ import {
 } from '../dtos/requests/client.dto';
 import { JwtAuthGuard } from '../middlewares/guards/jwt-auth.guard';
 import { ClientFormData } from '../types/client.types';
+import { ClientEntity } from '../entities/client.entity';
 
 @Controller('clients')
 @UseGuards(JwtAuthGuard)
@@ -44,7 +45,7 @@ export class ClientController {
     @Request() req,
     @Body() createClientDto: CreateClientDto,
   ) {
-    const ownerId = req.user._id || req.user.userId;
+    const ownerId = req.user.id;
     if (!ownerId) {
       throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
     }
@@ -56,45 +57,41 @@ export class ClientController {
         lastName: createClientDto.profile.lastName,
         email: createClientDto.profile.email,
         phone: createClientDto.profile.phone,
-        dateOfBirth: createClientDto.profile.dateOfBirth 
-          ? (typeof createClientDto.profile.dateOfBirth === 'string' 
-              ? new Date(createClientDto.profile.dateOfBirth) 
-              : createClientDto.profile.dateOfBirth)
-          : new Date(),
+        dateOfBirth: createClientDto.profile.dateOfBirth || undefined,
         gender: createClientDto.profile.gender || undefined,
         pronouns: createClientDto.profile.pronouns || undefined,
+        occupation: createClientDto.profile.occupation || undefined,
         clientSource: createClientDto.profile.clientSource,
         profileImage: createClientDto.profile.profileImage || undefined,
-        address: undefined,
       },
       addresses: createClientDto.addresses ? createClientDto.addresses.map(addr => ({
         addressName: addr.addressName,
         addressLine1: addr.addressLine1,
-        addressLine2: addr.addressLine2 || null,
+        addressLine2: addr.addressLine2 || undefined,
         location: addr.location,
-        city: addr.city || null,
-        state: addr.state || '',
-        zipCode: addr.zipCode || '',
-        country: addr.country || '',
+        city: addr.city || undefined,
+        state: addr.state,
+        zipCode: addr.zipCode,
+        country: addr.country || 'Australia',
         isPrimary: addr.isPrimary || false,
       })) : undefined,
       emergencyContacts: createClientDto.emergencyContacts ? createClientDto.emergencyContacts.map(contact => ({
         firstName: contact.firstName,
-        lastName: contact.lastName || undefined,
+        lastName: contact.lastName,
         email: contact.email,
         relationship: contact.relationship,
         phone: contact.phone,
       })) : undefined,
       settings: {
-        emailNotifications: createClientDto.settings?.emailNotifications || false,
-        smsNotifications: createClientDto.settings?.smsNotifications || false,
-        marketingEmails: createClientDto.settings?.marketingEmails || false,
+        emailNotifications: createClientDto.settings?.emailNotifications ?? true,
+        smsNotifications: createClientDto.settings?.smsNotifications ?? true,
+        marketingEmails: createClientDto.settings?.marketingEmails ?? false,
         clientType: (createClientDto.settings?.clientType as 'regular' | 'vip' | 'new') || 'regular',
         notes: createClientDto.settings?.notes || undefined,
         preferences: {
           preferredContactMethod: createClientDto.settings?.preferences?.preferredContactMethod || 'email',
           language: createClientDto.settings?.preferences?.language || 'en',
-          timeZone: createClientDto.settings?.preferences?.timezone || 'UTC',
+          timezone: createClientDto.settings?.preferences?.timezone || 'UTC',
         }
       }
     };
@@ -116,7 +113,7 @@ export class ClientController {
     @Request() req,
     @Query() filters: ClientFiltersDto,
   ) {
-    const ownerId = req.user._id || req.user.userId;
+    const ownerId = req.user.id;
     if (!ownerId) {
       throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
     }
@@ -157,7 +154,7 @@ export class ClientController {
     @Query('q') query: string,
     @Query() filters: ClientFiltersDto,
   ) {
-    const ownerId = req.user._id || req.user.userId;
+    const ownerId = req.user.id;
     if (!ownerId) {
       throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
     }
@@ -198,7 +195,7 @@ export class ClientController {
     @Request() req,
     @Param('clientId') clientId: string,
   ) {
-    const ownerId = req.user._id || req.user.userId;
+    const ownerId = req.user.id;
     if (!ownerId) {
       throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
     }
@@ -216,34 +213,51 @@ export class ClientController {
   }
 
   @Patch(':clientId')
-  async updateClient(
-    @Request() req,
-    @Param('clientId') clientId: string,
-    @Body() updateClientDto: UpdateClientDto,
-  ) {
-    const ownerId = req.user._id || req.user.userId;
-    if (!ownerId) {
-      throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
-    }
-
-    const result = await this.clientService.updateClient(clientId, ownerId, updateClientDto);
-    
-    if (!result.success) {
-      throw new HttpException(
-        { message: result.message, error: result.error },
-        HttpStatus.BAD_REQUEST
-      );
-    }
-
-    return result;
+async updateClient(
+  @Request() req,
+  @Param('clientId') clientId: string,
+  @Body() updateClientDto: UpdateClientDto,
+) {
+  const ownerId = req.user.id;
+  if (!ownerId) {
+    throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
   }
+
+  // Transform UpdateClientDto to match ClientEntity structure
+  const updates: Partial<ClientEntity> = {
+    // Profile updates
+    ...(updateClientDto.profile && {
+      firstName: updateClientDto.profile.firstName,
+      lastName: updateClientDto.profile.lastName,
+      email: updateClientDto.profile.email,
+      phone: updateClientDto.profile.phone,
+      dateOfBirth: updateClientDto.profile.dateOfBirth,
+      gender: updateClientDto.profile.gender,
+      pronouns: updateClientDto.profile.pronouns,
+      occupation: updateClientDto.profile.occupation,
+      clientSource: updateClientDto.profile.clientSource,
+      profileImage: updateClientDto.profile.profileImage,
+    }),
+  };
+
+  const result = await this.clientService.updateClient(clientId, ownerId, updates);
+  
+  if (!result.success) {
+    throw new HttpException(
+      { message: result.message, error: result.error },
+      HttpStatus.BAD_REQUEST
+    );
+  }
+
+  return result;
+}
 
   @Delete(':clientId')
   async deleteClient(
     @Request() req,
     @Param('clientId') clientId: string,
   ) {
-    const ownerId = req.user._id || req.user.userId;
+    const ownerId = req.user.id;
     if (!ownerId) {
       throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
     }
@@ -265,7 +279,7 @@ export class ClientController {
     @Request() req,
     @Body() profileData: any,
   ) {
-    const ownerId = req.user._id || req.user.userId;
+    const ownerId = req.user.id;
     if (!ownerId) {
       throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
     }
@@ -287,7 +301,7 @@ export class ClientController {
     @Request() req,
     @Param('clientId') clientId: string,
   ) {
-    const ownerId = req.user._id || req.user.userId;
+    const ownerId = req.user.id;
     if (!ownerId) {
       throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
     }
@@ -321,46 +335,42 @@ export class ClientController {
   }
 
   @Post('addresses')
-  async addClientAddress(
-    @Request() req,
-    @Body() addressData: CreateClientAddressDto,
-  ) {
-    const ownerId = req.user._id || req.user.userId;
-    if (!ownerId) {
-      throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
-    }
-
-    // Transform address data to match ClientAddress type
-    const transformedAddressData = {
-      addressName: addressData.addressName,
-      addressLine1: addressData.addressLine1,
-      addressLine2: addressData.addressLine2 || null,
-      location: addressData.location,
-      city: addressData.city || null,
-      state: addressData.state || '',
-      zipCode: addressData.zipCode || '',
-      country: addressData.country || '',
-      isPrimary: addressData.isPrimary || false,
-    };
-
-    const result = await this.clientAddressService.addClientAddress(transformedAddressData as any, ownerId);
-    
-    if (!result.success) {
-      throw new HttpException(
-        { message: result.message, error: result.error },
-        HttpStatus.BAD_REQUEST
-      );
-    }
-
-    return result;
+async addClientAddress(
+  @Request() req,
+  @Body() addressData: CreateClientAddressDto,
+) {
+  const ownerId = req.user.id;
+  if (!ownerId) {
+    throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
   }
+
+  // Transform address data with required isPrimary value
+  const transformedAddressData = {
+    ...addressData,
+    addressLine2: addressData.addressLine2 || '',
+    city: addressData.city || '',
+    client: { id: addressData.clientId } as ClientEntity,
+    isPrimary: addressData.isPrimary || false, // Ensure isPrimary is always a boolean
+  };
+
+  const result = await this.clientAddressService.addClientAddress(transformedAddressData, ownerId);
+  
+  if (!result.success) {
+    throw new HttpException(
+      { message: result.message, error: result.error },
+      HttpStatus.BAD_REQUEST
+    );
+  }
+
+  return result;
+}
 
   @Get(':clientId/addresses')
   async getClientAddresses(
     @Request() req,
     @Param('clientId') clientId: string,
   ) {
-    const ownerId = req.user._id || req.user.userId;
+    const ownerId = req.user.id;
     if (!ownerId) {
       throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
     }
@@ -382,12 +392,19 @@ export class ClientController {
     @Request() req,
     @Body() contactData: CreateEmergencyContactDto,
   ) {
-    const ownerId = req.user._id || req.user.userId;
+    const ownerId = req.user.id;
     if (!ownerId) {
       throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
     }
 
-    const result = await this.emergencyContactService.addEmergencyContact(contactData, ownerId);
+    // Ensure client relation is included
+    const contactDataWithRequiredLastName = {
+      ...contactData,
+      lastName: contactData.lastName,
+      client: { id: contactData.clientId } as ClientEntity,
+    };
+
+    const result = await this.emergencyContactService.addEmergencyContact(contactDataWithRequiredLastName, ownerId);
     
     if (!result.success) {
       throw new HttpException(
@@ -404,7 +421,7 @@ export class ClientController {
     @Request() req,
     @Param('clientId') clientId: string,
   ) {
-    const ownerId = req.user._id || req.user.userId;
+    const ownerId = req.user.id;
     if (!ownerId) {
       throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
     }
