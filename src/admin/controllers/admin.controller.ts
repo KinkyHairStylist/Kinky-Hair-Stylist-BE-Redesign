@@ -10,6 +10,11 @@ export class AdminController {
         return this.adminService.getAllUsers();
     }
 
+    @Get('getAllAppointments')
+    async getAllAppointments() {
+        return this.adminService.getAllAppointments();
+    }
+
 
     @Get('getAllBusinesses')
     async getAllBusinesses() {

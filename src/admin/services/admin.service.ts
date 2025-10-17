@@ -7,6 +7,7 @@ import {Business} from "../../business/entities/business.entity";
 import { BusinessApplication } from "../../business/entities/businessApplication.entity";
 import {ApplicationStatus} from "../../business/types/constants";
 import {Application} from "express";
+import {BookingDay} from "../../business/entities/booking-day.entity";
 
 @Injectable()
 export class AdminService {
@@ -14,12 +15,19 @@ export class AdminService {
         @InjectRepository(User) private userRepo: Repository<User>,
         @InjectRepository(Business) private businessRepo: Repository<Business>,
         @InjectRepository(BusinessApplication) private businessApplicationRepo:Repository<BusinessApplication>,
+        @InjectRepository(BookingDay) private bookingDayRepo: Repository<BookingDay>,
     ) {
     }
 
     async getAllUsers() {
         return this.userRepo.find();
     }
+
+    async getAllAppointments(){
+        return this.bookingDayRepo.find();
+    }
+
+
 
     async getAllBusinesses(){
         return this.businessRepo.find();
