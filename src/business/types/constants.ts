@@ -14,3 +14,13 @@ export interface Payload {
   sub: string;
   email: string;
 }
+
+export interface BusinessServiceData {
+  title: string;
+  description: string;
+}
+
+export interface BookingPoliciesData {
+  title: string;
+  duration: string[];
+}

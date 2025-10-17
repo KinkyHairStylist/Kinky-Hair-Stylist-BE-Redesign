@@ -31,10 +31,10 @@ export class CreateUserDto {
   readonly phone: string;
 
   @IsEnum(Gender, {
-    message: 'Gender must be one of the following: MALE, FEMALE, CUSTOM.',
-  })
+      message: 'Gender must be one of the following: MALE, FEMALE, CUSTOM.',
+    })
   @IsNotEmpty({ message: 'Gender is required.' })
-  readonly gender: Gender;
+  gender: string;
 
   @IsString({ message: 'Verification token must be a string.' })
   @IsNotEmpty({
