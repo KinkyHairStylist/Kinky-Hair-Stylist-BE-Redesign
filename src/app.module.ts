@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { EmailModule } from './email/email.module'; // Add this
+import { EmailModule } from './email/email.module';
+import { BusinessModule } from './business/business.module';
 
 @Module({
   imports: [
@@ -18,15 +19,17 @@ import { EmailModule } from './email/email.module'; // Add this
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
         ssl: {
+          require: true,
           rejectUnauthorized: false,
         },
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: false,
+        synchronize: true,
         logging: true,
       }),
       inject: [ConfigService],
     }),
-    EmailModule, // Add this
+    EmailModule,
+    BusinessModule,
   ],
 })
 export class AppModule {}
