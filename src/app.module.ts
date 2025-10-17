@@ -1,7 +1,13 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { EmailModule } from './email/email.module'; // Add this
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { UserModule } from './user/user.module';
+import { EmailModule } from './email/email.module';
+import { SalonModule } from './user/salon/salon.module';
+import { BookingModule } from './user/salon/booking/booking.module';
+import { AppService } from './app.service';
+import { AppController } from './app.controller';
+import { SeedsModule } from './user/salon/seeds/seed.module';
 
 @Module({
   imports: [
@@ -26,7 +32,13 @@ import { EmailModule } from './email/email.module'; // Add this
       }),
       inject: [ConfigService],
     }),
-    EmailModule, // Add this
+    UserModule,
+    SalonModule,
+    SeedsModule,
+    BookingModule,
+    EmailModule,
   ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
