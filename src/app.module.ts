@@ -3,7 +3,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EmailModule } from './email/email.module';
 import { BusinessModule } from './business/business.module';
-import {AdminModule} from "./admin/admin.module";
+import { AdminModule } from './admin/admin.module';
+import { GiftcardModule } from './admin/giftcard/giftcard.module';
+import { PaymentModule } from './admin/payment/payment.module';
+import { TransactionFeeModule } from './admin/transaction-fee/transaction-fee.module';
+import { WithdrawalModule } from './admin/withdrawal/withdrawal.module';
+import { WalletModule } from './admin/wallet/wallet.module';
+import { ModerationModule } from './admin/moderation/moderation.module';
 
 @Module({
   imports: [
@@ -31,7 +37,14 @@ import {AdminModule} from "./admin/admin.module";
     }),
     EmailModule,
     BusinessModule,
-    AdminModule
+    AdminModule,
+    GiftcardModule,
+    PaymentModule,
+    TransactionFeeModule,
+    WithdrawalModule,
+    WalletModule,
+    ModerationModule,
   ],
+  controllers: [],
 })
 export class AppModule {}
