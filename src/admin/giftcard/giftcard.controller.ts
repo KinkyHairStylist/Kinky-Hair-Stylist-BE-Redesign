@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete } from '@nestjs/common';
 import { GiftcardService } from './giftcard.service';
 import { CreateGiftCardDto } from './dto/create-giftcard.dto';
 
@@ -35,4 +35,10 @@ export class GiftcardController {
   async getUsageHistory(@Param('id') id: string) {
     return await this.giftcardService.getUsageHistory(id);
   }
+
+  @Delete('delete-all')
+async deleteAll() {
+  return this.giftcardService.deleteAllGiftCards();
+}
+
 }

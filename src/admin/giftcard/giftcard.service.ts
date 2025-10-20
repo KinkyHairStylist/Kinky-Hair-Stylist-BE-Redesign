@@ -28,8 +28,8 @@ export class GiftcardService {
     return code;
   }
 
-  // 🟢 Issue new gift card
- async issueGiftCard(dto: CreateGiftCardDto) {
+  // Issue new gift card
+  async issueGiftCard(dto: CreateGiftCardDto) {
     const code = await this.generateGiftCardCode();
 
     const giftCard = this.giftCardRepo.create({
@@ -48,8 +48,7 @@ export class GiftcardService {
     };
   }
 
-
-  // 📋 Get all gift cards
+  // Get all gift cards
   async findAll() {
     const cards = await this.giftCardRepo.find();
     return {
@@ -59,13 +58,14 @@ export class GiftcardService {
     };
   }
 
-  // 🔍 Get one gift card
+  // Get one gift card
   async findOne(identifier: string) {
     const giftCard = await this.giftCardRepo.findOne({
       where: [{ id: identifier }, { code: identifier }],
     });
 
-    if (!giftCard) throw new NotFoundException(`Gift card not found for ID/code: ${identifier}`);
+    if (!giftCard)
+      throw new NotFoundException(`Gift card not found for ID/code: ${identifier}`);
 
     return {
       message: 'Gift card fetched successfully.',
@@ -73,7 +73,7 @@ export class GiftcardService {
     };
   }
 
-  // 🚫 Deactivate a gift card
+  // Deactivate a gift card
   async deactivateGiftCard(id: string) {
     const result = await this.giftCardRepo.findOne({ where: { id } });
     if (!result) throw new NotFoundException('Gift card not found.');
@@ -92,7 +92,7 @@ export class GiftcardService {
     };
   }
 
-  // 💵 Refund gift card
+  // Refund gift card
   async refundGiftCard(id: string, amount: number) {
     const giftCard = await this.giftCardRepo.findOne({ where: { id } });
     if (!giftCard) throw new NotFoundException('Gift card not found.');
@@ -111,7 +111,7 @@ export class GiftcardService {
     };
   }
 
-  // 📜 Get usage history (placeholder)
+  // Get usage history
   async getUsageHistory(id: string) {
     const giftCard = await this.giftCardRepo.findOne({ where: { id } });
     if (!giftCard) throw new NotFoundException('Gift card not found.');
@@ -122,6 +122,15 @@ export class GiftcardService {
         lastUsedDate: giftCard.lastUsedDate,
         note: 'Transactions feature not yet implemented.',
       },
+    };
+  }
+
+  // 🗑️ Delete all gift cards
+  async deleteAllGiftCards() {
+    const result = await this.giftCardRepo.clear();
+    return {
+      message: 'All gift cards have been permanently deleted.',
+      result,
     };
   }
 }

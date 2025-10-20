@@ -8,5 +8,7 @@ import { GiftCard } from './entities/giftcard.entity';
   imports: [TypeOrmModule.forFeature([GiftCard])],
   controllers: [GiftcardController],
   providers: [GiftcardService],
+   exports: [GiftcardService, TypeOrmModule],
+  
 })
 export class GiftcardModule {}
