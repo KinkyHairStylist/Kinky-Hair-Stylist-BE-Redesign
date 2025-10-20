@@ -1,4 +1,4 @@
-import {Body, Controller, Get, Param, Post, Res} from '@nestjs/common';
+import {Body, Controller, Get, Param, Post, Req, Res} from '@nestjs/common';
 import { AdminService } from '../services/admin.service';
 
 @Controller('admin')
@@ -8,6 +8,16 @@ export class AdminController {
     @Get('getAllUsers')
     async getAllUsers() {
         return this.adminService.getAllUsers();
+    }
+
+    @Post('cancelAppointment')
+    async cancelAppointment(@Body()body:{id:string ,reason:string}) {
+        return this.adminService.cancelAppointment(body.id,body.reason);
+    }
+
+    @Get('getAppointment/:id')
+    async getAppointment(@Param('id') id: string) {
+        return this.adminService.getAppointmentById(id);
     }
 
     @Get('getAllAppointments')
@@ -25,6 +35,12 @@ export class AdminController {
     async getPendingApplications() {
         return this.adminService.getPendingApplications()
     }
+
+    @Post('suspendBusiness')
+    async suspendBusiness(@Body() body:{ id: string }) {
+        return this.adminService.suspendBusiness(body.id)
+    }
+
 
     @Post("findApplicationById")
     async findApplicationById(@Body() body:{ id: string}) {

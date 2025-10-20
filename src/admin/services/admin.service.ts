@@ -1,13 +1,13 @@
-import {Injectable, BadRequestException, Post, Body, UnauthorizedException} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import {BadRequestException, Injectable, UnauthorizedException} from '@nestjs/common';
+import {InjectRepository} from '@nestjs/typeorm';
+import {Repository} from 'typeorm';
 
-import { User } from '../../business/entities/user.entity';
-import {Business} from "../../business/entities/business.entity";
-import { BusinessApplication } from "../../business/entities/businessApplication.entity";
+import {User} from '../../business/entities/user.entity';
+import {Business, BusinessStatus} from "../../business/entities/business.entity";
+import {BusinessApplication} from "../../business/entities/businessApplication.entity";
 import {ApplicationStatus} from "../../business/types/constants";
-import {Application} from "express";
 import {BookingDay} from "../../business/entities/booking-day.entity";
+import {Appointment, AppointmentStatus} from "../../business/entities/appointment.entity";
 
 @Injectable()
 export class AdminService {
@@ -15,7 +15,7 @@ export class AdminService {
         @InjectRepository(User) private userRepo: Repository<User>,
         @InjectRepository(Business) private businessRepo: Repository<Business>,
         @InjectRepository(BusinessApplication) private businessApplicationRepo:Repository<BusinessApplication>,
-        @InjectRepository(BookingDay) private bookingDayRepo: Repository<BookingDay>,
+        @InjectRepository(Appointment) private appointmentRepo: Repository<Appointment>,
     ) {
     }
 
@@ -24,9 +24,28 @@ export class AdminService {
     }
 
     async getAllAppointments(){
-        return this.bookingDayRepo.find();
+        return this.appointmentRepo.find();
     }
 
+    async getAppointmentById(appointmentId: string){
+        return this.appointmentRepo.findOne({where: {id: appointmentId}});
+    }
+
+    refund(appointment: Appointment){
+
+    }
+
+    async cancelAppointment(appointmentId: string,reason:string){
+        const appointment = await this.appointmentRepo.findOne({where: {id: appointmentId}});
+        if(!appointment){
+            throw new UnauthorizedException('appointment does not exist');
+        }
+        this.refund(appointment);
+
+        appointment.status = AppointmentStatus.CANCELLED;
+        this.appointmentRepo.save(appointment);
+        return "done!"
+    }
 
 
     async getAllBusinesses(){
@@ -47,22 +66,22 @@ export class AdminService {
     }
 
     async rejectApplication(id: string) {
-        const application = await this.businessApplicationRepo.findOne({ where: { id } });
+        const application = await this.businessRepo.findOne({ where: { id } });
         if (!application) {
             throw new UnauthorizedException('Application not found');
         }
-        application.applicationStatus = ApplicationStatus.REJECTED;
-        return this.businessApplicationRepo.save(application);
+        application.status = BusinessStatus.REJECTED;
+        return this.businessRepo.save(application);
 
     }
 
     async approveApplication(id: string) {
-        const application = await this.businessApplicationRepo.findOne({ where: { id } });
+        const application = await this.businessRepo.findOne({ where: { id } });
         if (!application) {
             throw new UnauthorizedException('Application not found');
         }
-        application.applicationStatus = ApplicationStatus.APPROVED;
-        return this.businessApplicationRepo.save(application);
+        application.status = BusinessStatus.APPROVED;
+        return this.businessRepo.save(application);
 
     }
 
@@ -122,6 +141,18 @@ export class AdminService {
         await this.userRepo.save(user);
 
         return { message: `User ${user.email} has been suspended.` };
+    }
+
+    async suspendBusiness(id: string) {
+        const business = await this.businessRepo.findOne({ where: {id}})
+        if (!business) {
+            throw new BadRequestException('User not found');
+        }
+
+        business.status = BusinessStatus.SUSPENDED;
+
+        await this.businessRepo.save(business);
+
     }
 
     async unsuspend(id: string) {

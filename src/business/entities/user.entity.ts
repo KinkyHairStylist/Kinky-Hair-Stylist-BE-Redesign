@@ -9,6 +9,7 @@ import {
 import { Gender } from '../types/constants';
 import { RefreshToken } from './refresh.token.entity';
 import { Business } from './business.entity';
+import {Appointment} from "./appointment.entity";
 
 @Entity('users')
 export class User {
@@ -26,6 +27,9 @@ export class User {
 
   @Column({ unique: true })
   email: string;
+
+  @OneToMany(() => Appointment, (appointment) => appointment.client,{nullable:true})
+  clientAppointments: Appointment[];
 
   @Column()
   firstName: string;
