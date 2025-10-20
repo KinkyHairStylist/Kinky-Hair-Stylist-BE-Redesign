@@ -6,10 +6,10 @@ import { User } from '../business/entities/user.entity'
 import {Business} from "../business/entities/business.entity";
 
 import {BusinessApplication} from "../business/entities/businessApplication.entity";
-import {BookingDay} from "../business/entities/booking-day.entity";
+import {Appointment} from "../business/entities/appointment.entity";
 
 @Module({
-    imports: [TypeOrmModule.forFeature([User]),TypeOrmModule.forFeature([Business]), TypeOrmModule.forFeature([BookingDay]),
+    imports: [TypeOrmModule.forFeature([User]),TypeOrmModule.forFeature([Business]), TypeOrmModule.forFeature([Appointment]),
         TypeOrmModule.forFeature([BusinessApplication])],
     controllers: [AdminController],
     providers: [AdminService],
