@@ -6,8 +6,13 @@ import {User} from '../../business/entities/user.entity';
 import {Business, BusinessStatus} from "../../business/entities/business.entity";
 import {BusinessApplication} from "../../business/entities/businessApplication.entity";
 import {ApplicationStatus} from "../../business/types/constants";
-import {BookingDay} from "../../business/entities/booking-day.entity";
 import {Appointment, AppointmentStatus} from "../../business/entities/appointment.entity";
+import {Dispute, DisputeStatus} from "../../business/entities/dispute.entity";
+import {CreateMembershipPlanDto} from "../../business/dtos/requests/CreateMembershipDto";
+import {MembershipPlan} from "../../business/entities/membership.entity";
+import {GetMembershipPlanDto} from "../../business/dtos/response/GetMembershipPlanDto";
+import {GetSubscriptionDto} from "../../business/dtos/response/GetSubscriptionDto";
+import {Status, Subscription} from "../../business/entities/subscription.entity";
 
 @Injectable()
 export class AdminService {
@@ -16,11 +21,90 @@ export class AdminService {
         @InjectRepository(Business) private businessRepo: Repository<Business>,
         @InjectRepository(BusinessApplication) private businessApplicationRepo:Repository<BusinessApplication>,
         @InjectRepository(Appointment) private appointmentRepo: Repository<Appointment>,
+        @InjectRepository(Dispute) private disputeRepo: Repository<Dispute>,
+        @InjectRepository(MembershipPlan) private membershipPlanRepo: Repository<MembershipPlan>,
+        @InjectRepository(Subscription) private subscriptionRepo: Repository<Subscription>,
     ) {
+
     }
 
     async getAllUsers() {
         return this.userRepo.find();
+    }
+
+    async createMembershipPlan(createMembershipPlanDto: CreateMembershipPlanDto) {
+        const plan = this.membershipPlanRepo.create(createMembershipPlanDto);
+        return await this.membershipPlanRepo.save(plan);
+    }
+
+    async updateMembershipPlan(
+        id: string,
+        createMembershipPlanDto: CreateMembershipPlanDto,
+    ) {
+        const plan = await this.membershipPlanRepo.findOne({ where: { id } });
+
+        if (!plan) {
+            throw new Error('Membership plan not found');
+        }
+
+
+        Object.assign(plan, createMembershipPlanDto);
+
+        return await this.membershipPlanRepo.save(plan);
+    }
+
+    async removeMembershipPlan(id: string,reason: string) {
+        const plan = await this.membershipPlanRepo.findOne({ where: { id } });
+        if (!plan) {
+            throw new Error('Membership plan not found');
+        }
+        plan.isActive = false;
+        if (plan.cancellation==null)plan.cancellation=""
+        plan.cancellation+=Date.now() + reason;
+        return this.membershipPlanRepo.save(plan);
+    }
+
+
+    async getAllMembershipPlans(): Promise<GetMembershipPlanDto[]> {
+        const plans = await this.membershipPlanRepo.find({where:{isActive:true}});
+
+        return plans.map(plan => ({
+            id:plan.id,
+            name: plan.name,
+            tier: plan.tier,
+            price: Number(plan.price),
+            saving: plan.saving,
+            sessions: plan.sessions,
+            features: plan.features,
+            isPopular: plan.isPopular,
+            activeSubscribers: plan.activeSubscribers,
+        }));
+    }
+
+    async cancelSubscription (id: string) {
+        const subscription = await this.subscriptionRepo.findOne({where:{id}});
+        if (!subscription) {
+            throw new Error('Subscription plan not found');
+        }
+        subscription.status = Status.CANCELLED
+        return await this.subscriptionRepo.save(subscription);
+    }
+
+    async getAllSubscribers(): Promise<GetSubscriptionDto[]>{
+        const subscriptions = await this.subscriptionRepo.find();
+
+        return subscriptions.map(subscription =>({
+
+            id: subscription.id,
+            user:subscription.user.firstName +" "+ subscription.user.surname,
+            plan: subscription.plan.name,
+            startDate: subscription.startDate.toLocaleDateString(),
+            nextBilling: subscription.nextBilling.toLocaleDateString(),
+            amount: subscription.plan.price,
+            status: subscription.status,
+
+        }));
+
     }
 
     async getAllAppointments(){
@@ -29,6 +113,16 @@ export class AdminService {
 
     async getAppointmentById(appointmentId: string){
         return this.appointmentRepo.findOne({where: {id: appointmentId}});
+    }
+
+    async rescheduleAppointment(body){
+        const appointment = await this.appointmentRepo.findOne({where: {id: body.id}});
+        if (!appointment) {
+            throw new Error('Appointment not found');
+        }
+        appointment.date = body.date;
+        appointment.time = body.time;
+        return  this.appointmentRepo.save(appointment);
     }
 
     refund(appointment: Appointment){
@@ -50,6 +144,17 @@ export class AdminService {
 
     async getAllBusinesses(){
         return this.businessRepo.find();
+    }
+
+    async resolveDispute(id:string,resolutionNote:string){
+        const dispute = await this.disputeRepo.findOne({where: {id: id}});
+        if(!dispute){
+            throw new UnauthorizedException('dispute does not exist');
+        }
+        dispute.status = DisputeStatus.RESOLVED;
+        dispute.resolutionNotes = resolutionNote;
+        return this.disputeRepo.save(dispute);
+
     }
 
     async getAllBusinessApplications(){
@@ -137,6 +242,7 @@ export class AdminService {
         }
 
         user.isSuspended = true;
+        user.isVerified =false;
         user.suspensionHistory += Date.now() + ": reason "+reason;
         await this.userRepo.save(user);
 
@@ -162,6 +268,7 @@ export class AdminService {
         }
 
         user.isSuspended = false;
+        user.isVerified = true;
         await this.userRepo.save(user);
 
         return { message: `User ${user.email} has been unsuspended.` };

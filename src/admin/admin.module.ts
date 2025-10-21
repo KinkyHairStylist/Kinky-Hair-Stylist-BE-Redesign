@@ -7,10 +7,19 @@ import {Business} from "../business/entities/business.entity";
 
 import {BusinessApplication} from "../business/entities/businessApplication.entity";
 import {Appointment} from "../business/entities/appointment.entity";
+import {Dispute} from "../business/entities/dispute.entity";
+import {MembershipPlan} from "../business/entities/membership.entity";
+import {Subscription} from "../business/entities/subscription.entity";
 
 @Module({
-    imports: [TypeOrmModule.forFeature([User]),TypeOrmModule.forFeature([Business]), TypeOrmModule.forFeature([Appointment]),
-        TypeOrmModule.forFeature([BusinessApplication])],
+    imports: [TypeOrmModule.forFeature([User]),
+        TypeOrmModule.forFeature([MembershipPlan]),
+        TypeOrmModule.forFeature([Business]),
+        TypeOrmModule.forFeature([Dispute]),
+        TypeOrmModule.forFeature([Appointment]),
+        TypeOrmModule.forFeature([BusinessApplication]),
+        TypeOrmModule.forFeature([Subscription])
+    ],
     controllers: [AdminController],
     providers: [AdminService],
     exports: [AdminService],
