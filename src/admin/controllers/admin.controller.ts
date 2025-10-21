@@ -1,5 +1,7 @@
 import {Body, Controller, Get, Param, Post, Req, Res} from '@nestjs/common';
 import { AdminService } from '../services/admin.service';
+import {CreateMembershipPlanDto} from "../../business/dtos/requests/CreateMembershipDto";
+
 
 @Controller('admin')
 export class AdminController {
@@ -10,9 +12,46 @@ export class AdminController {
         return this.adminService.getAllUsers();
     }
 
+    @Post('cancelSubscription')
+    async cancelSubscription(@Body() body:{id:string}) {
+        return this.adminService.cancelSubscription(body.id);
+    }
+
+    @Get('getAllSubscribers')
+    async getAllSubscribers() {
+        return this.adminService.getAllSubscribers();
+    }
+
+    @Post('removeMembershipPlan')
+    async removeMembershipPlan(@Body() body:{id:string,reason:string}){
+        return this.adminService.removeMembershipPlan(body.id,body.reason);
+    }
+
+
+    @Post('createMembershipPlan')
+    async createMembershipPlan(@Body() createMembershipPlanDto: CreateMembershipPlanDto) {
+        return this.adminService.createMembershipPlan(createMembershipPlanDto);
+    }
+
+    @Get('getAllMembershipPlans')
+    async getAllMembershipPlans(){
+        return this.adminService.getAllMembershipPlans();
+    }
+
+    @Post('updateMembershipPlan')
+    async updateMembershipPlan(@Body() body:{id:string,createMembershipPlanDto:CreateMembershipPlanDto}) {
+        return this.adminService.updateMembershipPlan(body.id,body.createMembershipPlanDto);
+    }
+
+
     @Post('cancelAppointment')
     async cancelAppointment(@Body()body:{id:string ,reason:string}) {
         return this.adminService.cancelAppointment(body.id,body.reason);
+    }
+
+    @Post('rescheduleAppointment')
+    async rescheduleAppointment(@Body()body:{id:string,reason:string,date:string,time:string}) {
+        return this.adminService.rescheduleAppointment(body);
     }
 
     @Get('getAppointment/:id')
@@ -50,6 +89,11 @@ export class AdminController {
     @Post('rejectApplication')
     async rejectApplication(@Body() body:{ id: string }) {
         return this.adminService.rejectApplication(body.id);
+    }
+
+    @Post('resolveDispute')
+    async resolveDispute(@Body() body:{ id: string,resolutionNotes:string }) {
+        return this.adminService.resolveDispute(body.id,body.resolutionNotes);
     }
 
     @Post('approveApplication')
