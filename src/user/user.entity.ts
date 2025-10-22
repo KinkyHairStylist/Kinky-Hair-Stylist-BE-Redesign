@@ -1,4 +1,6 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, OneToMany } from 'typeorm';
+import { Referral } from '../referral/referral.entity';
+import { UserMembership } from '../membership/membership.entity';
 
 @Entity()
 export class User {
@@ -40,4 +42,24 @@ export class User {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  // 👇 NEW: Referral fields
+  @Column({ nullable: true })
+  referralCode: string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  totalEarnings: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  pendingRewards: number;
+
+  @OneToMany(() => Referral, referral => referral.referrer)
+  referrals: Referral[];
+
+  @OneToMany(() => Referral, referral => referral.referee)
+  referredBy: Referral[];
+
+  // Add to existing User entity
+@OneToMany(() => UserMembership, membership => membership.user)
+memberships: UserMembership[];
 }

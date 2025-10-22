@@ -17,7 +17,7 @@ export class Booking {
   serviceIds: number[];
 
   @Column()
-  date: Date;
+  date: string;
 
   @Column()
   time: string;

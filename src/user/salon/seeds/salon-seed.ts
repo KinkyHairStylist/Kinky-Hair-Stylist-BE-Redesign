@@ -1,16 +1,12 @@
 // src/salon/seeds/salon-seed.ts
 
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Salon } from '../salon.entity';
+import { SalonService } from '../salon.service';
+import { CreateSalonDto } from '../dto/create-salon.dto';
 
 @Injectable()
 export class SalonSeed {
-  constructor(
-    @InjectRepository(Salon)
-    private salonRepository: Repository<Salon>
-  ) {}
+  constructor(private readonly salonService: SalonService) {}
 
   async run() {
     console.log('Seeding salons...');
@@ -129,9 +125,7 @@ export class SalonSeed {
     ];
 
     for (const salon of salons) {
-      await this.salonRepository.save(
-        this.salonRepository.create(salon),
-      );
+      await this.salonService.create(salon as CreateSalonDto);
     }
 
     console.log(`✅ Seeded ${salons.length} salons`);

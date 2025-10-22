@@ -2,18 +2,17 @@
 
 import { Entity, Column, PrimaryGeneratedColumn, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { SalonImage } from './salon-image.entity';
+import { SalonService } from './salon-service.entity';
 
 @Entity()
 export class Salon {
-  distance: number;
-
   @PrimaryGeneratedColumn()
   id: number;
 
   @Column()
   name: string;
 
-  @Column()
+  @Column({ type: 'text', nullable: true })
   description: string;
 
   @Column()
@@ -32,17 +31,40 @@ export class Salon {
   reviewCount: number;
 
   @Column({ type: 'text', array: true, default: [] })
-  services: string[];
+  tags: string[];
 
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
+  @Column({ type: 'text', nullable: true })
+  businessInfo: string;
+
+  @Column({ type: 'text', nullable: true })
+  additionalPolicies: string;
+
+  @Column({ nullable: true })
+  phoneNumber: string;
+
+  @Column({ type: 'json', default: {} })
+  businessHours: Record<string, string>;
+
+  @Column({ type: 'boolean', default: false })
+  isMobile: boolean;
+
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  travelFee: number;
+
   @OneToMany(() => SalonImage, image => image.salon)
   images: SalonImage[];
+
+  @OneToMany(() => SalonService, service => service.salon)
+  services: SalonService[];
 
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  distance: number;
 }

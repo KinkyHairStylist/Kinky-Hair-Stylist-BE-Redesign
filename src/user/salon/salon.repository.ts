@@ -21,10 +21,6 @@ export class SalonRepository {
     return this.repository.findOne(options);
   }
 
-  create(createSalonDto: CreateSalonDto) {
-    return this.repository.create(createSalonDto);
-  }
-
   save(salon: Salon) {
     return this.repository.save(salon);
   }

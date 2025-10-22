@@ -2,20 +2,21 @@
 
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository, Like, MoreThanOrEqual } from 'typeorm';
 import { Salon } from './salon.entity';
 import { SalonImage } from './salon-image.entity';
-import { SalonRepository } from './salon.repository';
+import { SalonService as SalonServiceEntity } from './salon-service.entity';
 import { CreateSalonDto } from './dto/create-salon.dto';
-import { UpdateSalonDto } from './dto/update-salon.dto';
 
 @Injectable()
 export class SalonService {
   constructor(
     @InjectRepository(Salon)
-    private salonRepository: SalonRepository,
+    private salonRepository: Repository<Salon>,
     @InjectRepository(SalonImage)
-    private salonImageRepository: Repository<SalonImage>
+    private salonImageRepository: Repository<SalonImage>,
+    @InjectRepository(SalonServiceEntity)
+    private salonServiceRepository: Repository<SalonServiceEntity>
   ) {}
 
   async findAll(options: {
@@ -28,77 +29,51 @@ export class SalonService {
     sortBy?: 'bestMatch' | 'topRated' | 'distance';
     lat?: number;
     lng?: number;
-  }): Promise<{ data: Salon[]; total: number; page: number; limit: number }> {
-    const { 
-      page = 1, 
-      limit = 10, 
-      search = '', 
-      location = '', 
-      minRating = 0, 
-      services = [], 
-      sortBy = 'bestMatch',
-      lat,
-      lng
-    } = options;
-
-    let query = this.salonRepository.createQueryBuilder('salon')
-      .where('salon.isActive = true');
-
-    if (search) {
-      query = query.andWhere('LOWER(salon.name) LIKE LOWER(:search)', { search: `%${search}%` });
-    }
+  }) {
+    const { page = 1, limit = 10, search, location, minRating, services } = options;
+    const baseWhere: any = {};
 
     if (location) {
-      query = query.andWhere('LOWER(salon.address) LIKE LOWER(:location)', { location: `%${location}%` });
+      baseWhere.address = Like(`%${location}%`);
     }
 
-    if (minRating > 0) {
-      query = query.andWhere('salon.rating >= :minRating', { minRating });
+    if (minRating) {
+      baseWhere.rating = MoreThanOrEqual(minRating);
     }
 
-    if (services.length > 0) {
-      services.forEach((service, index) => {
-        query = query.andWhere(`:service${index} = ANY(salon.services)`, { [`service${index}`]: service });
-      });
+    if (services && services.length > 0) {
+      baseWhere.services = {
+        name: In(services),
+      };
     }
 
-    // Apply sorting
-    switch (sortBy) {
-      case 'topRated':
-        query = query.orderBy('salon.rating', 'DESC').addOrderBy('salon.reviewCount', 'DESC');
-        break;
-      case 'distance':
-        if (lat && lng) {
-          query = query.addSelect(
-            `ROUND((6371 * ACOS(COS(RADIANS(${lat})) * COS(RADIANS(salon.latitude)) * COS(RADIANS(salon.longitude) - RADIANS(${lng})) + SIN(RADIANS(${lat})) * SIN(RADIANS(salon.latitude))))::numeric, 2)`,
-            'distance'
-          )
-          .orderBy('distance', 'ASC');
-        }
-        break;
-      case 'bestMatch':
-      default:
-        query = query.orderBy('salon.rating', 'DESC').addOrderBy('salon.createdAt', 'DESC');
-        break;
+    let where: any = baseWhere;
+    if (search) {
+      where = [
+        { ...baseWhere, name: Like(`%${search}%`) },
+        { ...baseWhere, description: Like(`%${search}%`) },
+      ];
     }
 
-    // Apply pagination
-    const offset = (page - 1) * limit;
-    const [data, total] = await query.skip(offset).take(limit).getManyAndCount();
+    const [result, total] = await this.salonRepository.findAndCount({
+      where,
+      take: limit,
+      skip: (page - 1) * limit,
+      relations: ['services'],
+    });
 
-    // Add distance if sorting by distance or if lat/lng provided
-    if ((sortBy === 'distance' || (lat && lng)) && !query.getQuery().includes('distance')) {
-      const salonsWithDistance = this.salonRepository.addDistanceToSalons(data, lat || 0, lng || 0);
-      return { data: salonsWithDistance, total, page, limit };
-    }
-
-    return { data, total, page, limit };
+    return {
+      data: result,
+      total,
+      page,
+      lastPage: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: number): Promise<Salon> {
     const salon = await this.salonRepository.findOne({
       where: { id },
-      relations: ['images']
+      relations: ['images', 'services']
     });
 
     if (!salon) {
@@ -115,18 +90,42 @@ export class SalonService {
     });
   }
 
+  async findServices(salonId: number): Promise<SalonServiceEntity[]> {
+    return this.salonServiceRepository.find({
+      where: { salon: { id: salonId }, isActive: true },
+      order: { name: 'ASC' }
+    });
+  }
+
   async create(createSalonDto: CreateSalonDto): Promise<Salon> {
-    const salon = this.salonRepository.create(createSalonDto);
-    return this.salonRepository.save(salon);
+    const { services: serviceNames, ...salonData } = createSalonDto;
+
+    const services = await this.salonServiceRepository.findBy({
+      name: In(serviceNames),
+    });
+
+    if (services.length !== serviceNames.length) {
+      throw new NotFoundException('One or more services not found');
+    }
+
+    const newSalon = this.salonRepository.create({
+      ...salonData,
+      services,
+    });
+
+    return this.salonRepository.save(newSalon);
   }
 
-  async update(id: number, updateSalonDto: UpdateSalonDto): Promise<Salon> {
+  // 👇 NEW: Get salon with full details
+  async getSalonDetails(id: number) {
     const salon = await this.findOne(id);
-    Object.assign(salon, updateSalonDto);
-    return this.salonRepository.save(salon);
-  }
-
-  async remove(id: number): Promise<void> {
-    await this.salonRepository.delete(id);
+    const images = await this.findImages(id);
+    const services = await this.findServices(id);
+    
+    return {
+      ...salon,
+      images,
+      services
+    };
   }
 }

@@ -3,11 +3,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserModule } from './user/user.module';
 import { EmailModule } from './email/email.module';
-import { SalonModule } from './user/salon/salon.module';
-import { BookingModule } from './user/salon/booking/booking.module';
+import { BookingModule } from './booking/booking.module';
 import { AppService } from './app.service';
 import { AppController } from './app.controller';
 import { SeedsModule } from './user/salon/seeds/seed.module';
+import { ReferralModule } from './referral/referral.module';
+import { MembershipModule } from './membership/membership.module';
 
 @Module({
   imports: [
@@ -27,16 +28,17 @@ import { SeedsModule } from './user/salon/seeds/seed.module';
           rejectUnauthorized: false,
         },
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: false,
+        synchronize: true,
         logging: true,
       }),
       inject: [ConfigService],
     }),
     UserModule,
-    SalonModule,
     SeedsModule,
     BookingModule,
     EmailModule,
+    ReferralModule,
+    MembershipModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -4,13 +4,14 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Salon } from './salon.entity';
 import { SalonImage } from './salon-image.entity';
+import { SalonService as SalonServiceEntity } from './salon-service.entity';
 import { SalonController } from './salon.controller';
 import { SalonService } from './salon.service';
 import { SalonRepository } from './salon.repository';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Salon, SalonImage]),
+    TypeOrmModule.forFeature([Salon, SalonImage, SalonServiceEntity]),
   ],
   controllers: [SalonController],
   providers: [

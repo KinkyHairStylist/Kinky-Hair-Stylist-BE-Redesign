@@ -1,22 +1,16 @@
-// src/seed.ts
+// src/seed2.ts
 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from 'src/app.module';
-import { SalonSeed } from './salon-seed';
-import { ImageSeed } from './image-seed';
-import { MembershipSeed } from '../../../membership/seeds/membership-seed';
+import { SalonSeed2 } from './salon-seed2';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  const salonSeed = app.get(SalonSeed);
-  const imageSeed = app.get(ImageSeed);
-  const membershipSeed = app.get(MembershipSeed);
+  const salonSeed = app.get(SalonSeed2);
   
   try {
     await salonSeed.run();
-    await imageSeed.run();
-    await membershipSeed.run();
     console.log('🎉 All seeds completed successfully!');
   } catch (error) {
     console.error('❌ Seed failed:', error);
