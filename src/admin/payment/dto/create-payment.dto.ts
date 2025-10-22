@@ -11,6 +11,6 @@ export class CreatePaymentDto {
   @IsNumber()
   amount: number;
 
-  @IsEnum(['stripe', 'paystack'])
+  @IsEnum(['paypal'])
   method: PaymentMethod;
 }
