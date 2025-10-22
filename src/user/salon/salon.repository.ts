@@ -34,8 +34,13 @@ export class SalonRepository {
   }
 
   // Calculate distance using Haversine formula
-  async findNearbySalons(lat: number, lng: number, radiusKm: number = 10): Promise<Salon[]> {
-    const query = this.repository.createQueryBuilder('salon')
+  async findNearbySalons(
+    lat: number,
+    lng: number,
+    radiusKm: number = 10,
+  ): Promise<Salon[]> {
+    const query = this.repository
+      .createQueryBuilder('salon')
       .select([
         'salon.id',
         'salon.name',
@@ -45,17 +50,19 @@ export class SalonRepository {
         'salon.rating',
         'salon.reviewCount',
         'salon.services',
-        'ROUND(6371 * ACOS(COS(RADIANS(:lat)) * COS(RADIANS(salon.latitude)) * COS(RADIANS(salon.longitude) - RADIANS(:lng)) + SIN(RADIANS(:lat)) * SIN(RADIANS(salon.latitude))), 2) AS distance'
+        'ROUND(6371 * ACOS(COS(RADIANS(:lat)) * COS(RADIANS(salon.latitude)) * COS(RADIANS(salon.longitude) - RADIANS(:lng)) + SIN(RADIANS(:lat)) * SIN(RADIANS(salon.latitude))), 2) AS distance',
       ])
       .where('salon.isActive = true')
-      .andWhere(`6371 * ACOS(COS(RADIANS(:lat)) * COS(RADIANS(salon.latitude)) * COS(RADIANS(salon.longitude) - RADIANS(:lng)) + SIN(RADIANS(:lat)) * SIN(RADIANS(salon.latitude))) <= :radius`)
+      .andWhere(
+        `6371 * ACOS(COS(RADIANS(:lat)) * COS(RADIANS(salon.latitude)) * COS(RADIANS(salon.longitude) - RADIANS(:lng)) + SIN(RADIANS(:lat)) * SIN(RADIANS(salon.latitude))) <= :radius`,
+      )
       .orderBy('distance', 'ASC')
       .setParameters({ lat, lng, radius: radiusKm });
 
     const result = await query.getRawMany();
-    
+
     // Map raw results back to Salon entities (excluding distance)
-    return result.map(row => {
+    return result.map((row) => {
       const salon = new Salon();
       salon.id = row.salon_id;
       salon.name = row.salon_name;
@@ -72,19 +79,24 @@ export class SalonRepository {
 
   // Add distance property to Salon entity (non-persistent)
   addDistanceToSalons(salons: Salon[], lat: number, lng: number): Salon[] {
-    return salons.map(salon => {
+    return salons.map((salon) => {
       const distance = this.calculateDistance(
         lat,
         lng,
         salon.latitude,
-        salon.longitude
+        salon.longitude,
       );
       salon.distance = distance;
       return salon;
     });
   }
 
-  private calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  private calculateDistance(
+    lat1: number,
+    lng1: number,
+    lat2: number,
+    lng2: number,
+  ): number {
     const R = 6371; // Earth's radius in km
     const dLat = this.toRad(lat2 - lat1);
     const dLng = this.toRad(lng2 - lng1);

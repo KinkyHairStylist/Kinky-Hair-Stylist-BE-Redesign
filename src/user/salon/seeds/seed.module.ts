@@ -8,9 +8,7 @@ import { SalonSeed } from './salon-seed';
 import { ImageSeed } from './image-seed';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Salon, SalonImage]),
-  ],
+  imports: [TypeOrmModule.forFeature([Salon, SalonImage])],
   providers: [SalonSeed, ImageSeed],
   exports: [SalonSeed, ImageSeed],
 })

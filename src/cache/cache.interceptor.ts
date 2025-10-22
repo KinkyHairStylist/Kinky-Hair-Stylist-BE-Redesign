@@ -1,6 +1,11 @@
 // src/cache/cache.interceptor.ts
 
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
+import {
+  Injectable,
+  NestInterceptor,
+  ExecutionContext,
+  CallHandler,
+} from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import * as crypto from 'crypto';
@@ -23,7 +28,7 @@ export class CacheInterceptor implements NestInterceptor {
       const entry = cache.get(key)!;
       if (Date.now() - entry.timestamp < CACHE_TTL) {
         console.log(`Cache hit for ${key}`);
-        return new Observable(observer => {
+        return new Observable((observer) => {
           observer.next(entry.data);
           observer.complete();
         });
@@ -34,13 +39,13 @@ export class CacheInterceptor implements NestInterceptor {
     console.log(`Cache miss for ${key}`);
 
     return next.handle().pipe(
-      tap(data => {
+      tap((data) => {
         cache.set(key, {
           data,
           timestamp: Date.now(),
         });
         console.log(`Cached response for ${key}`);
-      })
+      }),
     );
   }
 
@@ -48,7 +53,7 @@ export class CacheInterceptor implements NestInterceptor {
     const { method, originalUrl, query } = request;
     const sortedQuery = Object.keys(query)
       .sort()
-      .map(key => `${key}=${query[key]}`)
+      .map((key) => `${key}=${query[key]}`)
       .join('&');
     const key = `${method}:${originalUrl}?${sortedQuery}`;
     return crypto.createHash('md5').update(key).digest('hex');

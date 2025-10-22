@@ -1,6 +1,12 @@
 // src/salon/salon-image.entity.ts
 
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { Salon } from './salon.entity';
 
 @Entity()
@@ -17,7 +23,7 @@ export class SalonImage {
   @Column({ type: 'boolean', default: false })
   isPrimary: boolean;
 
-  @ManyToOne(() => Salon, salon => salon.images)
+  @ManyToOne(() => Salon, (salon) => salon.images)
   @JoinColumn()
   salon: Salon;
 

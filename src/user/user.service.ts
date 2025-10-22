@@ -8,7 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
-import sgMail = require('@sendgrid/mail');
+import * as sgMail from '@sendgrid/mail';
 import { User } from './user.entity';
 import {
   GetStartedDto,
@@ -21,6 +21,15 @@ import {
   ResetPasswordFinishDto,
   AuthResponseDto,
 } from './user.dto';
+
+type SanitizedUser = Omit<
+  User,
+  | 'password'
+  | 'verificationCode'
+  | 'verificationExpires'
+  | 'resetCode'
+  | 'resetCodeExpires'
+>;
 
 @Injectable()
 export class UserService {
@@ -105,7 +114,11 @@ export class UserService {
     }
 
     if (user.isVerified) {
-      return { message: 'Already verified', user: this.sanitizeUser(user), success: true };
+      return {
+        message: 'Already verified',
+        user: this.sanitizeUser(user),
+        success: true,
+      };
     }
 
     if (user.verificationCode !== code) {
@@ -259,7 +272,11 @@ export class UserService {
       throw new BadRequestException('Reset code expired');
     }
 
-    return { message: 'Reset code verified', user: this.sanitizeUser(user), success: true };
+    return {
+      message: 'Reset code verified',
+      user: this.sanitizeUser(user),
+      success: true,
+    };
   }
 
   async finishResetPassword(
@@ -300,8 +317,15 @@ export class UserService {
     return this.userRepository.findOne({ where: { id } });
   }
 
-  public sanitizeUser(user: User): any {
-    const { password, verificationCode, verificationExpires, resetCode, resetCodeExpires, ...result } = user;
+  public sanitizeUser(user: User): SanitizedUser {
+    const {
+      password,
+      verificationCode,
+      verificationExpires,
+      resetCode,
+      resetCodeExpires,
+      ...result
+    } = user;
     return result;
   }
 }

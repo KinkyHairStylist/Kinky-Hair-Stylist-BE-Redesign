@@ -9,7 +9,7 @@ import { Salon } from '../salon.entity';
 export class SalonSeed {
   constructor(
     @InjectRepository(Salon)
-    private salonRepository: Repository<Salon>
+    private salonRepository: Repository<Salon>,
   ) {}
 
   async run() {
@@ -29,9 +29,10 @@ export class SalonSeed {
       },
       {
         name: 'Bohoicentric',
-        description: 'Premium Luxury Salon in Sydney with award-winning stylists.',
+        description:
+          'Premium Luxury Salon in Sydney with award-winning stylists.',
         address: '456 Pitt St, Sydney NSW 2000',
-        latitude: -33.8650,
+        latitude: -33.865,
         longitude: 151.2094,
         rating: 4.8,
         reviewCount: 89,
@@ -42,8 +43,8 @@ export class SalonSeed {
         name: 'Elite Hair Studio',
         description: 'Modern Hair Styling Center with cutting-edge techniques.',
         address: '789 Hunter St, Sydney NSW 2000',
-        latitude: -33.8700,
-        longitude: 151.2050,
+        latitude: -33.87,
+        longitude: 151.205,
         rating: 4.7,
         reviewCount: 156,
         services: ['Haircut', 'Coloring', 'Perms', 'Keratin Treatment'],
@@ -53,11 +54,11 @@ export class SalonSeed {
         name: 'Bohaircentric',
         description: 'Private Luxury Salon in Sydney for discerning clients.',
         address: '101 York St, Sydney NSW 2000',
-        latitude: -33.8720,
-        longitude: 151.2100,
+        latitude: -33.872,
+        longitude: 151.21,
         rating: 4.6,
         reviewCount: 203,
-        services: ['Haircut', 'Coloring', 'Bridal', 'Men\'s Grooming'],
+        services: ['Haircut', 'Coloring', 'Bridal', "Men's Grooming"],
         isActive: true,
       },
       {
@@ -65,7 +66,7 @@ export class SalonSeed {
         description: 'Trendy salon in the heart of the city with modern vibes.',
         address: '202 Elizabeth St, Sydney NSW 2000',
         latitude: -33.8675,
-        longitude: 151.2080,
+        longitude: 151.208,
         rating: 4.9,
         reviewCount: 312,
         services: ['Haircut', 'Coloring', 'Barber Services', 'Beard Trimming'],
@@ -75,7 +76,7 @@ export class SalonSeed {
         name: 'Glamour Locks',
         description: 'Specializing in natural hair care and styling.',
         address: '303 King St, Sydney NSW 2000',
-        latitude: -33.8690,
+        latitude: -33.869,
         longitude: 151.2075,
         rating: 4.4,
         reviewCount: 98,
@@ -86,7 +87,7 @@ export class SalonSeed {
         name: 'The Cutting Edge',
         description: 'Innovative salon with top stylists and latest trends.',
         address: '404 Market St, Sydney NSW 2000',
-        latitude: -33.8660,
+        latitude: -33.866,
         longitude: 151.2065,
         rating: 4.7,
         reviewCount: 189,
@@ -95,10 +96,11 @@ export class SalonSeed {
       },
       {
         name: 'Pure Beauty Salon',
-        description: 'Eco-friendly salon using organic products and sustainable practices.',
+        description:
+          'Eco-friendly salon using organic products and sustainable practices.',
         address: '505 Castlereagh St, Sydney NSW 2000',
-        latitude: -33.8680,
-        longitude: 151.2090,
+        latitude: -33.868,
+        longitude: 151.209,
         rating: 4.6,
         reviewCount: 145,
         services: ['Haircut', 'Coloring', 'Organic Treatments', 'Scalp Care'],
@@ -117,7 +119,8 @@ export class SalonSeed {
       },
       {
         name: 'Crown & Glory',
-        description: 'Luxury salon for special occasions and red carpet events.',
+        description:
+          'Luxury salon for special occasions and red carpet events.',
         address: '707 Pitt St, Sydney NSW 2000',
         latitude: -33.8655,
         longitude: 151.2095,
@@ -125,13 +128,11 @@ export class SalonSeed {
         reviewCount: 76,
         services: ['Bridal Styling', 'Event Hair', 'Makeup', 'Extensions'],
         isActive: true,
-      }
+      },
     ];
 
     for (const salon of salons) {
-      await this.salonRepository.save(
-        this.salonRepository.create(salon),
-      );
+      await this.salonRepository.save(this.salonRepository.create(salon));
     }
 
     console.log(`✅ Seeded ${salons.length} salons`);

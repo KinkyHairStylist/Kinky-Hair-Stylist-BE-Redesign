@@ -9,14 +9,9 @@ import { SalonService } from './salon.service';
 import { SalonRepository } from './salon.repository';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Salon, SalonImage]),
-  ],
+  imports: [TypeOrmModule.forFeature([Salon, SalonImage])],
   controllers: [SalonController],
-  providers: [
-    SalonService,
-    SalonRepository,
-  ],
+  providers: [SalonService, SalonRepository],
   exports: [SalonService],
 })
 export class SalonModule {}

@@ -15,7 +15,7 @@ export class SalonService {
     @InjectRepository(Salon)
     private salonRepository: SalonRepository,
     @InjectRepository(SalonImage)
-    private salonImageRepository: Repository<SalonImage>
+    private salonImageRepository: Repository<SalonImage>,
   ) {}
 
   async findAll(options: {
@@ -29,27 +29,32 @@ export class SalonService {
     lat?: number;
     lng?: number;
   }): Promise<{ data: Salon[]; total: number; page: number; limit: number }> {
-    const { 
-      page = 1, 
-      limit = 10, 
-      search = '', 
-      location = '', 
-      minRating = 0, 
-      services = [], 
+    const {
+      page = 1,
+      limit = 10,
+      search = '',
+      location = '',
+      minRating = 0,
+      services = [],
       sortBy = 'bestMatch',
       lat,
-      lng
+      lng,
     } = options;
 
-    let query = this.salonRepository.createQueryBuilder('salon')
+    let query = this.salonRepository
+      .createQueryBuilder('salon')
       .where('salon.isActive = true');
 
     if (search) {
-      query = query.andWhere('LOWER(salon.name) LIKE LOWER(:search)', { search: `%${search}%` });
+      query = query.andWhere('LOWER(salon.name) LIKE LOWER(:search)', {
+        search: `%${search}%`,
+      });
     }
 
     if (location) {
-      query = query.andWhere('LOWER(salon.address) LIKE LOWER(:location)', { location: `%${location}%` });
+      query = query.andWhere('LOWER(salon.address) LIKE LOWER(:location)', {
+        location: `%${location}%`,
+      });
     }
 
     if (minRating > 0) {
@@ -58,37 +63,54 @@ export class SalonService {
 
     if (services.length > 0) {
       services.forEach((service, index) => {
-        query = query.andWhere(`:service${index} = ANY(salon.services)`, { [`service${index}`]: service });
+        query = query.andWhere(`:service${index} = ANY(salon.services)`, {
+          [`service${index}`]: service,
+        });
       });
     }
 
     // Apply sorting
     switch (sortBy) {
       case 'topRated':
-        query = query.orderBy('salon.rating', 'DESC').addOrderBy('salon.reviewCount', 'DESC');
+        query = query
+          .orderBy('salon.rating', 'DESC')
+          .addOrderBy('salon.reviewCount', 'DESC');
         break;
       case 'distance':
         if (lat && lng) {
-          query = query.addSelect(
-            `ROUND((6371 * ACOS(COS(RADIANS(${lat})) * COS(RADIANS(salon.latitude)) * COS(RADIANS(salon.longitude) - RADIANS(${lng})) + SIN(RADIANS(${lat})) * SIN(RADIANS(salon.latitude))))::numeric, 2)`,
-            'distance'
-          )
-          .orderBy('distance', 'ASC');
+          query = query
+            .addSelect(
+              `ROUND((6371 * ACOS(COS(RADIANS(${lat})) * COS(RADIANS(salon.latitude)) * COS(RADIANS(salon.longitude) - RADIANS(${lng})) + SIN(RADIANS(${lat})) * SIN(RADIANS(salon.latitude))))::numeric, 2)`,
+              'distance',
+            )
+            .orderBy('distance', 'ASC');
         }
         break;
       case 'bestMatch':
       default:
-        query = query.orderBy('salon.rating', 'DESC').addOrderBy('salon.createdAt', 'DESC');
+        query = query
+          .orderBy('salon.rating', 'DESC')
+          .addOrderBy('salon.createdAt', 'DESC');
         break;
     }
 
     // Apply pagination
     const offset = (page - 1) * limit;
-    const [data, total] = await query.skip(offset).take(limit).getManyAndCount();
+    const [data, total] = await query
+      .skip(offset)
+      .take(limit)
+      .getManyAndCount();
 
     // Add distance if sorting by distance or if lat/lng provided
-    if ((sortBy === 'distance' || (lat && lng)) && !query.getQuery().includes('distance')) {
-      const salonsWithDistance = this.salonRepository.addDistanceToSalons(data, lat || 0, lng || 0);
+    if (
+      (sortBy === 'distance' || (lat && lng)) &&
+      !query.getQuery().includes('distance')
+    ) {
+      const salonsWithDistance = this.salonRepository.addDistanceToSalons(
+        data,
+        lat || 0,
+        lng || 0,
+      );
       return { data: salonsWithDistance, total, page, limit };
     }
 
@@ -98,7 +120,7 @@ export class SalonService {
   async findOne(id: number): Promise<Salon> {
     const salon = await this.salonRepository.findOne({
       where: { id },
-      relations: ['images']
+      relations: ['images'],
     });
 
     if (!salon) {
@@ -111,7 +133,7 @@ export class SalonService {
   async findImages(salonId: number): Promise<SalonImage[]> {
     return this.salonImageRepository.find({
       where: { salonId },
-      order: { isPrimary: 'DESC' }
+      order: { isPrimary: 'DESC' },
     });
   }
 

@@ -7,10 +7,10 @@ import { ImageSeed } from './image-seed';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
   const salonSeed = app.get(SalonSeed);
   const imageSeed = app.get(ImageSeed);
-  
+
   try {
     await salonSeed.run();
     await imageSeed.run();

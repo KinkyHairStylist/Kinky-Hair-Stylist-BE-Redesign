@@ -1,6 +1,12 @@
 // src/salon/dto/create-salon.dto.ts
 
-import { IsString, IsNumber, IsArray, IsBoolean, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsArray,
+  IsBoolean,
+  IsOptional,
+} from 'class-validator';
 
 export class CreateSalonDto {
   @IsString()

@@ -10,7 +10,7 @@ export class PayPalService {
   constructor() {
     const environment = new paypal.core.SandboxEnvironment(
       process.env.PAYPAL_CLIENT_ID,
-      process.env.PAYPAL_CLIENT_SECRET
+      process.env.PAYPAL_CLIENT_SECRET,
     );
     this.client = new paypal.core.PayPalHttpClient(environment);
   }
@@ -20,12 +20,14 @@ export class PayPalService {
     request.prefer('return=representation');
     request.requestBody({
       intent: 'CAPTURE',
-      purchase_units: [{
-        amount: {
-          currency_code: currency,
-          value: amount.toFixed(2),
+      purchase_units: [
+        {
+          amount: {
+            currency_code: currency,
+            value: amount.toFixed(2),
+          },
         },
-      }],
+      ],
     });
 
     const response = await this.client.execute(request);

@@ -1,14 +1,18 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import session from 'express-session';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Enable CORS
   app.enableCors({
-    origin: 'http://localhost:3000',
+    origin: 'http://localhost:3000', // frontend origin
     credentials: true,
   });
 
+  // Express session setup
   app.use(
     session({
       secret: process.env.SESSION_SECRET || 'a-very-secret-key',
@@ -20,9 +24,27 @@ async function bootstrap() {
     }),
   );
 
-  const port = 3001;
+  // Swagger setup
+  const config = new DocumentBuilder()
+    .setTitle('KHS API')
+    .setDescription('API documentation for KHS backend')
+    .setVersion('1.0')
+    .addBearerAuth() // adds JWT auth button in Swagger UI
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true, // keeps JWT token between refreshes
+    },
+    customSiteTitle: 'KHS API Docs',
+  });
+
+  // Start server
+  const port = process.env.PORT || 3001;
   await app.listen(port, '0.0.0.0');
-  console.log(`🚀 Server is running on http://localhost:${port}`);
+  console.log(`Server is running on http://localhost:${port}`);
+  console.log(`Swagger docs available at http://localhost:${port}/api/docs`);
 }
 
 bootstrap();

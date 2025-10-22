@@ -1,6 +1,13 @@
 // src/salon/salon.entity.ts
 
-import { Entity, Column, PrimaryGeneratedColumn, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  OneToMany,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { SalonImage } from './salon-image.entity';
 
 @Entity()
@@ -25,7 +32,7 @@ export class Salon {
   @Column('decimal', { precision: 11, scale: 8 })
   longitude: number;
 
-  @Column({ type: 'decimal', precision: 3, scale: 2, default: 0.00 })
+  @Column({ type: 'decimal', precision: 3, scale: 2, default: 0.0 })
   rating: number;
 
   @Column({ type: 'int', default: 0 })
@@ -37,7 +44,7 @@ export class Salon {
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
-  @OneToMany(() => SalonImage, image => image.salon)
+  @OneToMany(() => SalonImage, (image) => image.salon)
   images: SalonImage[];
 
   @CreateDateColumn()

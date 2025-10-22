@@ -9,7 +9,7 @@ export class EmailService {
   }
 
   async sendEmail(to: string, subject: string, text: string, html?: string) {
-    const msg:any = {
+    const msg: any = {
       to,
       from: {
         email: this.configService.get<string>('SENDGRID_FROM_EMAIL'),
@@ -39,7 +39,7 @@ export class EmailService {
         <p>Thanks for joining us. We're excited to have you on board.</p>
       </div>
     `;
-    
+
     return this.sendEmail(to, subject, text, html);
   }
 
@@ -57,7 +57,7 @@ export class EmailService {
         <p>If you didn't request this, please ignore this email.</p>
       </div>
     `;
-    
+
     return this.sendEmail(to, subject, text, html);
   }
 }

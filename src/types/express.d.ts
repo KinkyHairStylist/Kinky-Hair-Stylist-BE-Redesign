@@ -1,17 +1,10 @@
-import { Session } from 'express-session';
-import { User } from '../user/user.schema';
+import 'express-session';
+import { User } from '../user/user.entity';
 
 declare module 'express-session' {
-  interface SessionData {
+  interface Session {
     userId: string;
     isAuthenticated: boolean;
     user: Partial<User>;
-  }
-}
-
-// Extend express Request to include session
-declare module 'express' {
-  interface Request {
-    session: Session & Partial<SessionData>;
   }
 }
