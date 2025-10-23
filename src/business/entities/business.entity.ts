@@ -90,7 +90,7 @@ export class Business {
   })
   status: BusinessStatus;
 
-  // 🧩 New fields for frontend dashboard
+
   @Column({ type: 'float', default: 0 })
   revenue: number;
 

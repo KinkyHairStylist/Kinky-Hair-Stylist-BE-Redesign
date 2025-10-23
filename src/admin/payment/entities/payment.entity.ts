@@ -18,7 +18,7 @@ export class Payment {
   amount: number;
 
   @Column()
-  method: PaymentMethod; // ✅ Now only 'paypal'
+  method: PaymentMethod;
 
   @Column({ default: 'pending' })
   status: TransactionStatus;
@@ -30,10 +30,13 @@ export class Payment {
   refundType?: string;
 
   @Column({ nullable: true })
-  reason?: string;
+  reason?: string ;
 
   @Column({ nullable: true })
-  gatewayTransactionId?: string; // PayPal transaction ID
+  gatewayTransactionId: string;
+
+  @Column({ nullable: true })
+  appointmentId: string;
 
   @CreateDateColumn()
   createdAt: Date;

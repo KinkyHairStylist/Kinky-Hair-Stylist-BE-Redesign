@@ -10,6 +10,9 @@ import {Appointment} from "../business/entities/appointment.entity";
 import {Dispute} from "../business/entities/dispute.entity";
 import {MembershipPlan} from "../business/entities/membership.entity";
 import {Subscription} from "../business/entities/subscription.entity";
+import {Payment} from "./payment/entities/payment.entity";
+import {EmailService} from "../email/email.service";
+import {PaymentService} from "./payment/payment.service";
 
 @Module({
     imports: [TypeOrmModule.forFeature([User]),
@@ -18,10 +21,11 @@ import {Subscription} from "../business/entities/subscription.entity";
         TypeOrmModule.forFeature([Dispute]),
         TypeOrmModule.forFeature([Appointment]),
         TypeOrmModule.forFeature([BusinessApplication]),
-        TypeOrmModule.forFeature([Subscription])
+        TypeOrmModule.forFeature([Subscription]),
+        TypeOrmModule.forFeature([Payment]),
     ],
     controllers: [AdminController],
-    providers: [AdminService],
+    providers: [AdminService,EmailService,PaymentService],
     exports: [AdminService],
 })
 export class AdminModule {}

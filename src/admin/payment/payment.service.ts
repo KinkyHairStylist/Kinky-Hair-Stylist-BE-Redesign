@@ -98,7 +98,7 @@ export class PaymentService {
     return payment;
   }
 
-  // 💸 Process PayPal refund
+
   async refund(dto: RefundPaymentDto) {
     const { transactionId, amount, refundType, reason } = dto;
 
@@ -109,7 +109,7 @@ export class PaymentService {
       throw new BadRequestException('Refunds are only supported for PayPal payments.');
     }
 
-    // 🅿️ PAYPAL REFUND REQUEST
+
     await axios.post(
       `${process.env.PAYPAL_SANDBOX_URL}/v1/payments/sale/${payment.gatewayTransactionId}/refund`,
       { amount: { total: amount.toFixed(2), currency: 'USD' } },
@@ -121,7 +121,7 @@ export class PaymentService {
       },
     );
 
-    // Update refund info
+
     payment.status = 'refunded';
     payment.refundType = refundType;
     payment.reason = reason;
@@ -130,7 +130,7 @@ export class PaymentService {
     return { message: 'Refund successful', payment };
   }
 
-  // ⚠️ Retrieve all disputed transactions
+
   async getDisputes() {
     return this.paymentRepo.find({ where: { status: 'disputed' } });
   }
