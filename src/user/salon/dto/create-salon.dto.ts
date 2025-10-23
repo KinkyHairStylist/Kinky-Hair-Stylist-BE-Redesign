@@ -12,6 +12,7 @@ export class CreateSalonDto {
   @IsString()
   name: string;
 
+  @IsOptional()
   @IsString()
   description: string;
 

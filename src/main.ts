@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import session from 'express-session';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { InputSanitizationMiddleware } from './middleware/input-sanitization.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -11,6 +12,10 @@ async function bootstrap() {
     origin: 'http://localhost:3000', // frontend origin
     credentials: true,
   });
+
+  // Input sanitization setup
+  const sanitizer = new InputSanitizationMiddleware();
+  app.use((req, res, next) => sanitizer.use(req, res, next));
 
   // Express session setup
   app.use(

@@ -6,10 +6,10 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
-import * as sgMail from '@sendgrid/mail';
+import sgMail from '@sendgrid/mail';
 import { User } from './user.entity';
+import { PasswordHashingHelper } from '../helpers/password-hashing.helper';
 import {
   GetStartedDto,
   VerifyCodeDto,
@@ -176,8 +176,7 @@ export class UserService {
       throw new BadRequestException('Email not verified');
     }
 
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(password, salt);
+    user.password = await PasswordHashingHelper.hashPassword(password);
     user.firstName = firstName;
     user.surname = surname;
     user.phoneNumber = phoneNumber;
@@ -212,7 +211,10 @@ export class UserService {
       throw new UnauthorizedException('Account not fully set up');
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await PasswordHashingHelper.comparePassword(
+      password,
+      user.password,
+    );
 
     if (!isMatch) {
       throw new UnauthorizedException('Invalid email or password');
@@ -302,8 +304,7 @@ export class UserService {
       throw new BadRequestException('Reset code expired');
     }
 
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(newPassword, salt);
+    user.password = await PasswordHashingHelper.hashPassword(newPassword);
 
     user.resetCode = null;
     user.resetCodeExpires = null;
@@ -319,11 +320,11 @@ export class UserService {
 
   public sanitizeUser(user: User): SanitizedUser {
     const {
-      password,
-      verificationCode,
-      verificationExpires,
-      resetCode,
-      resetCodeExpires,
+      password: _password,
+      verificationCode: _verificationCode,
+      verificationExpires: _verificationExpires,
+      resetCode: _resetCode,
+      resetCodeExpires: _resetCodeExpires,
       ...result
     } = user;
     return result;

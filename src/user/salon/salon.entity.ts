@@ -20,7 +20,7 @@ export class Salon {
   @Column()
   name: string;
 
-  @Column()
+  @Column({ nullable: true })
   description: string;
 
   @Column()
