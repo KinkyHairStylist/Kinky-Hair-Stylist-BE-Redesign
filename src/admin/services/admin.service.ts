@@ -1,7 +1,7 @@
 import {BadRequestException, Injectable, UnauthorizedException} from '@nestjs/common';
 import {InjectRepository} from '@nestjs/typeorm';
 import {Repository} from 'typeorm';
-
+import {EmailService} from "../../email/email.service";
 import {User} from '../../business/entities/user.entity';
 import {Business, BusinessStatus} from "../../business/entities/business.entity";
 import {BusinessApplication} from "../../business/entities/businessApplication.entity";
@@ -13,6 +13,9 @@ import {MembershipPlan} from "../../business/entities/membership.entity";
 import {GetMembershipPlanDto} from "../../business/dtos/response/GetMembershipPlanDto";
 import {GetSubscriptionDto} from "../../business/dtos/response/GetSubscriptionDto";
 import {Status, Subscription} from "../../business/entities/subscription.entity";
+import {PaymentService} from "../payment/payment.service";
+import {Payment} from "../payment/entities/payment.entity";
+
 
 @Injectable()
 export class AdminService {
@@ -24,6 +27,9 @@ export class AdminService {
         @InjectRepository(Dispute) private disputeRepo: Repository<Dispute>,
         @InjectRepository(MembershipPlan) private membershipPlanRepo: Repository<MembershipPlan>,
         @InjectRepository(Subscription) private subscriptionRepo: Repository<Subscription>,
+        @InjectRepository(Payment) private paymentRepo: Repository<Payment>,
+        private emailService: EmailService,
+        private paymentService: PaymentService,
     ) {
 
     }
@@ -116,17 +122,22 @@ export class AdminService {
     }
 
     async rescheduleAppointment(body){
-        const appointment = await this.appointmentRepo.findOne({where: {id: body.id}});
+        const appointment = await this.appointmentRepo.findOne({
+            where: { id: body.id },
+            relations: ["client", "business"],
+        });
         if (!appointment) {
             throw new Error('Appointment not found');
         }
         appointment.date = body.date;
         appointment.time = body.time;
+
+        await this.emailService.sendEmail(appointment.client.email,
+            `Appointment with ${appointment.business.businessName} `,
+            `your appointment has been rescheduled to ${appointment.date} at ${appointment.time}`,
+            ""
+            ,)
         return  this.appointmentRepo.save(appointment);
-    }
-
-    refund(appointment: Appointment){
-
     }
 
     async cancelAppointment(appointmentId: string,reason:string){
@@ -134,7 +145,20 @@ export class AdminService {
         if(!appointment){
             throw new UnauthorizedException('appointment does not exist');
         }
-        this.refund(appointment);
+
+        const payment = await this.paymentRepo.findOne({ where: { appointmentId } });
+        if (!payment) {
+            throw new Error("payment not found")
+        }
+
+        const refundObject = {
+            transactionId: payment.gatewayTransactionId,
+            amount: payment.amount,
+            refundType: "Appointment Cancellation",
+            reason: reason,
+        }
+
+        await this.paymentService.refund(refundObject);
 
         appointment.status = AppointmentStatus.CANCELLED;
         this.appointmentRepo.save(appointment);

@@ -34,6 +34,12 @@ export class User {
   @Column()
   firstName: string;
 
+  @Column({nullable:true})
+  longitude: number;
+
+  @Column({nullable:true})
+  latitude: number;
+
   @Column()
   surname: string;
 
