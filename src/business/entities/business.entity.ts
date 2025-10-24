@@ -59,8 +59,8 @@ export class Business {
   @Column('text', { array: true, default: [] })
   services: string[];
 
-  @Column()
-  category: string;
+  @Column({ nullable: true })
+  category?: string;
 
   @Column()
   location: string;
