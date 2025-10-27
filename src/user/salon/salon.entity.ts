@@ -2,7 +2,7 @@
 
 import { Entity, Column, PrimaryGeneratedColumn, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { SalonImage } from './salon-image.entity';
-import { SalonService } from './salon-service.entity';
+import { SalonService as SalonServiceEntity } from './salon-service.entity';
 
 @Entity()
 export class Salon {
@@ -57,8 +57,8 @@ export class Salon {
   @OneToMany(() => SalonImage, image => image.salon)
   images: SalonImage[];
 
-  @OneToMany(() => SalonService, service => service.salon)
-  services: SalonService[];
+  @OneToMany(() => SalonServiceEntity, service => service.salon)
+  services: SalonServiceEntity[];
 
   @CreateDateColumn()
   createdAt: Date;

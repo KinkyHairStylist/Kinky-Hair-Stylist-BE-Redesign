@@ -19,6 +19,6 @@ import { MembershipSeed } from '../../../membership/seeds/membership-seed';
     MembershipSeedModule,
   ],
   providers: [SalonSeed, ImageSeed, SalonSeed2, ServiceSeed, SalonService],
-  exports: [SalonSeed, ImageSeed, SalonSeed2, ServiceSeed, MembershipSeed],
+  exports: [SalonSeed, ImageSeed, SalonSeed2, ServiceSeed],
 })
 export class SeedsModule {}

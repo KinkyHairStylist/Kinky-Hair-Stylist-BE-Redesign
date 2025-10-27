@@ -1,6 +1,7 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, OneToMany } from 'typeorm';
 import { Referral } from '../referral/referral.entity';
 import { UserMembership } from '../membership/membership.entity';
+import { PaymentMethod } from '../payment/payment-method.entity';
 
 @Entity()
 export class User {
@@ -62,4 +63,7 @@ export class User {
   // Add to existing User entity
 @OneToMany(() => UserMembership, membership => membership.user)
 memberships: UserMembership[];
+
+@OneToMany(() => PaymentMethod, paymentMethod => paymentMethod.user)
+paymentMethods: PaymentMethod[];
 }

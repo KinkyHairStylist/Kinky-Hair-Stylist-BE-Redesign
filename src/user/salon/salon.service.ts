@@ -100,20 +100,38 @@ export class SalonService {
   async create(createSalonDto: CreateSalonDto): Promise<Salon> {
     const { services: serviceNames, ...salonData } = createSalonDto;
 
-    const services = await this.salonServiceRepository.findBy({
-      name: In(serviceNames),
-    });
+    const newSalon = this.salonRepository.create(salonData);
+    await this.salonRepository.save(newSalon);
 
-    if (services.length !== serviceNames.length) {
-      throw new NotFoundException('One or more services not found');
+    const serviceDefinitions = {
+      'Twist Outs': { description: 'Beautiful twist outs for natural hair.', price: 50.00, duration: '1h 30m' },
+      'Bantu Knots': { description: 'Stylish Bantu knots for a unique look.', price: 60.00, duration: '2h' },
+      'Silk Press': { description: 'Sleek and smooth silk press.', price: 80.00, duration: '2h 30m' },
+      'Protective Styling': { description: 'Various protective styles to keep your hair healthy.', price: 70.00, duration: '3h' },
+      'Haircut': { description: 'Precision haircuts for all hair types.', price: 40.00, duration: '1h' },
+      'Deep Conditioning': { description: 'Intensive deep conditioning treatment.', price: 30.00, duration: '45m' },
+      'Henna Treatment': { description: 'Natural henna treatment for color and conditioning.', price: 60.00, duration: '2h' },
+      'Cornrows': { description: 'Classic cornrow styles.', price: 50.00, duration: '1h 30m' },
+      'Locs Maintenance': { description: 'Professional locs maintenance.', price: 70.00, duration: '2h' },
+      'Faux Locs': { description: 'Beautiful and realistic faux locs.', price: 150.00, duration: '4h' },
+      'Hair Coloring': { description: 'Vibrant hair coloring services.', price: 100.00, duration: '3h' },
+      'Bridal Styling': { description: 'Elegant bridal styling for your special day.', price: 200.00, duration: '4h' },
+    };
+
+    const services: SalonServiceEntity[] = [];
+    for (const name of serviceNames) {
+      const serviceData = serviceDefinitions[name] || { description: 'No description available', price: 0, duration: 'N/A' };
+      const service = this.salonServiceRepository.create({
+        name,
+        ...serviceData,
+        salon: newSalon,
+      });
+      await this.salonServiceRepository.save(service);
+      services.push(...service);
     }
 
-    const newSalon = this.salonRepository.create({
-      ...salonData,
-      services,
-    });
-
-    return this.salonRepository.save(newSalon);
+    newSalon.services = services;
+    return newSalon;
   }
 
   // 👇 NEW: Get salon with full details
