@@ -59,8 +59,8 @@ export class Business {
   @Column('text', { array: true, default: [] })
   services: string[];
 
-  @Column()
-  category: string;
+  @Column({ nullable: true })
+  category?: string;
 
   @Column()
   location: string;
@@ -90,7 +90,7 @@ export class Business {
   })
   status: BusinessStatus;
 
-  // 🧩 New fields for frontend dashboard
+
   @Column({ type: 'float', default: 0 })
   revenue: number;
 

@@ -1,7 +1,7 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 export type TransactionStatus = 'pending' | 'successful' | 'failed' | 'refunded' | 'disputed';
-export type PaymentMethod = 'stripe' | 'paystack';
+export type PaymentMethod = 'paypal'; // ✅ Only PayPal now
 
 @Entity()
 export class Payment {
@@ -30,10 +30,13 @@ export class Payment {
   refundType?: string;
 
   @Column({ nullable: true })
-  reason?: string;
+  reason?: string ;
 
   @Column({ nullable: true })
-  gatewayTransactionId?: string; // Stripe PaymentIntent or Paystack reference
+  gatewayTransactionId: string;
+
+  @Column({ nullable: true })
+  appointmentId: string;
 
   @CreateDateColumn()
   createdAt: Date;
