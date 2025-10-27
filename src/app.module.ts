@@ -9,6 +9,7 @@ import { PaymentModule } from './admin/payment/payment.module';
 import { TransactionFeeModule } from './admin/transaction-fee/transaction-fee.module';
 import { WithdrawalModule } from './admin/withdrawal/withdrawal.module';
 import { WalletModule } from './admin/wallet/wallet.module';
+
 import { UserModule } from './user/user.module';
 import { SalonModule } from './user/salon/salon.module';
 import { BookingModule } from './user/salon/booking/booking.module';
@@ -16,6 +17,7 @@ import { AppService } from './app.service';
 import { AppController } from './app.controller';
 import { SeedsModule } from './user/salon/seeds/seed.module';
 import { typeOrmConfig } from './config/database';
+
 // import { ModerationModule } from './admin/moderation/moderation.module';
 
 @Module({
@@ -32,10 +34,12 @@ import { typeOrmConfig } from './config/database';
     TransactionFeeModule,
     WithdrawalModule,
     WalletModule,
+
     UserModule,
     SalonModule,
     SeedsModule,
     BookingModule,
+
     // ModerationModule,
   ],
   controllers: [AppController],
