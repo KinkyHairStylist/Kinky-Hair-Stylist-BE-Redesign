@@ -8,8 +8,8 @@ import {
   ClassSerializerInterceptor,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
-import { SalonService } from './salon.service';
-import { Salon } from './salon.entity';
+import { SalonService } from '../services/salon.service';
+import { Salon } from '../user_entities/salon.entity';
 import { CacheInterceptor } from '../../cache/cache.interceptor';
 
 @ApiTags('salons')

@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminController } from './controllers/admin.controller';
 import { AdminService } from './services/admin.service';
-import { User } from '../business/entities/user.entity'
+import {User} from "../all_user_entities/user.entity";
 import {Business} from "../business/entities/business.entity";
 
 import {BusinessApplication} from "../business/entities/businessApplication.entity";

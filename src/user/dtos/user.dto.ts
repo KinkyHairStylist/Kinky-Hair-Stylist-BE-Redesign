@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsString, IsNotEmpty, Matches, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 /**
@@ -68,6 +68,13 @@ export class SignUpDto {
   })
   @IsString()
   @IsNotEmpty()
+  @Matches(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+    {
+      message:
+        'Password must contain at least one lowercase letter, one uppercase letter, one numeric digit, and one special character, and must be at least 8 characters long.',
+    },
+  )
   password: string;
 
   @ApiProperty({
@@ -101,8 +108,17 @@ export class SignUpDto {
   @IsString()
   @IsNotEmpty()
   gender: string;
-}
 
+  @ApiProperty({
+    example: 'REF123ABC',
+    description:
+      'Referral code used for registration (optional if user was invited)',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  referralCode?: string;
+}
 /**
  * @description DTO for user login.
  */
@@ -176,6 +192,10 @@ export class ResetPasswordFinishDto {
   })
   @IsString()
   @IsNotEmpty()
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/, {
+    message:
+      'Password must contain at least one lowercase letter, one uppercase letter, one numeric digit, and one special character, and must be at least 8 characters long.',
+  })
   newPassword: string;
 
   @ApiProperty({
@@ -210,6 +230,12 @@ export class AuthResponseDto {
     required: false,
   })
   token?: string;
+
+  @ApiProperty({
+    description: 'JWT refresh token for authenticated sessions (optional)',
+    required: false,
+  })
+  refreshToken?: string;
 
   @ApiProperty({
     description: 'User details returned with successful authentication',

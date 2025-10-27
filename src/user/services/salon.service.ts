@@ -1,11 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Salon } from './salon.entity';
-import { SalonImage } from './salon-image.entity';
-import { SalonRepository } from './salon.repository';
-import { CreateSalonDto } from './dto/create.salon.dto';
-import { UpdateSalonDto } from './dto/update-salon.dto';
+import { Salon } from '../user_entities/salon.entity';
+import { SalonImage } from '../user_entities/salon-image.entity';
+import { SalonRepository } from '../user_utilities/salon.repository';
+import { CreateSalonDto } from '../dtos/create.salon.dto';
+import { UpdateSalonDto } from '../dtos/update-salon.dto';
 
 @Injectable()
 export class SalonService {

@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { SalonImage } from '../salon-image.entity';
-import { Salon } from '../salon.entity';
+import { SalonImage } from '../user_entities/salon-image.entity';
+import { Salon } from '../user_entities/salon.entity';
 
 @Injectable()
 export class ImageSeed {

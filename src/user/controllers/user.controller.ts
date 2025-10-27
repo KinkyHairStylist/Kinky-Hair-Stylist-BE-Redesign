@@ -7,10 +7,12 @@ import {
   Req,
   Res,
   Get,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import type { Request, Response } from 'express';
 import { Session } from 'express-session';
-import { UserService } from './user.service';
+import { UserService } from '../services/user.service';
 import {
   GetStartedDto,
   VerifyCodeDto,
@@ -21,7 +23,8 @@ import {
   ResetPasswordVerifyDto,
   ResetPasswordFinishDto,
   AuthResponseDto,
-} from './user.dto';
+} from '../dtos/user.dto';
+import { RefreshTokenDto } from '../../business/dtos/requests/RefreshTokenDto';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 
 interface RequestWithSession extends Request {
@@ -31,12 +34,12 @@ interface RequestWithSession extends Request {
   };
 }
 
-@ApiTags('User') // Groups all endpoints under 'User' in Swagger
+@ApiTags('Customer') // Groups all endpoints under 'User' in Swagger
 @Controller('api')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @Post('get-started')
+  @Post('/auth/get-started')
   @ApiOperation({
     summary: 'Start authentication by sending verification code',
   })
@@ -51,7 +54,7 @@ export class UserController {
     return this.userService.getStarted(dto);
   }
 
-  @Post('verify-code')
+  @Post('/auth/verify-code')
   @ApiOperation({ summary: 'Verify user email or phone with a code' })
   @ApiBody({ type: VerifyCodeDto })
   @ApiResponse({
@@ -64,7 +67,7 @@ export class UserController {
     return this.userService.verifyCode(dto);
   }
 
-  @Post('resend-code')
+  @Post('/auth/resend-code')
   @ApiOperation({ summary: 'Resend verification code' })
   @ApiBody({ type: ResendCodeDto })
   @ApiResponse({
@@ -77,7 +80,7 @@ export class UserController {
     return this.userService.resendCode(dto);
   }
 
-  @Post('signup')
+  @Post('/auth/signup')
   @ApiOperation({ summary: 'Register a new user' })
   @ApiBody({ type: SignUpDto })
   @ApiResponse({
@@ -90,7 +93,7 @@ export class UserController {
     return this.userService.signUp(dto);
   }
 
-   @Post('login')
+   @Post('/auth/login')
   @ApiOperation({ summary: 'Authenticate user and start session' })
   @ApiBody({ type: LoginDto })
   @ApiResponse({
@@ -113,7 +116,7 @@ export class UserController {
     return result;
   }
 
-  @Get('logout')
+  @Get('/auth/logout')
   @ApiOperation({ summary: 'Logout user and destroy session' })
   @ApiResponse({ status: 200, description: 'User logged out successfully' })
   async logout(
@@ -132,7 +135,7 @@ export class UserController {
     });
   }
 
-  @Get('me')
+  @Get('/auth/me')
   @ApiOperation({ summary: 'Get current authenticated user' })
   @ApiResponse({
     status: 200,
@@ -152,7 +155,7 @@ export class UserController {
 
   // 👇 Password Reset Endpoints
 
-  @Post('reset-password/start')
+  @Post('/auth/reset-password/start')
   @ApiOperation({
     summary: 'Start password reset by sending code to email/phone',
   })
@@ -169,7 +172,7 @@ export class UserController {
     return this.userService.startResetPassword(dto);
   }
 
-  @Post('reset-password/verify')
+  @Post('/auth/reset-password/verify')
   @ApiOperation({ summary: 'Verify password reset code' })
   @ApiBody({ type: ResetPasswordVerifyDto })
   @ApiResponse({
@@ -184,7 +187,7 @@ export class UserController {
     return this.userService.verifyResetCode(dto);
   }
 
-  @Post('reset-password/finish')
+  @Post('/auth/reset-password/finish')
   @ApiOperation({ summary: 'Complete password reset with new password' })
   @ApiBody({ type: ResetPasswordFinishDto })
   @ApiResponse({
@@ -197,5 +200,18 @@ export class UserController {
     @Body() dto: ResetPasswordFinishDto,
   ): Promise<AuthResponseDto> {
     return this.userService.finishResetPassword(dto);
+  }
+
+  @Post('/auth/refresh-token')
+  @UseGuards(AuthGuard('jwt-refresh'))
+  @ApiOperation({ summary: 'Refresh authentication tokens' })
+  @ApiBody({ type: RefreshTokenDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Tokens refreshed successfully',
+    type: AuthResponseDto,
+  })
+  async refreshTokens(@Req() req) {
+    return this.userService.refreshTokens(req.user.refreshToken);
   }
 }

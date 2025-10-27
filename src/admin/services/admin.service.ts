@@ -2,7 +2,7 @@ import {BadRequestException, Injectable, UnauthorizedException} from '@nestjs/co
 import {InjectRepository} from '@nestjs/typeorm';
 import {Repository} from 'typeorm';
 
-import {User} from '../../business/entities/user.entity';
+import {User} from "../../all_user_entities/user.entity";
 import {Business, BusinessStatus} from "../../business/entities/business.entity";
 import {BusinessApplication} from "../../business/entities/businessApplication.entity";
 import {ApplicationStatus} from "../../business/types/constants";
@@ -232,7 +232,7 @@ export class AdminService {
 
     async findByPhoneNumber(phone: string) {
 
-        return await this.userRepo.find({ where :  {phone}})
+        return await this.userRepo.find({ where :  {phoneNumber: phone} });
     }
 
     async suspend(id: string , reason: string) {

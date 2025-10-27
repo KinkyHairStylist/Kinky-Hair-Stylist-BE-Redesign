@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOneOptions, Repository } from 'typeorm';
-import { Salon } from './salon.entity';
-import { CreateSalonDto } from './dto/create.salon.dto';
+import { Salon } from '../user_entities/salon.entity';
+import { CreateSalonDto } from '../dtos/create.salon.dto';
 
 @Injectable()
 export class SalonRepository {

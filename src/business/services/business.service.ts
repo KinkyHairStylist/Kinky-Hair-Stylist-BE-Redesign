@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Business } from '../entities/business.entity';
-import { User } from '../entities/user.entity';
+import { User } from '../../all_user_entities/user.entity';
 import { CreateBusinessDto } from '../dtos/requests/CreateBusinessDto';
 import { getBusinessServices } from '../data/business.services';
 import { BookingPoliciesData, BusinessServiceData } from '../types/constants';

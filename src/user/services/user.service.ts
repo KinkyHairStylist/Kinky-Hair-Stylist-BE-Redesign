@@ -6,21 +6,25 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as jwt from 'jsonwebtoken';
+import { JwtService } from '@nestjs/jwt';
 import sgMail from '@sendgrid/mail';
-import { User } from './user.entity';
-import { PasswordHashingHelper } from '../helpers/password-hashing.helper';
-import {
-  GetStartedDto,
-  VerifyCodeDto,
-  ResendCodeDto,
-  SignUpDto,
-  LoginDto,
-  ResetPasswordStartDto,
-  ResetPasswordVerifyDto,
-  ResetPasswordFinishDto,
-  AuthResponseDto,
-} from './user.dto';
+import { randomUUID } from 'crypto';
+
+import { User } from '../../all_user_entities/user.entity';
+import { 
+  GetStartedDto, 
+  VerifyCodeDto, 
+  ResendCodeDto, 
+  SignUpDto, 
+  LoginDto, 
+  ResetPasswordStartDto, 
+  ResetPasswordVerifyDto, 
+  ResetPasswordFinishDto, 
+  AuthResponseDto 
+} from '../dtos/user.dto';
+import { PasswordHashingHelper } from '../../helpers/password-hashing.helper';
+import { Referral } from '../user_entities/referrals.entity';
+import { Gender } from 'src/business/types/constants';
 
 type SanitizedUser = Omit<
   User,
@@ -38,6 +42,11 @@ export class UserService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+
+    @InjectRepository(Referral)
+    private referralRepository: Repository<Referral>, // new line added
+
+    private jwtService: JwtService,
   ) {
     const apiKey = process.env.SENDGRID_API_KEY;
     const fromEmail = process.env.SENDGRID_FROM_EMAIL;
@@ -82,19 +91,21 @@ export class UserService {
 
     let user = await this.userRepository.findOne({ where: { email } });
 
-    if (!user) {
-      user = this.userRepository.create({
-        email,
-        isVerified: false,
-        verificationCode: this.generateCode(),
-        verificationExpires: new Date(Date.now() + 10 * 60 * 1000),
-      });
-      } else {
-      if (!user.isVerified) {
-        user.verificationCode = this.generateCode();
-        user.verificationExpires = new Date(Date.now() + 10 * 60 * 1000);
-      }
+    // If user already exists, do not resend verification code
+    if (user && user.isVerified) {
+      return {
+        message: 'User already exists. Please log in instead.',
+        success: false,
+      };
     }
+
+    // Otherwise, create a new user and send a verification code
+    user = this.userRepository.create({
+      email,
+      isVerified: false,
+      verificationCode: this.generateCode(),
+      verificationExpires: new Date(Date.now() + 10 * 60 * 1000),
+    });
 
     await this.userRepository.save(user);
     if (user.verificationCode) {
@@ -164,35 +175,56 @@ export class UserService {
   }
 
   async signUp(dto: SignUpDto): Promise<AuthResponseDto> {
-    const { email, password, firstName, surname, phoneNumber, gender } = dto;
+    const { email, password, firstName, surname, phoneNumber, gender, referralCode } = dto;
 
     const user = await this.userRepository.findOne({ where: { email } });
 
     if (!user) {
-        throw new BadRequestException('User not found or not verified');
+      throw new BadRequestException('User not found or not verified');
     }
 
     if (!user.isVerified) {
-        throw new BadRequestException('Email not verified');
+      throw new BadRequestException('Email not verified');
     }
 
+    // Save user profile
     user.password = await PasswordHashingHelper.hashPassword(password);
     user.firstName = firstName;
     user.surname = surname;
     user.phoneNumber = phoneNumber;
-    user.gender = gender;
+    user.gender = gender as Gender;
+
+    // Generate referral code if not set
+    if (!user.referralCode) {
+      user.referralCode = randomUUID().slice(0, 8);
+    }
 
     await this.userRepository.save(user);
 
-    const token = jwt.sign(
-        { id: user.id, email: user.email },
-        process.env.JWT_ACCESS_SECRET as string,
-        { expiresIn: '7d' },
-    );
+    // ✅ If referral code exists, record it
+    if (referralCode) {
+      const referrer = await this.userRepository.findOne({ where: { referralCode } });
+
+      if (referrer) {
+        // Create referral record
+        await this.referralRepository.save({
+          referrer,
+          invitee: user,
+        });
+
+        // Add ₦20 / $20
+        referrer.totalEarnings += 20;
+        referrer.availableEarnings += 20;
+        await this.userRepository.save(referrer);
+      }
+    }
+
+    const { accessToken, refreshToken } = await this.getTokens(user.id, user.email);
 
     return {
-        message: 'Signup successful',
-      token,
+      message: 'Signup successful',
+      token: accessToken,
+      refreshToken,
       user: this.sanitizeUser(user),
       success: true,
     };
@@ -205,6 +237,10 @@ export class UserService {
 
     if (!user) {
       throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (!user.isVerified) {
+        throw new BadRequestException('Email not verified');
     }
 
     if (!user.password) {
@@ -220,15 +256,12 @@ export class UserService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const token = jwt.sign(
-      { id: user.id, email: user.email },
-      process.env.JWT_SECRET as string,
-      { expiresIn: '7d' },
-    );
+    const { accessToken, refreshToken } = await this.getTokens(user.id, user.email);
 
     return {
       message: 'Login successful',
-      token,
+      token: accessToken,
+      refreshToken,
       user: this.sanitizeUser(user),
       success: true,
     };
@@ -328,5 +361,50 @@ export class UserService {
       ...result
     } = user;
     return result;
+  }
+
+  async getTokens(
+    userId: string,
+    email: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    const payload = { sub: userId, email };
+
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(payload, {
+        secret: process.env.JWT_ACCESS_SECRET,
+        expiresIn: '15m',
+      }),
+      this.jwtService.signAsync(payload, {
+        secret: process.env.JWT_REFRESH_SECRET,
+        expiresIn: '7d',
+      }),
+    ]);
+
+    return { accessToken, refreshToken };
+  }
+
+  async refreshTokens(refreshToken: string): Promise<AuthResponseDto> {
+    try {
+      const payload = await this.jwtService.verifyAsync(refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+
+      const user = await this.userRepository.findOne({ where: { id: payload.sub } });
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
+
+      const { accessToken, refreshToken: newRefreshToken } = await this.getTokens(user.id, user.email);
+
+      return {
+        success: true,
+        message: 'Tokens refreshed successfully',
+        token: accessToken,
+        refreshToken: newRefreshToken,
+        user: this.sanitizeUser(user),
+      };
+    } catch (e) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
   }
 }
