@@ -9,8 +9,8 @@ import { PaymentModule } from './admin/payment/payment.module';
 import { TransactionFeeModule } from './admin/transaction-fee/transaction-fee.module';
 import { WithdrawalModule } from './admin/withdrawal/withdrawal.module';
 import { WalletModule } from './admin/wallet/wallet.module';
-<
-import { UserModule } from './user/user.module';
+
+// import { UserModule } from './user/user.module';
 import { SalonModule } from './user/salon/salon.module';
 import { BookingModule } from './user/salon/booking/booking.module';
 import { AppService } from './app.service';
@@ -36,7 +36,7 @@ import { typeOrmConfig } from './config/database';
     WalletModule,
 
 
-    UserModule,
+    // UserModule,
     SalonModule,
     SeedsModule,
     BookingModule,
