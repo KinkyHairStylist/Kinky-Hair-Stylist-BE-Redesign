@@ -9,7 +9,7 @@ import { PaymentModule } from './admin/payment/payment.module';
 import { TransactionFeeModule } from './admin/transaction-fee/transaction-fee.module';
 import { WithdrawalModule } from './admin/withdrawal/withdrawal.module';
 import { WalletModule } from './admin/wallet/wallet.module';
-import { ModerationModule } from './admin/moderation/moderation.module';
+// import { ModerationModule } from './admin/moderation/moderation.module';
 
 @Module({
   imports: [
@@ -43,7 +43,7 @@ import { ModerationModule } from './admin/moderation/moderation.module';
     TransactionFeeModule,
     WithdrawalModule,
     WalletModule,
-    ModerationModule,
+    // ModerationModule,
   ],
   controllers: [],
 })
