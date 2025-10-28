@@ -14,6 +14,9 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
+
+  const port = process.env.PORT || 1900;
+
   // Input sanitization setup
   const sanitizer = new InputSanitizationMiddleware();
   app.use((req, res, next) => sanitizer.use(req, res, next));
@@ -41,12 +44,13 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document, {
     swaggerOptions: {
-      persistAuthorization: true,
+      persistAuthorization: true, // keeps JWT token between refreshes
     },
     customSiteTitle: 'KHS API Docs',
   });
 
-  const port = process.env.PORT || 5000;
+  const port = process.env.PORT || 8080;
+
   await app.listen(port, '0.0.0.0');
   console.log(`Server is running on http://localhost:${port}`);
   console.log(`Swagger docs available at http://localhost:${port}/api/docs`);
