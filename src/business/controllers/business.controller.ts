@@ -21,7 +21,7 @@ interface RequestWithUser extends Request {
 }
 
 @Controller('business')
-@UseGuards(JwtAuthGuard)
+// @UseGuards(JwtAuthGuard)
 export class BusinessController {
   constructor(private readonly businessService: BusinessService) {}
 
@@ -57,5 +57,10 @@ export class BusinessController {
   @HttpCode(HttpStatus.OK)
   getBookingPoliciesConfigs(): BookingPoliciesData[] {
     return this.businessService.getBookingPoliciesConfiguration();
+  }
+
+  @Get('/ping')
+  ping(){
+    return "server is live"
   }
 }
