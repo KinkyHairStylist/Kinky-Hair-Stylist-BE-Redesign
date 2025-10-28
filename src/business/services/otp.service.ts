@@ -15,7 +15,7 @@ import { EmailService } from '../../email/email.service';
 import * as crypto from 'crypto';
 
 
-// @ts-ignore
+
 @Injectable()
 export class OtpService {
 

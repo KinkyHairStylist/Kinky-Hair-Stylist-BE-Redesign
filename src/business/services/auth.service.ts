@@ -325,27 +325,6 @@ export class AuthService {
     };
   }
 
-  async verifyResetToken(
-    verifyResetTokenDto: VerifyResetTokenDto,
-  ): Promise<{ message: string }> {
-    const { token } = verifyResetTokenDto;
-
-    try {
-      const payload = await this.jwtService.verifyAsync(token, {
-        secret: process.env.JWT_ACCESS_SECRET,
-      });
-
-      if (payload.purpose !== 'password-reset') {
-        throw new BadRequestException('Invalid token purpose.');
-      }
-
-      return { message: 'Reset token is valid.' };
-    } catch {
-      throw new BadRequestException('Invalid or expired reset token.');
-    }
-  }
-
-
 
   async requestPhoneOtp(requestPhoneOtpDto: RequestPhoneOtpDto) {
     const { phone } = requestPhoneOtpDto;

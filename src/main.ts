@@ -41,12 +41,12 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document, {
     swaggerOptions: {
-      persistAuthorization: true, // keeps JWT token between refreshes
+      persistAuthorization: true,
     },
     customSiteTitle: 'KHS API Docs',
   });
 
-  const port = process.env.PORT || 8080;
+  const port = process.env.PORT || 5000;
   await app.listen(port, '0.0.0.0');
   console.log(`Server is running on http://localhost:${port}`);
   console.log(`Swagger docs available at http://localhost:${port}/api/docs`);
