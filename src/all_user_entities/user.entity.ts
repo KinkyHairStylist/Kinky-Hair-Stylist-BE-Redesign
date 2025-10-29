@@ -72,6 +72,12 @@ export class User {
   @Column({default: 0})
   spent: number
 
+  @Column({nullable:true,default:0})
+  longitude: number;
+
+  @Column({nullable:true,default:0})
+  latitude: number;
+
   @CreateDateColumn()
   createdAt: Date;
 
