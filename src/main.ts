@@ -23,7 +23,10 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  // Input Sanitization Middleware
+
+  
+
+  // Input sanitization setup
   const sanitizer = new InputSanitizationMiddleware();
   app.use((req, res, next) => sanitizer.use(req, res, next));
 
@@ -103,8 +106,8 @@ async function bootstrap() {
     customSiteTitle: 'KHS API Docs',
   });
 
-  // Start Server
-  const port = process.env.PORT || 8080;
+  const port = process.env.PORT || 7777;
+  
 
   await app.listen(port, '0.0.0.0');
   console.log(`Server running on http://localhost:${port}`);
