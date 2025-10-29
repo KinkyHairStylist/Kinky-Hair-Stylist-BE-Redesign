@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
 import session from 'express-session';
 import { AuthMiddleware } from './middleware/anth.middleware';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -8,9 +9,13 @@ import { InputSanitizationMiddleware } from './middleware/input-sanitization.mid
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // -------------------------------
+  // Global Prefix
+  app.setGlobalPrefix('api');
+
+  // Validation Pipe
+  app.useGlobalPipes(new ValidationPipe());
+
   // CORS Configuration
-  // -------------------------------
   app.enableCors({
     origin: ['http://localhost:3000'], // safer than using '*'
     credentials: true,
@@ -18,15 +23,11 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  // -------------------------------
   // Input Sanitization Middleware
-  // -------------------------------
   const sanitizer = new InputSanitizationMiddleware();
   app.use((req, res, next) => sanitizer.use(req, res, next));
 
-  // -------------------------------
   // Session Configuration
-  // -------------------------------
   app.use(
     session({
       secret: process.env.SESSION_SECRET || 'a-very-secret-key',
@@ -40,9 +41,7 @@ async function bootstrap() {
     }),
   );
 
-  // -------------------------------
   // Global Authentication Middleware
-  // -------------------------------
   // Define public routes that should bypass authentication
   const publicRoutes = [
     '/api/docs',
@@ -79,9 +78,7 @@ async function bootstrap() {
     }
   });
 
-  // -------------------------------
   // Swagger Setup
-  // -------------------------------
   const config = new DocumentBuilder()
     .setTitle('KHS API')
     .setDescription('API documentation for KHS backend')
@@ -106,9 +103,7 @@ async function bootstrap() {
     customSiteTitle: 'KHS API Docs',
   });
 
-  // -------------------------------
   // Start Server
-  // -------------------------------
   const port = process.env.PORT || 8080;
   await app.listen(port, '0.0.0.0');
   console.log(`Server running on http://localhost:${port}`);

@@ -8,12 +8,15 @@ import {
   ClassSerializerInterceptor,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiBearerAuth } from '@nestjs/swagger';
+
 import { SalonService } from '../services/salon.service';
 import { Salon } from '../user_entities/salon.entity';
 import { CacheInterceptor } from '../../cache/cache.interceptor';
 
 @ApiTags('salons')
-@Controller('api/salons')
+@Controller('salons')
+@ApiBearerAuth('access-token')
 @UseInterceptors(ClassSerializerInterceptor)
 export class SalonController {
   constructor(private readonly salonService: SalonService) {}
@@ -76,7 +79,7 @@ export class SalonController {
   @ApiResponse({ status: 200, description: 'Return salon details' })
   @ApiResponse({ status: 404, description: 'Salon not found' })
   async findOne(@Param('id') id: string) {
-    return this.salonService.findOne(parseInt(id));
+    return this.salonService.findOne(id);
   }
 
   @Get(':id/images')
@@ -84,6 +87,6 @@ export class SalonController {
   @ApiResponse({ status: 200, description: 'Return salon images' })
   @ApiResponse({ status: 404, description: 'Salon not found' })
   async findImages(@Param('id') id: string) {
-    return this.salonService.findImages(parseInt(id));
+    return this.salonService.findImages(id);
   }
 }

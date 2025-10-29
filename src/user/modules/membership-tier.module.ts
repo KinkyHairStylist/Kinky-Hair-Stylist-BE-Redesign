@@ -4,8 +4,8 @@ import { MembershipTier } from '../user_entities/membership-tier.entity';
 import { MembershipSubscription } from '../user_entities/membership-subscription.entity';
 import { MembershipTierService } from '../services/membership-tier.service';
 import { MembershipService } from '../services/membership-subscription.service';
-import { MembershipTierController } from './membership-tier.controller';
-import { MembershipSubscriptionController } from './membership-subscription.controller';
+import { MembershipTierController } from '../controllers/membership-tier.controller';
+import { MembershipSubscriptionController } from '../controllers/membership-subscription.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([MembershipTier, MembershipSubscription])],

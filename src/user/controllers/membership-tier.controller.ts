@@ -1,14 +1,17 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth } from '@nestjs/swagger';
+
 import { MembershipTierService } from '../services/membership-tier.service';
 
 @ApiTags('Membership')
 @Controller('membership')
+@ApiBearerAuth('access-token')
 export class MembershipTierController {
   constructor(private readonly membershipTierService: MembershipTierService) {}
 
   @Get('/user/tiers')
-  @ApiOperation({ summary: '[2] Get Membership Tiers' })
+  @ApiOperation({ summary: 'Get Membership Tiers' })
   @ApiResponse({
     status: 200,
     description: 'Returns all available membership tiers with price and session info',

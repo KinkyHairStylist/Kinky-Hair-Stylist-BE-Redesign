@@ -8,3 +8,12 @@ declare module 'express-session' {
     user: Partial<User>;
   }
 }
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: any;
+      session: import('express-session').Session;
+    }
+  }
+}

@@ -23,6 +23,9 @@ export class MembershipTier {
   @Column({ type: 'int', default: 0 })
   session: number; 
 
+  @Column({ type: 'simple-array', nullable: true })
+  features: string[];
+
   @Column({ default: false })
   isRecommended: boolean;
 

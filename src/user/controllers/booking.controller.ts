@@ -1,16 +1,39 @@
 import { Controller, Post, Body, Get } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { CreateBookingDto } from '../dtos/create-booking.dto';
+
 import { BookingService } from '../services/booking.service';
 
+@ApiTags('Bookings')
+@ApiBearerAuth('access-token')
 @Controller('api/bookings')
 export class BookingController {
   constructor(private bookingService: BookingService) {}
 
   @Post('create')
-  async createBooking(@Body() createBookingDto: any) {
+  @ApiOperation({ summary: 'Create a new booking' })
+  @ApiResponse({ status: 201, description: 'The booking has been successfully created.' })
+  @ApiResponse({ status: 400, description: 'Bad Request.' })
+  @ApiBody({ type: CreateBookingDto })
+  async createBooking(@Body() createBookingDto: CreateBookingDto) {
     return this.bookingService.createBooking(createBookingDto);
   }
 
   @Post('confirm')
+  @ApiOperation({ summary: 'Confirm a booking' })
+  @ApiResponse({ status: 200, description: 'The booking has been successfully confirmed.' })
+  @ApiResponse({ status: 400, description: 'Bad Request.' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        orderId: {
+          type: 'string',
+          example: '12345',
+        },
+      },
+    },
+  })
   async confirmBooking(@Body('orderId') orderId: string) {
     return this.bookingService.confirmBooking(orderId);
   }

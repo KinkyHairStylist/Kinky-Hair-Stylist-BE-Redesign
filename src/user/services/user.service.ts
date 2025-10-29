@@ -25,6 +25,7 @@ import {
 import { PasswordHashingHelper } from '../../helpers/password-hashing.helper';
 import { Referral } from '../user_entities/referrals.entity';
 import { Gender } from 'src/business/types/constants';
+import { ReferralService } from './referral.service';
 
 type SanitizedUser = Omit<
   User,
@@ -47,6 +48,7 @@ export class UserService {
     private referralRepository: Repository<Referral>, // new line added
 
     private jwtService: JwtService,
+    private readonly referralService: ReferralService,
   ) {
     const apiKey = process.env.SENDGRID_API_KEY;
     const fromEmail = process.env.SENDGRID_FROM_EMAIL;
@@ -194,29 +196,14 @@ export class UserService {
     user.phoneNumber = phoneNumber;
     user.gender = gender as Gender;
 
-    // Generate referral code if not set
-    if (!user.referralCode) {
-      user.referralCode = randomUUID().slice(0, 8);
-    }
+    // Generate referral code for the new user
+    user.referralCode = await this.referralService.ensureReferralCode(user.id);
 
     await this.userRepository.save(user);
 
-    // ✅ If referral code exists, record it
+    // If a referral code was used, complete the referral and reward the referrer
     if (referralCode) {
-      const referrer = await this.userRepository.findOne({ where: { referralCode } });
-
-      if (referrer) {
-        // Create referral record
-        await this.referralRepository.save({
-          referrer,
-          invitee: user,
-        });
-
-        // Add ₦20 / $20
-        referrer.totalEarnings += 20;
-        referrer.availableEarnings += 20;
-        await this.userRepository.save(referrer);
-      }
+      await this.referralService.completeReferral(email, user.id);
     }
 
     const { accessToken, refreshToken } = await this.getTokens(user.id, user.email);

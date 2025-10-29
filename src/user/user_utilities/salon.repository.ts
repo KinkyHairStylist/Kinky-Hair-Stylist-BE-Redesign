@@ -27,7 +27,7 @@ export class SalonRepository {
     return this.repository.save(salon);
   }
 
-  delete(id: number) {
+  delete(id: string) {
     return this.repository.delete(id);
   }
 

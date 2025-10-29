@@ -4,18 +4,24 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
+import { Salon } from './salon.entity';
+import { User } from '../../all_user_entities/user.entity';
 
 @Entity()
 export class Booking {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
-  salonId: number;
+  @ManyToOne(() => Salon, (salon) => salon.bookings, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'salonId' })
+  salon: Salon;
 
-  @Column()
-  userId: number;
+  @ManyToOne(() => User, (user) => user.bookings, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'userId' })
+  user: User;
 
   @Column('simple-array')
   serviceIds: number[];

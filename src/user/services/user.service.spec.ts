@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserService } from './user.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { User } from '../all_user_entities/user.entity';
+import { User } from '../../all_user_entities/user.entity';
 import * as sgMail from '@sendgrid/mail';
 
 jest.mock('@sendgrid/mail', () => ({

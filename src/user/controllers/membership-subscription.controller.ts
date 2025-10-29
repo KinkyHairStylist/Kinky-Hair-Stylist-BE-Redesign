@@ -6,6 +6,7 @@ import { MembershipService } from '../services/membership-subscription.service';
 
 @ApiTags('Membership')
 @Controller('membership')
+@ApiBearerAuth('access-token')
 export class MembershipSubscriptionController {
   constructor(
     private readonly MembershipService: MembershipService,
@@ -13,8 +14,7 @@ export class MembershipSubscriptionController {
 
   @Post('/user/subscription/subscribe')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: '[3] Subscribe to Membership API' })
+  @ApiOperation({ summary: 'Subscribe to Membership API' })
   @ApiResponse({
     status: 201,
     description: 'Subscribes the authenticated user to a membership tier',
@@ -45,7 +45,8 @@ export class MembershipSubscriptionController {
 
 
   @Get('/user/subscription/my-subscription')
-  @ApiOperation({ summary: '[3] Get User Subscription' })
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get User Subscription' })
   @ApiResponse({ status: 200, description: 'Fetch current user membership info' })
   async getUserSubscription(@Req() req) {
     const userId = req.user.id;
@@ -54,7 +55,8 @@ export class MembershipSubscriptionController {
 
   // Cancel Membership
   @Post('/user/subscription/cancel')
-  @ApiOperation({ summary: '[4] Cancel Membership' })
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Cancel Membership' })
   @ApiResponse({ status: 200, description: 'Cancel the current user membership' })
   async cancelMembership(@Req() req) {
     const userId = req.user.id;
@@ -63,7 +65,8 @@ export class MembershipSubscriptionController {
 
   // Upgrade Membership
   @Post('/user/subscription/upgrade')
-  @ApiOperation({ summary: '[5] Upgrade Membership' })
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Upgrade Membership' })
   @ApiResponse({ status: 200, description: 'Upgrade to next available membership tier' })
   async upgradeMembership(@Req() req) {
     const userId = req.user.id;

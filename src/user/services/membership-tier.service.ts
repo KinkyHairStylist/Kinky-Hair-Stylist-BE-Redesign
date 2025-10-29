@@ -17,33 +17,59 @@ export class MembershipTierService {
   async seedDefaultTiers() {
     const count = await this.membershipRepo.count();
     if (count === 0) {
-        const tiers = [
+      const tiers = [
         {
-            name: 'Basic Care',
-            description: 'Bronze.',
-            initialPrice: 69.99,
-            availablePrice: 49.99,
-            durationDays: 30,
-            session: 2,
+          name: 'Basic Care',
+          description: 'Bronze membership with essential benefits.',
+          initialPrice: 69.99,
+          availablePrice: 49.99,
+          durationDays: 30,
+          session: 2,
+          features: [
+            '2 styling sessions per month',
+            '10% off additional services',
+            'Online booking priority',
+            'Email reminders',
+          ],
         },
         {
-            name: 'Premium Hair Care',
-            description: 'Gold',
-            initialPrice: 109.99,
-            availablePrice: 89.99,
-            durationDays: 30,
-            session: 4,
-            isRecommended: true,
+          name: 'Premium Hair Care',
+          description: 'Gold tier with extra perks and flexibility.',
+          initialPrice: 109.99,
+          availablePrice: 89.99,
+          durationDays: 30,
+          session: 4,
+          isRecommended: true,
+          features: [
+            '4 styling sessions per month',
+            '20% off additional services',
+            'Priority booking',
+            'Email reminders',
+            'Complimentary hair consultation',
+            'Free deep conditioning treatment',
+            '24/7 customer support',
+          ],
         },
         {
-            name: 'Luxury Experience',
-            description: 'Platinum',
-            initialPrice: 209.99,
-            availablePrice: 149.99,
-            durationDays: 30,
-            session: 6,
+          name: 'Luxury Experience',
+          description: 'Platinum tier for VIP clients.',
+          initialPrice: 209.99,
+          availablePrice: 149.99,
+          durationDays: 30,
+          session: 6,
+          features: [
+            '6 premium sessions per month',
+            '25% off all services',
+            'VIP booking access',
+            'Personal stylist consultation',
+            'Exclusive event invitations',
+            'Email reminders',
+            'Complimentary hair consultation',
+            'Free deep conditioning treatment',
+            '24/7 customer support',
+          ],
         },
-        ];
+      ];
 
         await this.membershipRepo.save(tiers);
     }

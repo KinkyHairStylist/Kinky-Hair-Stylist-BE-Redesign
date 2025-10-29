@@ -1,7 +1,6 @@
-import { Injectable, BadRequestException, NotFoundException  } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-
 import { MembershipSubscription } from '../user_entities/membership-subscription.entity';
 import { MembershipTier } from '../user_entities/membership-tier.entity';
 import { SubscribeMembershipDto } from '../dtos/subscribe-membership.dto';
@@ -17,6 +16,7 @@ export class MembershipService {
     private readonly tierRepo: Repository<MembershipTier>,
   ) {}
 
+  // Subscribe to a new membership tier
   async subscribe(user: User, dto: SubscribeMembershipDto) {
     const tier = await this.tierRepo.findOne({ where: { id: dto.tierId } });
     if (!tier) throw new BadRequestException('Invalid membership tier');
@@ -33,6 +33,9 @@ export class MembershipService {
     const endDate = new Date();
     endDate.setDate(startDate.getDate() + tier.durationDays);
 
+    const nextBillingDate = new Date(startDate);
+    nextBillingDate.setDate(startDate.getDate() + 30); // Assuming monthly billing cycle
+
     const subscription = this.subscriptionRepo.create({
       userId: user.id,
       tierId: tier.id,
@@ -40,6 +43,8 @@ export class MembershipService {
       endDate,
       remainingSessions: tier.session,
       status: 'active',
+      nextBillingDate,
+      monthlyCost: tier.initialPrice, // Assuming this column stores monthly fee
     });
 
     await this.subscriptionRepo.save(subscription);
@@ -51,11 +56,12 @@ export class MembershipService {
     };
   }
 
+  // Get all subscriptions for a user
   async getUserSubscriptions(userId: string) {
     return this.subscriptionRepo.find({ where: { userId } });
   }
 
-  // Get User Subscription
+  // Get active subscription for a user
   async getUserSubscription(userId: string) {
     const subscription = await this.subscriptionRepo.findOne({
       where: { userId, status: 'active' },
@@ -69,7 +75,7 @@ export class MembershipService {
     return subscription;
   }
 
-  // Cancel Membership
+  // Cancel active membership
   async cancelMembership(userId: string) {
     const subscription = await this.subscriptionRepo.findOne({
       where: { userId, status: 'active' },
@@ -81,13 +87,14 @@ export class MembershipService {
 
     subscription.status = 'cancelled';
     subscription.endDate = new Date();
+    subscription.cancelledAt = new Date(); // Record cancellation timestamp
 
     await this.subscriptionRepo.save(subscription);
 
     return { message: 'Membership cancelled successfully.' };
   }
 
-  // Upgrade Membership
+  // Upgrade membership to next available tier
   async upgradeMembership(userId: string) {
     const subscription = await this.subscriptionRepo.findOne({
       where: { userId, status: 'active' },
@@ -106,10 +113,20 @@ export class MembershipService {
     }
 
     const nextTier = allTiers[currentIndex + 1];
+
+    const startDate = new Date();
+    const endDate = new Date(startDate.getTime() + nextTier.durationDays * 24 * 60 * 60 * 1000);
+
+    const nextBillingDate = new Date(startDate);
+    nextBillingDate.setDate(startDate.getDate() + 30);
+
     subscription.tier = nextTier;
     subscription.tierId = nextTier.id;
-    subscription.startDate = new Date();
-    subscription.endDate = new Date(Date.now() + nextTier.durationDays * 24 * 60 * 60 * 1000);
+    subscription.startDate = startDate;
+    subscription.endDate = endDate;
+    subscription.remainingSessions = nextTier.session;
+    subscription.monthlyCost = nextTier.initialPrice;
+    subscription.nextBillingDate = nextBillingDate;
 
     await this.subscriptionRepo.save(subscription);
 

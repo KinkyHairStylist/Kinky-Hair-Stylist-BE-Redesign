@@ -50,7 +50,6 @@ export class ImageSeed {
           caption: `Image ${j + 1} for ${salon.name}`,
           isPrimary: j === 0, // First image is primary
           salon: salon,
-          salonId: salon.id,
         });
 
         await this.salonImageRepository.save(image);

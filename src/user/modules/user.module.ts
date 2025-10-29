@@ -9,12 +9,14 @@ import { User } from '../../all_user_entities/user.entity';
 import { EmailValidationMiddleware } from '../../middleware/email-validation.middleware';
 import { JwtRefreshStrategy } from '../../middleware/strategy/jwt-refresh.strategy';
 import { EmailModule } from '../../email/email.module';
+import { ReferralModule } from './referral.module';
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([User, Referral]),
         JwtModule.register({}),
         EmailModule,
+        ReferralModule,
     ],
     controllers: [UserController],
     providers: [

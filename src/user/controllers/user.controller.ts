@@ -35,7 +35,7 @@ interface RequestWithSession extends Request {
 }
 
 @ApiTags('Customer') // Groups all endpoints under 'User' in Swagger
-@Controller('api')
+@Controller()
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
@@ -203,7 +203,7 @@ export class UserController {
   }
 
   @Post('/auth/refresh-token')
-  @UseGuards(AuthGuard('jwt-refresh'))
+  @UseGuards(AuthGuard('access-token'))
   @ApiOperation({ summary: 'Refresh authentication tokens' })
   @ApiBody({ type: RefreshTokenDto })
   @ApiResponse({

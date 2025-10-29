@@ -4,7 +4,7 @@ import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
 import { ReferralService } from '../services/referral.service';
 
 @ApiTags('Referrals')
-@ApiBearerAuth() // Shows lock icon & enables JWT input in Swagger
+@ApiBearerAuth('access-token')// Shows lock icon & enables JWT input in Swagger
 @Controller('referrals')
 export class ReferralController {
   constructor(private readonly referralService: ReferralService) {}
@@ -34,12 +34,31 @@ export class ReferralController {
     return this.referralService.getReferralStats(userId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('/user/my-referrals')
   @ApiOperation({ summary: 'Get all referrals for the authenticated user' })
   @ApiResponse({ status: 200, description: 'List of referrals retrieved successfully' })
   async getMyReferrals(@Req() req) {
-    const userId = req.user.sub; // comes from JWT payload
+    const userId = req.user.sub; // Extracted from JWT payload
     return await this.referralService.getUserReferrals(userId);
   }
-}
 
+  @UseGuards(JwtAuthGuard)
+  @Get('/link')
+  @ApiOperation({
+    summary: 'Get referral link for the authenticated user',
+    description: 'Generates or retrieves a unique referral link for the logged-in user.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Referral link successfully generated or retrieved.',
+    schema: {
+      example: { referralLink: 'https://yourapp.com/referral?code=abc123' },
+    },
+  })
+  async getReferralLink(@Req() req) {
+    const userId = req.user.sub; // Prefer using JWT payload instead of session
+    const link = await this.referralService.getReferralLink(userId);
+    return { referralLink: link };
+  }
+}

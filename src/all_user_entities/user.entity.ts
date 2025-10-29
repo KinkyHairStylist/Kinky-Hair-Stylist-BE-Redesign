@@ -11,6 +11,7 @@ import { Appointment } from 'src/business/entities/appointment.entity';
 import { RefreshToken } from 'src/business/entities/refresh.token.entity';
 import { Business } from 'src/business/entities/business.entity';
 import { Gender } from 'src/business/types/constants';
+import { Booking } from 'src/user/user_entities/booking.entity';
 
 @Entity()
 export class User {
@@ -93,4 +94,7 @@ export class User {
 
   @Column({ type: 'varchar', unique: true, nullable: true })
   referralCode: string;
+
+  @OneToMany(() => Booking, (booking) => booking.user)
+  bookings: Booking[];
 }

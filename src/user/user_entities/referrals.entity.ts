@@ -18,7 +18,7 @@ export class Referral {
   @JoinColumn({ name: 'referrerId' })
   referrer: User;
 
-  @Column()
+  @Column({ type: 'uuid' })
   referrerId: string;
 
   // The email (or id) of the user who was referred

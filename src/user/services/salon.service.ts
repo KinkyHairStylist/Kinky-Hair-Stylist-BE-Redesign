@@ -10,7 +10,6 @@ import { UpdateSalonDto } from '../dtos/update-salon.dto';
 @Injectable()
 export class SalonService {
   constructor(
-    @InjectRepository(Salon)
     private salonRepository: SalonRepository,
     @InjectRepository(SalonImage)
     private salonImageRepository: Repository<SalonImage>,
@@ -115,7 +114,7 @@ export class SalonService {
     return { data, total, page, limit };
   }
 
-  async findOne(id: number): Promise<Salon> {
+  async findOne(id: string): Promise<Salon> {
     const salon = await this.salonRepository.findOne({
       where: { id },
       relations: ['images'],
@@ -128,9 +127,9 @@ export class SalonService {
     return salon;
   }
 
-  async findImages(salonId: number): Promise<SalonImage[]> {
+  async findImages(salonId: string): Promise<SalonImage[]> {
     return this.salonImageRepository.find({
-      where: { salonId },
+      where: { salon: { id: salonId } },
       order: { isPrimary: 'DESC' },
     });
   }
@@ -140,13 +139,13 @@ export class SalonService {
     return this.salonRepository.save(salon);
   }
 
-  async update(id: number, updateSalonDto: UpdateSalonDto): Promise<Salon> {
+  async update(id: string, updateSalonDto: UpdateSalonDto): Promise<Salon> {
     const salon = await this.findOne(id);
     Object.assign(salon, updateSalonDto);
     return this.salonRepository.save(salon);
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: string): Promise<void> {
     await this.salonRepository.delete(id);
   }
 }

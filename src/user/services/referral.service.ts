@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import * as crypto from 'crypto';
+import { NotFoundException } from '@nestjs/common';
 
 import { Referral } from '../user_entities/referrals.entity';
 import { User } from '../../all_user_entities/user.entity';
@@ -18,6 +20,27 @@ export class ReferralService {
     @InjectRepository(Booking)
     private readonly bookingRepository: Repository<Booking>,
   ) {}
+
+  // Generate unique referral code
+  generateReferralCode(): string {
+    return crypto.randomBytes(8).toString('hex').toUpperCase();
+  }
+
+  // Ensure user has a referral code
+  async ensureReferralCode(id: string): Promise<string> {
+    let user = await this.userRepository.findOne({ where: { id: id } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!user.referralCode) {
+      user.referralCode = this.generateReferralCode();
+      await this.userRepository.save(user);
+    }
+
+    return user.referralCode;
+  }
+
 
   //  When a user registers through a referral link
   async createReferral(referrerId: string, referredEmail: string, referralCode: string) {
@@ -74,7 +97,7 @@ export class ReferralService {
     const successfulBookings = referredUserIds.length
       ? await this.bookingRepository.count({
           where: {
-            userId: In(referredUserIds),
+            user: In(referredUserIds),
             status: 'confirmed',
           },
         })
@@ -109,4 +132,9 @@ export class ReferralService {
     }));
   }
 
+  // Get referral link 
+  async getReferralLink(userId: string): Promise<string> {
+    const referralCode = await this.ensureReferralCode(userId);
+    return `${process.env.FRONTEND_URL}api/auth/get-started?ref=${referralCode}`;
+  }
 }

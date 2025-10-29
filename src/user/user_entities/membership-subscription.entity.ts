@@ -41,6 +41,15 @@ export class MembershipSubscription {
   @Column({ default: 'active' })
   status: 'active' | 'expired' | 'cancelled';
 
+  @Column({ nullable: true })
+  nextBillingDate: Date;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  monthlyCost: number;
+
+  @Column({ nullable: true })
+  cancelledAt: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 
