@@ -6,8 +6,7 @@ import {
     CreateDateColumn,
     JoinColumn,
 } from 'typeorm';
-import { User } from './user.entity';
-
+import { User } from 'src/all_user_entities/user.entity';
 import {ApplicationStatus, CompanySize} from '../types/constants';
 
 @Entity()

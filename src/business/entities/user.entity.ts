@@ -34,10 +34,10 @@ export class User {
   @Column()
   firstName: string;
 
-  @Column({nullable:true})
+  @Column({nullable:true,default:0})
   longitude: number;
 
-  @Column({nullable:true})
+  @Column({nullable:true,default:0})
   latitude: number;
 
   @Column()

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { JwtModule } from '@nestjs/jwt';
 import { EmailModule } from './email/email.module';
 import { BusinessModule } from './business/business.module';
 import { AdminModule } from './admin/admin.module';
@@ -15,9 +16,12 @@ import { SalonModule } from './user/salon/salon.module';
 import { BookingModule } from './user/salon/booking/booking.module';
 import { AppService } from './app.service';
 import { AppController } from './app.controller';
-import { SeedsModule } from './user/salon/seeds/seed.module';
+import { SeedsModule } from './user/seeds/seed.module';
+import { typeOrmConfig as testTypeOrmConfig } from './config/database.test';
 import { typeOrmConfig } from './config/database';
-
+import { AuthMiddleware } from './middleware/anth.middleware';
+import { ReferralModule } from './user/modules/referral.module';
+import { MembershipModule } from './user/modules/membership-tier.module';
 // import { ModerationModule } from './admin/moderation/moderation.module';
 
 @Module({
@@ -25,7 +29,30 @@ import { typeOrmConfig } from './config/database';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    TypeOrmModule.forRoot(typeOrmConfig),
+    TypeOrmModule.forRoot(
+      process.env.NODE_ENV === 'test' ? testTypeOrmConfig : typeOrmConfig,
+    ),
+    JwtModule.registerAsync({
+      global: true, // Make JwtModule globally available
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_ACCESS_SECRET'),
+        signOptions: { expiresIn: '1d' },
+      }),
+      inject: [ConfigService],
+    }),
+    TypeOrmModule.forRoot(
+      process.env.NODE_ENV === 'test' ? testTypeOrmConfig : typeOrmConfig,
+    ),
+    JwtModule.registerAsync({
+      global: true, // Make JwtModule globally available
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_ACCESS_SECRET'),
+        signOptions: { expiresIn: '1d' },
+      }),
+      inject: [ConfigService],
+    }),
     EmailModule,
     BusinessModule,
     AdminModule,
@@ -40,12 +67,12 @@ import { typeOrmConfig } from './config/database';
     SalonModule,
     SeedsModule,
     BookingModule,
-
-
+    ReferralModule,
+    MembershipModule
     // ModerationModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, AuthMiddleware],
 })
 
 export class AppModule {}

@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../middlewares/guards/jwt-auth.guard';
-import { User } from '../entities/user.entity';
+import { User } from 'src/all_user_entities/user.entity';
 import { BusinessService } from '../services/business.service';
 import { CreateBusinessDto } from '../dtos/requests/CreateBusinessDto';
 import { BookingPoliciesData, BusinessServiceData } from '../types/constants';
@@ -21,7 +21,7 @@ interface RequestWithUser extends Request {
 }
 
 @Controller('business')
-@UseGuards(JwtAuthGuard)
+// @UseGuards(JwtAuthGuard)
 export class BusinessController {
   constructor(private readonly businessService: BusinessService) {}
 
@@ -46,16 +46,21 @@ export class BusinessController {
   }
 
   @Public()
-  @Get('/list-services')
+  @Get('/business/list-services')
   @HttpCode(HttpStatus.OK)
   getServices(): BusinessServiceData[] {
     return this.businessService.getServices();
   }
 
   @Public()
-  @Get('/list-booking-policies')
+  @Get('/business/list-booking-policies')
   @HttpCode(HttpStatus.OK)
   getBookingPoliciesConfigs(): BookingPoliciesData[] {
     return this.businessService.getBookingPoliciesConfiguration();
+  }
+
+  @Get('/ping')
+  ping(){
+    return "server is live"
   }
 }

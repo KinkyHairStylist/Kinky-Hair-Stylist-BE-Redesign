@@ -10,7 +10,7 @@ import { OtpService } from './services/otp.service';
 import { BusinessService } from './services/business.service';
 import { BusinessController } from './controllers/business.controller';
 
-import { User } from './entities/user.entity';
+import { User } from '../all_user_entities/user.entity';
 import { Business } from './entities/business.entity';
 import { RefreshToken } from './entities/refresh.token.entity';
 import { EmailVerification } from './entities/email-verification.entity';

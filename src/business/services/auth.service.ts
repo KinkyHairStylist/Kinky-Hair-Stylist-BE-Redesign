@@ -8,7 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
-import { User } from '../entities/user.entity';
+import { User } from '../../all_user_entities/user.entity';
 import { RefreshToken } from '../entities/refresh.token.entity';
 import { CreateUserDto } from '../dtos/requests/CreateUserDto';
 import { LoginDto } from '../dtos/requests/LoginDto';
@@ -179,16 +179,16 @@ export class AuthService {
     return this.userRepo.save(newUser);
   }
 
-  private async checkExistingUser(email: string, phone: string): Promise<void> {
+  private async checkExistingUser(email: string, phoneNumber: string): Promise<void> {
     const existingUser = await this.userRepo.findOne({
-      where: [{ email }, { phone }],
+      where: [{ email }, { phoneNumber }],
     });
 
     if (existingUser) {
       if (existingUser.email === email) {
         throw new ConflictException('User with this email already exists');
       }
-      if (existingUser.phone === phone) {
+      if (existingUser.phoneNumber === phoneNumber) {
         throw new ConflictException(
           'User with this phone number already exists',
         );
@@ -325,27 +325,6 @@ export class AuthService {
     };
   }
 
-  async verifyResetToken(
-    verifyResetTokenDto: VerifyResetTokenDto,
-  ): Promise<{ message: string }> {
-    const { token } = verifyResetTokenDto;
-
-    try {
-      const payload = await this.jwtService.verifyAsync(token, {
-        secret: process.env.JWT_ACCESS_SECRET,
-      });
-
-      if (payload.purpose !== 'password-reset') {
-        throw new BadRequestException('Invalid token purpose.');
-      }
-
-      return { message: 'Reset token is valid.' };
-    } catch {
-      throw new BadRequestException('Invalid or expired reset token.');
-    }
-  }
-
-
 
   async requestPhoneOtp(requestPhoneOtpDto: RequestPhoneOtpDto) {
     const { phone } = requestPhoneOtpDto;
@@ -360,14 +339,14 @@ export class AuthService {
   }
 
   async verifyPhoneNumber(verifyPhoneOtpDto: VerifyPhoneOtpDto) {
-    const { phone, otp } = verifyPhoneOtpDto;
+    const { phoneNumber, otp } = verifyPhoneOtpDto;
 
-    const isValid = await this.otpService.verifyPhoneOtpService(phone, otp);
+    const isValid = await this.otpService.verifyPhoneOtpService(phoneNumber, otp);
     if (!isValid) {
       throw new BadRequestException('Invalid or expired OTP.');
     }
 
-    const user = await this.userRepo.findOne({ where: { phone } });
+    const user = await this.userRepo.findOne({ where: { phoneNumber } });
     if (user) {
       user.isVerified = true;
       await this.userRepo.save(user);
@@ -376,7 +355,7 @@ export class AuthService {
     return {
       message: 'Phone number verified successfully.',
       verified: true,
-      phone,
+      phoneNumber,
     };
   }
 
@@ -388,7 +367,7 @@ async findOneById(id: string): Promise<User | null> {
   async findByEmail(email: string): Promise<User | null> {
     return this.userRepo.findOne({
       where: { email: email.toLowerCase() },
-      select: ['id', 'email', 'password', 'isVerified', 'phone'],
+      select: ['id', 'email', 'password', 'isVerified', 'phoneNumber'],
     });
   }
 }
