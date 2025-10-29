@@ -10,7 +10,7 @@ import {
   UpdateDateColumn,
   JoinColumn,
 } from 'typeorm';
-import { User } from './user.entity';
+import { User } from 'src/all_user_entities/user.entity';
 import { BookingPolicies } from './booking-policies.entity';
 import { BookingDay } from './booking-day.entity';
 import { CompanySize } from '../types/constants';

@@ -151,7 +151,7 @@ export class ClientController {
     return result;
   }
 
-  @Get('search')
+  @Get('/client/search')
   async searchClients(
     @Request() req,
     @Query('q') query: string,
@@ -193,7 +193,7 @@ export class ClientController {
     return result;
   }
 
-  @Get(':clientId')
+  @Get('/client/:clientId')
   async getClientDetails(
     @Request() req,
     @Param('clientId') clientId: string,
@@ -215,7 +215,7 @@ export class ClientController {
     return result;
   }
 
-  @Patch(':clientId')
+  @Patch('/client/:clientId')
   async updateClient(
     @Request() req,
     @Param('clientId') clientId: string,
@@ -238,7 +238,7 @@ export class ClientController {
     return result;
   }
 
-  @Delete(':clientId')
+  @Delete('/client/:clientId')
   async deleteClient(
     @Request() req,
     @Param('clientId') clientId: string,
@@ -260,7 +260,7 @@ export class ClientController {
     return result;
   }
 
-  @Post('profile')
+  @Post('/client/profile')
   async createClientProfile(
     @Request() req,
     @Body() profileData: any,
@@ -282,7 +282,7 @@ export class ClientController {
     return result;
   }
 
-  @Get(':clientId/profile')
+  @Get('/client/:clientId/profile')
   async getClientProfile(
     @Request() req,
     @Param('clientId') clientId: string,
@@ -304,7 +304,7 @@ export class ClientController {
     return result;
   }
 
-  @Post('validate/profile')
+  @Post('/client/validate/profile')
   async validateClientProfile(
     @Body() profileData: any,
   ) {
@@ -320,7 +320,7 @@ export class ClientController {
     return result;
   }
 
-  @Post('addresses')
+  @Post('/client/addresses')
   async addClientAddress(
     @Request() req,
     @Body() addressData: CreateClientAddressDto,
@@ -355,7 +355,7 @@ export class ClientController {
     return result;
   }
 
-  @Get(':clientId/addresses')
+  @Get('/client/:clientId/addresses')
   async getClientAddresses(
     @Request() req,
     @Param('clientId') clientId: string,
@@ -377,7 +377,7 @@ export class ClientController {
     return result;
   }
 
-  @Post('emergency-contacts')
+  @Post('/client/emergency-contacts')
   async addEmergencyContact(
     @Request() req,
     @Body() contactData: CreateEmergencyContactDto,
@@ -399,7 +399,7 @@ export class ClientController {
     return result;
   }
 
-  @Get(':clientId/emergency-contacts')
+  @Get('/client/:clientId/emergency-contacts')
   async getEmergencyContacts(
     @Request() req,
     @Param('clientId') clientId: string,
