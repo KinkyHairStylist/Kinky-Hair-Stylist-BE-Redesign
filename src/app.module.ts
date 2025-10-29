@@ -27,7 +27,7 @@ import { typeOrmConfig as testTypeOrmConfig } from './config/database.test';
 import { typeOrmConfig } from './config/database';
 import { AuthMiddleware } from './middleware/anth.middleware';
 import { ReferralModule } from './user/modules/referral.module';
-import { MembershipModule } from './user/controllers/membership-tier.module';
+import { MembershipModule } from './user/modules/membership-tier.module';
 // import { ModerationModule } from './admin/moderation/moderation.module';
 
 @Module({
