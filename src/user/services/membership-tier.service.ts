@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { NotFoundException } from '@nestjs/common';
+
 import { MembershipTier } from '../user_entities/membership-tier.entity';
 
 @Injectable()
@@ -12,6 +14,14 @@ export class MembershipTierService {
 
   async getAllTiers() {
     return await this.membershipRepo.find({ order: { availablePrice: 'ASC' } });
+  }
+
+  async getTierById(id: string) {
+    const tier = await this.membershipRepo.findOne({ where: { id } });
+    if (!tier) {
+      throw new NotFoundException(`Membership tier with ID "${id}" not found`);
+    }
+    return tier;
   }
 
   async seedDefaultTiers() {
