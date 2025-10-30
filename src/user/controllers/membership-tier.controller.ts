@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Param  } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ApiBearerAuth } from '@nestjs/swagger';
 
@@ -33,5 +33,28 @@ export class MembershipTierController {
   })
   async getAllTiers() {
     return await this.membershipTierService.getAllTiers();
+  }
+
+  @Get('/user/tier/:id')
+  @ApiOperation({ summary: 'Get single Membership Tier by ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns a single membership tier by ID',
+    schema: {
+      example: {
+        id: 'uuid',
+        name: 'Luxury Experience',
+        description: 'Exclusive VIP service',
+        initialPrice: 209.99,
+        availablePrice: 149.99,
+        durationDays: 30,
+        session: 6,
+        isRecommended: false,
+        createdAt: '2025-10-24T10:00:00Z',
+      },
+    },
+  })
+  async getTierById(@Param('id') id: string) {
+    return await this.membershipTierService.getTierById(id);
   }
 }

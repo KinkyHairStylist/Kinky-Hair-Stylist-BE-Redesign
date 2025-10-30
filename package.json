@@ -50,6 +50,7 @@
     "rxjs": "^7.8.1",
     "stripe": "^19.1.0",
     "swagger-ui-express": "^5.0.1",
+    "twilio": "^5.10.4",
     "typeorm": "^0.3.27",
     "uuid": "^13.0.0",
     "xss": "^1.0.15"
@@ -97,6 +98,9 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "src/(.*)": "<rootDir>/$1"
+    }
   }
 }

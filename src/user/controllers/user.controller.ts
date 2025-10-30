@@ -153,8 +153,7 @@ export class UserController {
     };
   }
 
-  // 👇 Password Reset Endpoints
-
+  // Password Reset Endpoints
   @Post('/auth/reset-password/start')
   @ApiOperation({
     summary: 'Start password reset by sending code to email/phone',

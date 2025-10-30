@@ -10,6 +10,7 @@ import { EmailValidationMiddleware } from '../../middleware/email-validation.mid
 import { JwtRefreshStrategy } from '../../middleware/strategy/jwt-refresh.strategy';
 import { EmailModule } from '../../email/email.module';
 import { ReferralModule } from './referral.module';
+import { PhoneVerificationModule } from './phone-verification.module';
 
 @Module({
     imports: [
@@ -17,6 +18,7 @@ import { ReferralModule } from './referral.module';
         JwtModule.register({}),
         EmailModule,
         ReferralModule,
+        PhoneVerificationModule,
     ],
     controllers: [UserController],
     providers: [
