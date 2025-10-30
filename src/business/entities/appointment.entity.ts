@@ -27,7 +27,7 @@ export class Appointment {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
-    // 👩 Client (User)
+    // Client (User)
     @ManyToOne(() => User, (user) => user.clientAppointments, {
         eager: true,
         onDelete: "CASCADE",
@@ -35,7 +35,7 @@ export class Appointment {
     @JoinColumn({ name: "client_id" })
     client: User;
 
-    // 💼 Business
+    // Business
     @ManyToOne(() => Business, (business) => business.appointments, {
         eager: true,
         onDelete: "CASCADE",
@@ -43,7 +43,7 @@ export class Appointment {
     @JoinColumn({ name: "business_id" })
     business: Business;
 
-    // 💇 Appointment details
+    // Appointment details
     @Column()
     serviceName: string;
 
