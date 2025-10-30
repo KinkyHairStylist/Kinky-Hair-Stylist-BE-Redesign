@@ -93,29 +93,45 @@ export class UserService {
 
     let user = await this.userRepository.findOne({ where: { email } });
 
-    // If user already exists, do not resend verification code
-    if (user && user.isVerified) {
+    // user exists and is fully registered
+    if (user && user.isVerified && user.password) {
       return {
         message: 'User already exists. Please log in instead.',
         success: false,
       };
     }
 
-    // Otherwise, create a new user and send a verification code
-    user = this.userRepository.create({
+    const verificationCode = this.generateCode();
+    const verificationExpires = new Date(Date.now() + 10 * 60 * 1000);
+
+    // user exists but not verified → update record
+    if (user && !user.isVerified) {
+      user.verificationCode = verificationCode;
+      user.verificationExpires = verificationExpires;
+
+      await this.userRepository.save(user);
+      await this.sendVerificationEmail(user.email, verificationCode);
+
+      return {
+        message: 'Verification code resent to your email.',
+        success: true,
+      };
+    }
+
+    // new user → create a new record
+    const newUser = this.userRepository.create({
       email,
       isVerified: false,
-      verificationCode: this.generateCode(),
-      verificationExpires: new Date(Date.now() + 10 * 60 * 1000),
+      verificationCode,
+      verificationExpires,
     });
 
-    await this.userRepository.save(user);
-    if (user.verificationCode) {
-      await this.sendVerificationEmail(user.email, user.verificationCode);
-    }
+    await this.userRepository.save(newUser);
+    await this.sendVerificationEmail(newUser.email, verificationCode);
 
     return { message: 'Verification code sent', success: true };
   }
+
     
   async verifyCode(dto: VerifyCodeDto): Promise<AuthResponseDto> {
     const { email, code } = dto;
