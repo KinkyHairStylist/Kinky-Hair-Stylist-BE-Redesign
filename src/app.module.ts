@@ -45,6 +45,7 @@ import { PlatformSettingsModule } from './admin/platform-settings/platform-setti
         signOptions: { expiresIn: '1d' },
       }),
       inject: [ConfigService],
+      
     }),
     TypeOrmModule.forRoot(
       process.env.NODE_ENV === 'test' ? testTypeOrmConfig : typeOrmConfig,
