@@ -16,7 +16,7 @@ import {
   VerifyCodeDto, 
   ResendCodeDto, 
   SignUpDto, 
-  LoginDto, 
+  CustomerLoginDto, 
   ResetPasswordStartDto, 
   ResetPasswordVerifyDto, 
   ResetPasswordFinishDto, 
@@ -233,7 +233,7 @@ export class UserService {
     };
   }
 
-  async login(dto: LoginDto): Promise<AuthResponseDto> {
+  async login(dto: CustomerLoginDto): Promise<AuthResponseDto> {
     const { email, password } = dto;
 
     const user = await this.userRepository.findOne({ where: { email } });

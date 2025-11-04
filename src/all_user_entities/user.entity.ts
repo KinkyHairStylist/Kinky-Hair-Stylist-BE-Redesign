@@ -6,6 +6,8 @@ import {
   OneToMany,
   UpdateDateColumn,
 } from 'typeorm';
+import { Card } from './card.entity';
+import { GiftCard } from './gift-card.entity';
 import { Referral } from '../user/user_entities/referrals.entity'
 import { Appointment } from 'src/business/entities/appointment.entity';
 import { RefreshToken } from 'src/business/entities/refresh.token.entity';
@@ -103,4 +105,10 @@ export class User {
 
   @OneToMany(() => Booking, (booking) => booking.user)
   bookings: Booking[];
+
+  @OneToMany(() => Card, (card) => card.user)
+  cards: Card[];
+
+  @OneToMany(() => GiftCard, (giftCard) => giftCard.sender)
+  giftCards: GiftCard[];
 }

@@ -30,6 +30,10 @@ export class BusinessService {
       owner,
     });
 
+    business.ownerName = (owner?.firstName + " " + owner?.surname)|| ""
+    business.ownerEmail = owner?.email || ""
+    business.ownerPhone = owner?.phoneNumber || ""
+
     return await this.businessRepo.save(business);
   }
 
