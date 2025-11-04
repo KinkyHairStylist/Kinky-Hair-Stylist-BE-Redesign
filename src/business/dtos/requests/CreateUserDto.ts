@@ -15,7 +15,7 @@ export class CreateUserDto {
 
   @IsString()
   @IsNotEmpty({ message: 'First name is required.' })
-  readonly firstname: string;
+  readonly firstName: string;
 
   @IsString()
   @IsNotEmpty({ message: 'Surname is required.' })
@@ -26,9 +26,8 @@ export class CreateUserDto {
   @IsNotEmpty({ message: 'Password is required.' })
   readonly password: string;
 
-  @IsPhoneNumber(undefined, { message: 'Please enter a valid phone number.' })
   @IsNotEmpty({ message: 'Phone number is required.' })
-  readonly phone: string;
+  readonly phoneNumber: string;
 
   @IsEnum(Gender, {
       message: 'Gender must be one of the following: MALE, FEMALE, CUSTOM.',

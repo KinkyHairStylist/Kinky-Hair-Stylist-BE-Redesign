@@ -12,8 +12,8 @@ import { WithdrawalModule } from './admin/withdrawal/withdrawal.module';
 import { WalletModule } from './admin/wallet/wallet.module';
 
 // import { UserModule } from './user/user.module';
-import { SalonModule } from './user/salon/salon.module';
-import { BookingModule } from './user/salon/booking/booking.module';
+import { SalonModule } from './user/modules/salon.module';
+import { BookingModule } from './user/modules/booking.module';
 import { AppService } from './app.service';
 import { AppController } from './app.controller';
 import { SeedsModule } from './user/seeds/seed.module';

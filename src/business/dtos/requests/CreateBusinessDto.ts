@@ -35,6 +35,12 @@ export class CreateBusinessDto {
   @IsNotEmpty({ message: 'Business address is required.' })
   readonly businessAddress: string;
 
+  @IsNotEmpty({ message: 'address is required.' })
+  readonly longitude: number;
+
+  @IsNotEmpty({ message: 'address is required.' })
+  readonly latitude: number;
+
   @ValidateNested()
   @Type(() => CreateBookingPoliciesDto)
   @IsNotEmpty({ message: 'Booking policies are required.' })
@@ -54,7 +60,6 @@ export class CreateBusinessDto {
   @IsNotEmpty({ message: 'Booking hours are required.' })
   readonly bookingHours: CreateBookingDayDto[];
 
-  @IsString({ message: 'How did you hear must be a string.' })
   @IsNotEmpty({ message: 'How did you hear is required.' })
-  readonly howDidYouHear: string;
+  readonly howDidYouHear: string[];
 }
