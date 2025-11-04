@@ -5,16 +5,18 @@ import {
     ManyToOne,
     CreateDateColumn,
     UpdateDateColumn,
-    JoinColumn,
+    JoinColumn, JoinTable, ManyToMany,
 } from "typeorm";
 import { User } from 'src/all_user_entities/user.entity';
 import { Business } from "./business.entity";
+import {Staff} from "./staff.entity";
 
 export enum AppointmentStatus {
     CONFIRMED = "Confirmed",
     PENDING = "Pending",
     CANCELLED = "Cancelled",
     COMPLETED = "Completed",
+    RESCHEDULED = "Rescheduled",
 }
 
 export enum PaymentStatus {
@@ -34,6 +36,14 @@ export class Appointment {
     })
     @JoinColumn({ name: "client_id" })
     client: User;
+
+    @ManyToMany(() => Staff, { eager: true })
+    @JoinTable({
+        name: "appointment_staff",
+        joinColumn: { name: "appointment_id", referencedColumnName: "id" },
+        inverseJoinColumn: { name: "staff_id", referencedColumnName: "id" },
+    })
+    staff: Staff[];
 
     // Business
     @ManyToOne(() => Business, (business) => business.appointments, {

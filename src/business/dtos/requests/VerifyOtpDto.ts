@@ -6,7 +6,7 @@ export class VerifyOtpDto {
   readonly email: string;
 
   @IsString({ message: 'OTP must be a string.' })
-  @Length(6, 6, { message: 'OTP must be exactly 6 digits.' })
+
   @IsNotEmpty({ message: 'OTP is required.' })
   readonly otp: string;
 }

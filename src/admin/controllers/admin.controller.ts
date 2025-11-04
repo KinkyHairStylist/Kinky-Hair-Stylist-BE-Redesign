@@ -12,6 +12,11 @@ export class AdminController {
         return this.adminService.getAllUsers();
     }
 
+    @Post('getNearbySalons')
+    async getNearbySalons(body:{longitude:number, latitude:number}) {
+        return this.adminService.getNearbySalons(body);
+    }
+
     @Post('cancelSubscription')
     async cancelSubscription(@Body() body:{id:string}) {
         return this.adminService.cancelSubscription(body.id);
@@ -70,21 +75,11 @@ export class AdminController {
         return this.adminService.getAllBusinesses();
     }
 
-    @Get('getPendingApplications')
-    async getPendingApplications() {
-        return this.adminService.getPendingApplications()
-    }
-
     @Post('suspendBusiness')
     async suspendBusiness(@Body() body:{ id: string }) {
         return this.adminService.suspendBusiness(body.id)
     }
 
-
-    @Post("findApplicationById")
-    async findApplicationById(@Body() body:{ id: string}) {
-        return this.adminService.findApplicationById(body.id);
-    }
 
     @Post('rejectApplication')
     async rejectApplication(@Body() body:{ id: string }) {
@@ -99,11 +94,6 @@ export class AdminController {
     @Post('approveApplication')
     async approveApplication(@Body() body:{ id: string }) {
         return this.adminService.approveApplication(body.id);
-    }
-
-    @Get('getAllBusinessApplications')
-    async getAllBusinessApplications() {
-        return this.adminService.getAllBusinessApplications();
     }
 
     @Post('suspend')

@@ -4,7 +4,6 @@ import {Repository} from 'typeorm';
 import {EmailService} from "../../email/email.service";
 import {User} from "../../all_user_entities/user.entity";
 import {Business, BusinessStatus} from "../../business/entities/business.entity";
-import {BusinessApplication} from "../../business/entities/businessApplication.entity";
 import {ApplicationStatus} from "../../business/types/constants";
 import {Appointment, AppointmentStatus} from "../../business/entities/appointment.entity";
 import {Dispute, DisputeStatus} from "../../business/entities/dispute.entity";
@@ -22,7 +21,6 @@ export class AdminService {
     constructor(
         @InjectRepository(User) private userRepo: Repository<User>,
         @InjectRepository(Business) private businessRepo: Repository<Business>,
-        @InjectRepository(BusinessApplication) private businessApplicationRepo:Repository<BusinessApplication>,
         @InjectRepository(Appointment) private appointmentRepo: Repository<Appointment>,
         @InjectRepository(Dispute) private disputeRepo: Repository<Dispute>,
         @InjectRepository(MembershipPlan) private membershipPlanRepo: Repository<MembershipPlan>,
@@ -32,6 +30,31 @@ export class AdminService {
         private paymentService: PaymentService,
     ) {
 
+    }
+
+    async getNearbySalons(body: { latitude: number; longitude: number }) {
+        const userLat = body.latitude;
+        const userLng = body.longitude;
+
+        const radius = 15;
+
+        const businesses = await this.businessRepo
+            .createQueryBuilder('business')
+            .addSelect(`
+        (6371 * acos(
+          cos(radians(:userLat)) *
+          cos(radians(business.latitude)) *
+          cos(radians(business.longitude) - radians(:userLng)) +
+          sin(radians(:userLat)) *
+          sin(radians(business.latitude))
+        ))`, 'distance'
+            )
+            .having('distance <= :radius', { radius })
+            .setParameters({ userLat, userLng })
+            .orderBy('distance', 'ASC')
+            .getRawMany();
+
+        return businesses;
     }
 
     async getAllUsers() {
@@ -179,19 +202,6 @@ export class AdminService {
         dispute.resolutionNotes = resolutionNote;
         return this.disputeRepo.save(dispute);
 
-    }
-
-    async getAllBusinessApplications(){
-        return this.businessApplicationRepo.find();
-    }
-
-    async getPendingApplications() {
-        return this.businessApplicationRepo.find({
-            where: { applicationStatus: ApplicationStatus.PENDING },
-        });
-    }
-    async findApplicationById(id: string) {
-        return this.businessApplicationRepo.findOne({ where: { id } });
     }
 
     async rejectApplication(id: string) {

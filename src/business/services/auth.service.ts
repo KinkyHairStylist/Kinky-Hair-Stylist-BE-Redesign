@@ -44,7 +44,7 @@ export class AuthService {
   ) {}
 
   async register(createUserDto: CreateUserDto): Promise<TokenPair> {
-    const { email, password, phone, verificationToken } = createUserDto;
+    const { email, password, phoneNumber, verificationToken } = createUserDto;
 
     let verifiedEmail: string;
     let payload: { sub: string; email: string };
@@ -76,7 +76,7 @@ export class AuthService {
       createUserDto.gender = Gender[genderValue as keyof typeof Gender];
     }
 
-    await this.checkExistingUser(verifiedEmail, phone);
+    await this.checkExistingUser(verifiedEmail, phoneNumber);
     this.passwordUtil.validatePasswordStrength(password);
 
     const user = await this.createUser(createUserDto);
@@ -209,7 +209,7 @@ export class AuthService {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: process.env.JWT_ACCESS_SECRET,
-        expiresIn: '15m',
+        expiresIn: '2d',
       }),
       this.jwtService.signAsync(payload, {
         secret: process.env.JWT_ACCESS_SECRET,
