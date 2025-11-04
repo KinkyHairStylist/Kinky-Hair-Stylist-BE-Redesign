@@ -10,10 +10,11 @@ import { PaymentModule } from './admin/payment/payment.module';
 import { TransactionFeeModule } from './admin/transaction-fee/transaction-fee.module';
 import { WithdrawalModule } from './admin/withdrawal/withdrawal.module';
 import { WalletModule } from './admin/wallet/wallet.module';
-
-// import { UserModule } from './user/user.module';
 import { SalonModule } from './user/modules/salon.module';
 import { BookingModule } from './user/modules/booking.module';
+// import { UserModule } from './user/user.module';
+
+
 import { AppService } from './app.service';
 import { AppController } from './app.controller';
 import { SeedsModule } from './user/seeds/seed.module';
@@ -23,6 +24,10 @@ import { AuthMiddleware } from './middleware/anth.middleware';
 import { ReferralModule } from './user/modules/referral.module';
 import { MembershipModule } from './user/modules/membership-tier.module';
 // import { ModerationModule } from './admin/moderation/moderation.module';
+import { ModerationModule } from './admin/moderation/moderation.module';
+import { SupportModule } from './admin/support/support.module';
+import { PlatformSettingsModule } from './admin/platform-settings/platform-settings.module';
+
 
 @Module({
   imports: [
@@ -40,6 +45,7 @@ import { MembershipModule } from './user/modules/membership-tier.module';
         signOptions: { expiresIn: '1d' },
       }),
       inject: [ConfigService],
+      
     }),
     TypeOrmModule.forRoot(
       process.env.NODE_ENV === 'test' ? testTypeOrmConfig : typeOrmConfig,
@@ -68,8 +74,10 @@ import { MembershipModule } from './user/modules/membership-tier.module';
     SeedsModule,
     BookingModule,
     ReferralModule,
-    MembershipModule
-    // ModerationModule,
+    MembershipModule,
+    ModerationModule,
+    SupportModule,
+    PlatformSettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService, AuthMiddleware],
