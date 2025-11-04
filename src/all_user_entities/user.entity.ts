@@ -4,8 +4,10 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   OneToMany,
+  OneToOne,
   UpdateDateColumn,
 } from 'typeorm';
+
 import { Card } from './card.entity';
 import { GiftCard } from './gift-card.entity';
 import { Referral } from '../user/user_entities/referrals.entity'
@@ -14,11 +16,15 @@ import { RefreshToken } from 'src/business/entities/refresh.token.entity';
 import { Business } from 'src/business/entities/business.entity';
 import { Gender } from 'src/business/types/constants';
 import { Booking } from 'src/user/user_entities/booking.entity';
+import { UserPreferences } from 'src/user/user_entities/preferences.entity';
 
 @Entity()
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  avatarUrl?: string;
 
   @Column({ unique: true })
   email: string;
@@ -37,6 +43,9 @@ export class User {
 
   @Column({ type: 'enum', enum: Gender,  nullable: true })
   gender: Gender;
+
+  @Column({ type: 'date', nullable: true })
+  dateOfBirth: Date;
 
   @Column({default:"."})
   suspensionHistory: string;
@@ -111,4 +120,10 @@ export class User {
 
   @OneToMany(() => GiftCard, (giftCard) => giftCard.sender)
   giftCards: GiftCard[];
+
+  @OneToOne(() => UserPreferences, (preferences) => preferences.user, {
+    cascade: true,
+    eager: true,
+  })
+  preferences: UserPreferences;
 }

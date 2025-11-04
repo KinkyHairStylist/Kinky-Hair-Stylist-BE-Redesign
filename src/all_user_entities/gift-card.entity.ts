@@ -13,6 +13,7 @@ import { Card } from './card.entity';
 
 export enum GiftCardStatus {
   ACTIVE = 'Active',
+  INACTIVE = 'Inactive',
   USED = 'Used',
   EXPIRED = 'Expired',
 }
