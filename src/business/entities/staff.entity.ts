@@ -7,10 +7,7 @@ export class Staff {
     id: string;
 
     @Column()
-    firstName: string;
-
-    @Column()
-    lastName: string;
+    name: string;
 
     @Column({ nullable: true })
     email: string;
