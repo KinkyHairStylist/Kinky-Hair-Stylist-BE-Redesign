@@ -17,7 +17,7 @@ async function bootstrap() {
 
   // CORS Configuration
   app.enableCors({
-    origin: "*",
+    origin: "http://localhost:3000",
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -112,9 +112,8 @@ async function bootstrap() {
     customSiteTitle: 'KHS API Docs',
   });
 
-  const port = process.env.PORT || 7777;
+  const port = process.env.PORT || 8080;
   
-
   await app.listen(port, '0.0.0.0');
   console.log(`Server running on http://localhost:${port}`);
   console.log(`Swagger Docs available at http://localhost:${port}/api/docs`);
