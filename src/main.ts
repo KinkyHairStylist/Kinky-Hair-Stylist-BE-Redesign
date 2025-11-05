@@ -23,9 +23,6 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-
-  
-
   // Input sanitization setup
   const sanitizer = new InputSanitizationMiddleware();
   app.use((req, res, next) => sanitizer.use(req, res, next));
@@ -58,6 +55,7 @@ async function bootstrap() {
     '/api/auth/reset-password/start',
     '/api/auth/reset-password/verify',
     '/api/auth/reset-password/finish',
+    '/api/auth/business/login',
     // Add other public routes here
   ];
 
@@ -107,7 +105,6 @@ async function bootstrap() {
   });
 
   const port = process.env.PORT || 7777;
-  
 
   await app.listen(port, '0.0.0.0');
   console.log(`Server running on http://localhost:${port}`);

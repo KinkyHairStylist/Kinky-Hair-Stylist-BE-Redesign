@@ -14,7 +14,6 @@ import { SalonModule } from './user/modules/salon.module';
 import { BookingModule } from './user/modules/booking.module';
 // import { UserModule } from './user/user.module';
 
-
 import { AppService } from './app.service';
 import { AppController } from './app.controller';
 import { SeedsModule } from './user/seeds/seed.module';
@@ -27,7 +26,7 @@ import { MembershipModule } from './user/modules/membership-tier.module';
 import { ModerationModule } from './admin/moderation/moderation.module';
 import { SupportModule } from './admin/support/support.module';
 import { PlatformSettingsModule } from './admin/platform-settings/platform-settings.module';
-
+import { ClientModule } from './business/client.module';
 
 @Module({
   imports: [
@@ -46,18 +45,7 @@ import { PlatformSettingsModule } from './admin/platform-settings/platform-setti
       }),
       inject: [ConfigService],
     }),
-    TypeOrmModule.forRoot(
-      process.env.NODE_ENV === 'test' ? testTypeOrmConfig : typeOrmConfig,
-    ),
-    JwtModule.registerAsync({
-      global: true, // Make JwtModule globally available
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_ACCESS_SECRET'),
-        signOptions: { expiresIn: '1d' },
-      }),
-      inject: [ConfigService],
-    }),
+
     EmailModule,
     BusinessModule,
     AdminModule,
@@ -66,7 +54,7 @@ import { PlatformSettingsModule } from './admin/platform-settings/platform-setti
     TransactionFeeModule,
     WithdrawalModule,
     WalletModule,
-
+    ClientModule,
 
     // UserModule,
     SalonModule,
@@ -81,5 +69,4 @@ import { PlatformSettingsModule } from './admin/platform-settings/platform-setti
   controllers: [AppController],
   providers: [AppService, AuthMiddleware],
 })
-
 export class AppModule {}

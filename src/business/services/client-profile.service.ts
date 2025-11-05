@@ -1,27 +1,30 @@
-
+import { Repository } from 'typeorm';
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Client, ApiResponse } from '../types/client.types';
-import { ClientModel } from '../schemas/client.schema';
+import { ClientSchema } from '../entities/client.entity';
+import { CreateClientDto } from '../dtos/requests/client.dto';
 
 @Injectable()
 export class ClientProfileService {
   constructor(
-    @InjectModel(ClientModel.name) private clientModel: Model<Client>,
+    @InjectRepository(ClientSchema)
+    private readonly clientRepo: Repository<ClientSchema>,
   ) {}
 
-  async createClientProfile(profileData: Partial<Client>, businessId: string): Promise<ApiResponse<Client>> {
+  async createClientProfile(
+    profileData: Partial<CreateClientDto>,
+    ownerId: string,
+  ): Promise<ApiResponse<Client>> {
     try {
-      const client = new this.clientModel({
+      const client = await this.clientRepo.save({
         ...profileData,
-        businessId,
+        ownerId,
       });
-      const savedClient = await client.save();
 
       return {
         success: true,
-        data: savedClient,
+        data: client,
         message: 'Client profile created successfully',
       };
     } catch (error) {
@@ -33,12 +36,17 @@ export class ClientProfileService {
     }
   }
 
-  async getClientProfile(clientId: string, businessId: string): Promise<ApiResponse<Client>> {
+  async getClientProfile(
+    clientId: string,
+    ownerId: string,
+  ): Promise<ApiResponse<Client>> {
     try {
-      const client = await this.clientModel.findOne({
-        _id: clientId,
-        businessId,
-        isActive: true,
+      const client = await this.clientRepo.findOne({
+        where: {
+          id: clientId,
+          ownerId,
+          isActive: true,
+        },
       });
 
       if (!client) {
@@ -65,15 +73,32 @@ export class ClientProfileService {
 
   async updateClientProfile(
     clientId: string,
-    businessId: string,
+    ownerId: string,
     updates: Partial<Client>,
   ): Promise<ApiResponse<Client>> {
     try {
-      const client = await this.clientModel.findOneAndUpdate(
-        { _id: clientId, businessId, isActive: true },
+      const result = await this.clientRepo.update(
+        { id: clientId, ownerId, isActive: true },
         { ...updates, updatedAt: new Date() },
-        { new: true, runValidators: true },
       );
+
+      // Check if any rows were affected
+      if (result.affected === 0) {
+        return {
+          success: false,
+          error: 'Profile not found',
+          message: 'Client profile not found',
+        };
+      }
+
+      // Fetch the updated client to return it
+      const client = await this.clientRepo.findOne({
+        where: {
+          id: clientId,
+          ownerId,
+          isActive: true,
+        },
+      });
 
       if (!client) {
         return {
@@ -97,10 +122,14 @@ export class ClientProfileService {
     }
   }
 
-  async validateClientProfile(profileData: Partial<Client>): Promise<ApiResponse<boolean>> {
+  async validateClientProfile(
+    profileData: Partial<Client>,
+  ): Promise<ApiResponse<boolean>> {
     try {
       const requiredFields = ['firstName', 'lastName', 'email', 'phone'];
-      const missingFields = requiredFields.filter(field => !profileData[field]);
+      const missingFields = requiredFields.filter(
+        (field) => !profileData[field],
+      );
 
       if (missingFields.length > 0) {
         return {
@@ -113,9 +142,11 @@ export class ClientProfileService {
 
       // Check if email already exists
       if (profileData.email) {
-        const existingClient = await this.clientModel.findOne({
-          email: profileData.email,
-          isActive: true,
+        const existingClient = await this.clientRepo.findOne({
+          where: {
+            email: profileData.email,
+            isActive: true,
+          },
         });
         if (existingClient) {
           return {
