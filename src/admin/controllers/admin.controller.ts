@@ -1,6 +1,7 @@
-import {Body, Controller, Get, Param, Post, Req, Res} from '@nestjs/common';
+import {Body, Controller, Get, Param, Post, Req, Res, UseGuards} from '@nestjs/common';
 import { AdminService } from '../services/admin.service';
 import {CreateMembershipPlanDto} from "../../business/dtos/requests/CreateMembershipDto";
+import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
 
 
 @Controller('admin')
@@ -155,4 +156,22 @@ export class AdminController {
     ping() {
         return 'Server is live!';
     }
+    @Post ('register')
+    async register(@Body() body: any) {
+    return this.adminService.registerAdmin(body);
+    } 
+    @Post('resend-verification')
+    async resendVerification(@Body() body:{email:string}){
+        return this.adminService.resendOtp(body.email);
+    }
+    @Post('verify-email')
+    async verifyEmail(@Body() body:any){
+        return this.adminService.verifyEmail(body);
+    }
+    // @Post('invite')
+    // @UseGuards(JwtAuthGuard)
+    // async inviteAdmin(@Body('email') email: string) {
+    //     return { message: 'Ivitation sent with OTP' };
+    // }
 }
+

@@ -15,7 +15,11 @@ import {GetSubscriptionDto} from "../../business/dtos/response/GetSubscriptionDt
 import {Status, Subscription} from "../../business/entities/subscription.entity";
 import {PaymentService} from "../payment/payment.service";
 import {Payment} from "../payment/entities/payment.entity";
-
+import { Admin } from "../../all_user_entities/admin.entity";
+import { RegisterAdminDto } from "../dtos/register-admin.dtos";
+import { PasswordHashing } from '../helper/password-hashing';           
+import { generateOtp, otpExpiry } from '../utils/otp.util';
+import { sendEmail } from '../utils/email.service';
 
 @Injectable()
 export class AdminService {
@@ -27,9 +31,10 @@ export class AdminService {
         @InjectRepository(Dispute) private disputeRepo: Repository<Dispute>,
         @InjectRepository(MembershipPlan) private membershipPlanRepo: Repository<MembershipPlan>,
         @InjectRepository(Subscription) private subscriptionRepo: Repository<Subscription>,
-        @InjectRepository(Payment) private paymentRepo: Repository<Payment>,
+         @InjectRepository(Payment) private paymentRepo: Repository<Payment>,
         private emailService: EmailService,
         private paymentService: PaymentService,
+        @InjectRepository(Admin) private adminRepo: Repository<Admin>,
     ) {
 
     }
@@ -37,6 +42,7 @@ export class AdminService {
     async getAllUsers() {
         return this.userRepo.find();
     }
+    
 
     async createMembershipPlan(createMembershipPlanDto: CreateMembershipPlanDto) {
         const plan = this.membershipPlanRepo.create(createMembershipPlanDto);
@@ -298,7 +304,61 @@ export class AdminService {
         return { message: `User ${user.email} has been unsuspended.` };
     }
 
+    //Admin Registration
+   async registerAdmin (dto: RegisterAdminDto){
+    const existing = await this.adminRepo.findOne({ where: { email: dto.email } });
+    if (existing) throw new BadRequestException ('Email already registered');
 
+    if (!dto.password || dto.password.length < 6) throw new BadRequestException ('Password must be at least 6 characters long');
+
+    const hashed = await PasswordHashing.hashPassword(dto.password);
+    const otp = generateOtp();
+    const admin = this.adminRepo.create({
+        email: dto.email,
+        password: hashed,
+        fullName: dto.fullName || "",
+        otp,
+        otpExpiresAt: otpExpiry(),
+        isVerified: false,
+    });
+    
+    await this.adminRepo.save(admin);
+    await this.emailService.sendEmail(dto.email,
+        'Verify your Admin account',
+    `Your OTP code is ${otp}`
+    );
+    return { message: `Registration successful. OTP sent to ${dto.email}` };
+    }
+ 
+    //Resend OTP
+    async resendOtp (email: string) {
+        const admin = await this.adminRepo.findOne({ where: { email } });
+        if (!admin) throw new BadRequestException ('Admin not found');
+        if (admin.isVerified) throw new BadRequestException('Admin already verified')
+        const otp = generateOtp();
+        admin.otp = otp;
+        admin.otpExpiresAt = otpExpiry();
+        await this.adminRepo.save(admin);
+        await this.emailService.sendEmail(email,
+            'Verify your Admin account',
+        `Your OTP code is ${otp}`);
+        return { message: `New verification OTP sent to ${email}` };
+    }
+    
+    //Verify OTP
+    async verifyEmail(body: {email: string, otp: string}){
+        const admin = await this.adminRepo.findOne({ where: { email: body.email } });
+        if (!admin) throw new BadRequestException ('Admin not found');
+        if (admin.isVerified) throw new BadRequestException('Admin already verified')
+        if (!admin.otp || admin.otp !== body.otp) throw new BadRequestException('Invalid OTP')
+        if (!admin.otpExpiresAt || admin.otpExpiresAt.getTime() < new Date().getTime() )
+             throw new BadRequestException('OTP expired')
+        admin.isVerified = true;
+        admin.otp = "";
+        admin.otpExpiresAt = new Date();
+        await this.adminRepo.save(admin);
+        return { message: `Admin ${admin.email} verified successfully` };
+    }
+        
 }
-
 

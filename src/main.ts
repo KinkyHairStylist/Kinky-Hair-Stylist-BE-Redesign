@@ -5,6 +5,9 @@ import session from 'express-session';
 import { AuthMiddleware } from './middleware/anth.middleware';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { InputSanitizationMiddleware } from './middleware/input-sanitization.middleware';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -112,6 +115,14 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
   console.log(`Server running on http://localhost:${port}`);
   console.log(`Swagger Docs available at http://localhost:${port}/api/docs`);
+  console.log('Database Configuration:');
+  console.log(
+  process.env.DB_HOST,
+  process.env.DB_PORT,
+  process.env.DB_USERNAME,
+  process.env.DB_PASSWORD,
+  process.env.DB_DATABASE,
+)
 }
 
 bootstrap();

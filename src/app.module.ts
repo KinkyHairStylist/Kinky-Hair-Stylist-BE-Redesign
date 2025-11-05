@@ -27,28 +27,44 @@ import { MembershipModule } from './user/modules/membership-tier.module';
 import { ModerationModule } from './admin/moderation/moderation.module';
 import { SupportModule } from './admin/support/support.module';
 import { PlatformSettingsModule } from './admin/platform-settings/platform-settings.module';
-
+import { Admin } from './all_user_entities/admin.entity';
+import { User } from './all_user_entities/user.entity';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    TypeOrmModule.forRoot(
-      process.env.NODE_ENV === 'test' ? testTypeOrmConfig : typeOrmConfig,
-    ),
-    JwtModule.registerAsync({
-      global: true, // Make JwtModule globally available
+    TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_ACCESS_SECRET'),
-        signOptions: { expiresIn: '1d' },
-      }),
       inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        host: configService.get<string>('DB_HOST'),
+        port: configService.get<number>('DB_PORT'),
+        username: configService.get<string>('DB_USERNAME'),
+        password: configService.get<string>('DB_PASSWORD'),
+        database: configService.get<string>('DB_DATABASE'),
+        ssl: false, // required for DigitalOcean
+        entities: [Admin,User /* add all your other entities here */],
+        synchronize: true, // auto-create tables in dev
+      }),
     }),
-    TypeOrmModule.forRoot(
-      process.env.NODE_ENV === 'test' ? testTypeOrmConfig : typeOrmConfig,
-    ),
+    // TypeOrmModule.forRoot(
+    //   process.env.NODE_ENV === 'test' ? testTypeOrmConfig : typeOrmConfig,
+    // ),
+    // JwtModule.registerAsync({
+    //   global: true, // Make JwtModule globally available
+    //   imports: [ConfigModule],
+    //   useFactory: async (configService: ConfigService) => ({
+    //     secret: configService.get<string>('JWT_ACCESS_SECRET'),
+    //     signOptions: { expiresIn: '1d' },
+    //   }),
+    //   inject: [ConfigService],
+    // }),
+    // TypeOrmModule.forRoot(
+    //   process.env.NODE_ENV === 'test' ? testTypeOrmConfig : typeOrmConfig,
+    // ),
     JwtModule.registerAsync({
       global: true, // Make JwtModule globally available
       imports: [ConfigModule],
@@ -81,5 +97,6 @@ import { PlatformSettingsModule } from './admin/platform-settings/platform-setti
   controllers: [AppController],
   providers: [AppService, AuthMiddleware],
 })
+
 
 export class AppModule {}

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminController } from './controllers/admin.controller';
 import { AdminService } from './services/admin.service';
@@ -13,6 +13,8 @@ import {Subscription} from "../business/entities/subscription.entity";
 import {Payment} from "./payment/entities/payment.entity";
 import {EmailService} from "../email/email.service";
 import {PaymentService} from "./payment/payment.service";
+import { EmailValidationMiddleware } from 'src/middleware/email-validation.middleware';
+import { Admin } from 'src/all_user_entities/admin.entity';
 
 @Module({
     imports: [TypeOrmModule.forFeature([User]),
@@ -23,9 +25,28 @@ import {PaymentService} from "./payment/payment.service";
         TypeOrmModule.forFeature([BusinessApplication]),
         TypeOrmModule.forFeature([Subscription]),
         TypeOrmModule.forFeature([Payment]),
+        TypeOrmModule.forFeature([Admin]),
     ],
     controllers: [AdminController],
     providers: [AdminService,EmailService,PaymentService],
     exports: [AdminService],
 })
-export class AdminModule {}
+export class AdminModule implements NestModule{
+    configure(consumer: MiddlewareConsumer) {
+        consumer
+        .apply(EmailValidationMiddleware)
+        .forRoutes({
+            path: 'admin/register',
+            method: (require('http').METHODS.includes('POST')? 'POST': 'POST') as any
+        }, 
+       {
+        path: 'admin/resend-verification',
+        method: (require('http').METHODS.includes('POST')? 'POST': 'POST') as any
+       },
+       {
+        path: 'admin/verify-email',
+        method: (require('http').METHODS.includes('POST')? 'POST': 'POST') as any
+       },
+    );
+    }
+}
