@@ -13,7 +13,13 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // Validation Pipe
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  );
 
   // CORS Configuration
   app.enableCors({
@@ -45,7 +51,7 @@ async function bootstrap() {
   // Define public routes that should bypass authentication
   const publicRoutes = [
     '/api/docs',
-    '/api',
+    // '/api',
     '/api/get-started',
     '/api/auth/get-started',
     '/api/auth/verify-code',
