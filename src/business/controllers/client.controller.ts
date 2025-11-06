@@ -25,6 +25,7 @@ import {
   CreateClientAddressDto,
   CreateEmergencyContactDto,
   CreateClientSettingsDto,
+  CreateClientProfileDto,
 } from '../dtos/requests/client.dto';
 import { JwtAuthGuard } from '../middlewares/guards/jwt-auth.guard';
 import { ClientFormData } from '../types/client.types';
@@ -288,7 +289,7 @@ export class ClientController {
   @Post('/client/profile')
   async createClientProfile(
     @Request() req,
-    @Body() profileData: CreateClientDto,
+    @Body() profileData: CreateClientProfileDto,
   ) {
     const ownerId = req.user.sub || req.user.userId;
 

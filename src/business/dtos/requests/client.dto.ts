@@ -96,7 +96,8 @@ export class CreateClientAddressDto {
   @IsOptional()
   isPrimary?: boolean;
 
-  @IsUUID()
+  @IsString()
+  @MinLength(1)
   clientId: string;
 }
 
@@ -119,7 +120,8 @@ export class CreateEmergencyContactDto {
   @MinLength(1)
   phone: string;
 
-  @IsUUID()
+  @IsString()
+  @MinLength(1)
   clientId: string;
 }
 
@@ -143,7 +145,8 @@ export class CreateClientSettingsDto {
   @IsOptional()
   notes?: string;
 
-  @IsUUID()
+  @IsString()
+  @MinLength(1)
   clientId: string;
 
   preferences: {

@@ -3,7 +3,10 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Client, ApiResponse } from '../types/client.types';
 import { ClientSchema } from '../entities/client.entity';
-import { CreateClientDto } from '../dtos/requests/client.dto';
+import {
+  CreateClientDto,
+  CreateClientProfileDto,
+} from '../dtos/requests/client.dto';
 
 @Injectable()
 export class ClientProfileService {
@@ -13,7 +16,7 @@ export class ClientProfileService {
   ) {}
 
   async createClientProfile(
-    profileData: Partial<CreateClientDto>,
+    profileData: Partial<CreateClientProfileDto>,
     ownerId: string,
   ): Promise<ApiResponse<Client>> {
     try {
@@ -28,6 +31,7 @@ export class ClientProfileService {
         message: 'Client profile created successfully',
       };
     } catch (error) {
+      // console.log('ERROR PROFILE: ', error);
       return {
         success: false,
         error: error.message,

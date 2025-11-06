@@ -6,6 +6,7 @@ import {
   ClientFiltersDto,
   CreateClientAddressDto,
   CreateClientDto,
+  CreateClientProfileDto,
   CreateClientSettingsDto,
   CreateEmergencyContactDto,
 } from '../dtos/requests/client.dto';
@@ -54,27 +55,35 @@ describe('ClientController - createClientProfile', () => {
 
   // ✅ SUCCESS CASE
   it('should create a client profile successfully', async () => {
-    const dto: CreateClientDto = {
-      profile: {
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        phone: '1234567890',
-        clientSource: ClientSource.WALK_IN,
-      },
-      settings: {
-        emailNotifications: true,
-        smsNotifications: false,
-        marketingEmails: false,
-        preferences: {
-          preferredContactMethod: PreferredContactMethod.EMAIL,
-          language: 'en',
-          timezone: 'UTC',
-        },
-        clientId: 'bbf9f0a9-b83e-418b-8f8c-bb06f547b1f9',
-      },
-      addresses: [],
-      emergencyContacts: [],
+    // const dto: CreateClientDto = {
+    //   profile: {
+    //     firstName: 'John',
+    //     lastName: 'Doe',
+    //     email: 'john@example.com',
+    //     phone: '1234567890',
+    //     clientSource: ClientSource.WALK_IN,
+    //   },
+    //   settings: {
+    //     emailNotifications: true,
+    //     smsNotifications: false,
+    //     marketingEmails: false,
+    //     preferences: {
+    //       preferredContactMethod: PreferredContactMethod.EMAIL,
+    //       language: 'en',
+    //       timezone: 'UTC',
+    //     },
+    //     clientId: 'bbf9f0a9-b83e-418b-8f8c-bb06f547b1f9',
+    //   },
+    //   addresses: [],
+    //   emergencyContacts: [],
+    // };
+
+    const dto: CreateClientProfileDto = {
+      firstName: 'John',
+      lastName: 'Doe',
+      email: 'john@example.com',
+      phone: '1234567890',
+      clientSource: ClientSource.WALK_IN,
     };
 
     const req = { user: { sub: 'owner-123' } };
@@ -89,7 +98,7 @@ describe('ClientController - createClientProfile', () => {
   // ✅ NO USER / NOT AUTHENTICATED
   it('should throw UNAUTHORIZED if no ownerId exists', async () => {
     const req = { user: {} }; // missing sub/userId
-    const dto = {} as CreateClientDto;
+    const dto = {} as CreateClientProfileDto;
 
     await expect(controller.createClientProfile(req, dto)).rejects.toThrow(
       new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED),
@@ -98,27 +107,33 @@ describe('ClientController - createClientProfile', () => {
 
   // ✅ SERVICE RETURNS ERROR
   it('should throw BAD_REQUEST if service returns failure', async () => {
-    const dto: CreateClientDto = {
-      profile: {
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        phone: '1234567890',
-        clientSource: ClientSource.WALK_IN,
-      },
-      settings: {
-        emailNotifications: true,
-        smsNotifications: false,
-        marketingEmails: false,
-        preferences: {
-          preferredContactMethod: PreferredContactMethod.EMAIL,
-          language: 'en',
-          timezone: 'UTC',
-        },
-        clientId: 'bbf9f0a9-b83e-418b-8f8c-bb06f547b1f9',
-      },
-      addresses: [],
-      emergencyContacts: [],
+    const dto: CreateClientProfileDto = {
+      firstName: 'John',
+      lastName: 'Doe',
+      email: 'john@example.com',
+      phone: '1234567890',
+      clientSource: ClientSource.WALK_IN,
+
+      // profile: {
+      //   firstName: 'John',
+      //   lastName: 'Doe',
+      //   email: 'john@example.com',
+      //   phone: '1234567890',
+      //   clientSource: ClientSource.WALK_IN,
+      // },
+      // settings: {
+      //   emailNotifications: true,
+      //   smsNotifications: false,
+      //   marketingEmails: false,
+      //   preferences: {
+      //     preferredContactMethod: PreferredContactMethod.EMAIL,
+      //     language: 'en',
+      //     timezone: 'UTC',
+      //   },
+      //   clientId: 'bbf9f0a9-b83e-418b-8f8c-bb06f547b1f9',
+      // },
+      // addresses: [],
+      // emergencyContacts: [],
     };
 
     const req = { user: { sub: 'owner-123' } };
