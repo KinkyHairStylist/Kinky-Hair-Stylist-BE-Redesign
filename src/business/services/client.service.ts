@@ -195,10 +195,24 @@ export class ClientService {
       // Execute query and get total count
       const [clients, total] = await queryBuilder.getManyAndCount();
 
+      // Early return if no clients found
+      if (clients.length === 0) {
+        return {
+          success: true,
+          data: {
+            clients: [],
+            total: 0,
+            page,
+            limit,
+            totalPages: 0,
+          },
+          message: 'No clients found',
+        };
+      }
+
       // Get client IDs for batch fetching addresses
       const clientIds = clients.map((client) => client.id);
 
-      // Fetch primary addresses for all clients in one query
       const addresses = await this.clientAddressRepo
         .createQueryBuilder('address')
         .where('address.clientId IN (:...clientIds)', { clientIds })

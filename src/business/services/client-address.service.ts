@@ -65,8 +65,6 @@ export class ClientAddressService {
       }
 
       const address = await this.clientAddressRepo.save(addressData);
-      // const savedAddress = await address.save();
-
       return {
         success: true,
         data: address,

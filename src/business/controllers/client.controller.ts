@@ -358,8 +358,9 @@ export class ClientController {
   @Post('/client/addresses')
   async addClientAddress(
     @Request() req,
-    @Body() addressData: CreateClientAddressDto,
+    @Body() body: { addresses: CreateClientAddressDto[] },
   ) {
+    console.log('BODY', body.addresses);
     const ownerId = req.user.sub || req.user.userId;
 
     if (!ownerId) {
@@ -369,8 +370,28 @@ export class ClientController {
       );
     }
 
-    // Transform address data to match ClientAddress type
-    const transformedAddressData = {
+    // Validate that addresses array exists and is not empty
+    if (
+      !body.addresses ||
+      !Array.isArray(body.addresses) ||
+      body.addresses.length === 0
+    ) {
+      throw new HttpException(
+        'Addresses array is required and must not be empty',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Optional: Limit to 2 addresses
+    if (body.addresses.length > 2) {
+      throw new HttpException(
+        'Maximum 2 addresses allowed',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Transform all addresses
+    const transformedAddresses = body.addresses.map((addressData) => ({
       clientId: addressData.clientId,
       addressName: addressData.addressName,
       addressLine1: addressData.addressLine1,
@@ -381,21 +402,41 @@ export class ClientController {
       zipCode: addressData.zipCode || '',
       country: addressData.country || '',
       isPrimary: addressData.isPrimary || false,
-    };
+    }));
 
-    const result = await this.clientAddressService.addClientAddress(
-      transformedAddressData as any,
-      ownerId,
+    // Process all addresses with individual error handling
+    const results = await Promise.all(
+      transformedAddresses.map((address) =>
+        this.clientAddressService.addClientAddress(address as any, ownerId),
+      ),
     );
 
-    if (!result.success) {
+    // Check if any failed
+    const failedResults = results.filter((result) => !result.success);
+
+    if (failedResults.length > 0) {
       throw new HttpException(
-        { message: result.message, error: result.error },
+        {
+          message: 'Some addresses failed to save',
+          errors: failedResults.map((r) => ({
+            message: r.message,
+            error: r.error,
+          })),
+        },
         HttpStatus.BAD_REQUEST,
       );
     }
 
-    return result;
+    // Collect all successfully saved addresses
+    const savedAddresses = results
+      .filter((r) => r.success && r.data)
+      .map((r) => r.data);
+
+    return {
+      success: true,
+      message: `${savedAddresses.length} address(es) added successfully`,
+      data: savedAddresses,
+    };
   }
 
   @Get('/client/:clientId/addresses')
