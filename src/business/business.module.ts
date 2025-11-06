@@ -16,10 +16,11 @@ import { RefreshToken } from './entities/refresh.token.entity';
 import { EmailVerification } from './entities/email-verification.entity';
 import { EmailModule } from '../email/email.module';
 import {Appointment} from "./entities/appointment.entity";
+import {Staff} from "./entities/staff.entity";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Business, RefreshToken, EmailVerification,Appointment]),
+    TypeOrmModule.forFeature([User, Business, RefreshToken, EmailVerification,Appointment,Staff]),
     JwtModule.register({}),
     EmailModule,
   ],

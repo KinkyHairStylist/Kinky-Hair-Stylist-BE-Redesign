@@ -34,7 +34,22 @@ export class BusinessController {
     return this.businessService.getBookings(user);
   }
 
+  @Post('completeBooking/:id')
+  async completeBooking(@Param('id') id: string) {
+    return this.businessService.completeBooking(id);
+  }
+
+  @Post('getRescheduledBookings')
+  async getRescheduledBookings(@Req() req:RequestWithUser) {
+    const user = req.user.id;
+    return this.businessService.getRescheduledBookings(user);
+  }
+
   // @Post('createBooking')
+  // async createBooking(@Req() req:RequestWithUser, @Body() body: any) {
+  //   const user = req.user.id;
+  //   return this.businessService.createBooking(user,body);
+  // }
 
   @Post('available-slots/:businessId')
   async getAvailableSlots(
