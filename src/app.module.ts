@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
+
 import { EmailModule } from './email/email.module';
 import { BusinessModule } from './business/business.module';
 import { AdminModule } from './admin/admin.module';
@@ -12,7 +13,7 @@ import { WithdrawalModule } from './admin/withdrawal/withdrawal.module';
 import { WalletModule } from './admin/wallet/wallet.module';
 import { SalonModule } from './user/modules/salon.module';
 import { BookingModule } from './user/modules/booking.module';
-// import { UserModule } from './user/user.module';
+import { UserModule } from './user/modules/user.module';
 
 
 import { AppService } from './app.service';
@@ -23,6 +24,7 @@ import { typeOrmConfig } from './config/database';
 import { AuthMiddleware } from './middleware/anth.middleware';
 import { ReferralModule } from './user/modules/referral.module';
 import { MembershipModule } from './user/modules/membership-tier.module';
+import { CardModule } from './user/modules/card.module';
 // import { ModerationModule } from './admin/moderation/moderation.module';
 import { ModerationModule } from './admin/moderation/moderation.module';
 import { SupportModule } from './admin/support/support.module';
@@ -69,12 +71,13 @@ import { PlatformSettingsModule } from './admin/platform-settings/platform-setti
     WalletModule,
 
 
-    // UserModule,
+    UserModule,
     SalonModule,
     SeedsModule,
     BookingModule,
     ReferralModule,
     MembershipModule,
+    CardModule,
     ModerationModule,
     SupportModule,
     PlatformSettingsModule,

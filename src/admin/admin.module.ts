@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminController } from './controllers/admin.controller';
+import { ArticleController } from './controllers/article.controller';
 import { AdminService } from './services/admin.service';
+import { ArticleService } from './services/article.service';
+import { Article } from '../all_user_entities/article.entity';
 import {User} from "../all_user_entities/user.entity";
 import {Business} from "../business/entities/business.entity";
 
@@ -13,6 +16,7 @@ import {Subscription} from "../business/entities/subscription.entity";
 import {Payment} from "./payment/entities/payment.entity";
 import {EmailService} from "../email/email.service";
 import {PaymentService} from "./payment/payment.service";
+import { CloudinaryModule } from '../user/modules/cloudinary.module';
 
 @Module({
     imports: [TypeOrmModule.forFeature([User]),
@@ -22,9 +26,11 @@ import {PaymentService} from "./payment/payment.service";
         TypeOrmModule.forFeature([Appointment]),
         TypeOrmModule.forFeature([Subscription]),
         TypeOrmModule.forFeature([Payment]),
+        TypeOrmModule.forFeature([Article]),
+        CloudinaryModule,
     ],
-    controllers: [AdminController],
-    providers: [AdminService,EmailService,PaymentService],
+    controllers: [AdminController, ArticleController],
+    providers: [AdminService,EmailService,PaymentService, ArticleService],
     exports: [AdminService],
 })
 export class AdminModule {}

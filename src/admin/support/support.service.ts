@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { SupportTicket } from './entities/support-ticket.entity';
-import { LiveChatMessage } from './entities/live-chat-message.entity';
+import { SupportTicket } from '../../all_user_entities/support-ticket.entity';
+import { LiveChatMessage } from '../../all_user_entities/live-chat-message.entity';
 
 @Injectable()
 export class SupportService {

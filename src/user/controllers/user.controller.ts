@@ -18,7 +18,7 @@ import {
   VerifyCodeDto,
   ResendCodeDto,
   SignUpDto,
-  LoginDto,
+  CustomerLoginDto,
   ResetPasswordStartDto,
   ResetPasswordVerifyDto,
   ResetPasswordFinishDto,
@@ -95,7 +95,7 @@ export class UserController {
 
    @Post('/auth/login')
   @ApiOperation({ summary: 'Authenticate user and start session' })
-  @ApiBody({ type: LoginDto })
+  @ApiBody({ type: CustomerLoginDto })
   @ApiResponse({
     status: 200,
     description: 'Login successful',
@@ -103,7 +103,7 @@ export class UserController {
   })
   @UsePipes(new ValidationPipe())
   async login(
-    @Body() dto: LoginDto,
+    @Body() dto: CustomerLoginDto,
     @Req() req: RequestWithSession,
   ): Promise<AuthResponseDto> {
     const result = await this.userService.login(dto);

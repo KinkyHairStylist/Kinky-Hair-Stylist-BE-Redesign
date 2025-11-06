@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { SupportTicket } from './entities/support-ticket.entity';
-import { LiveChatMessage } from './entities/live-chat-message.entity';
+import { SupportTicket } from '../../all_user_entities/support-ticket.entity';
+import { LiveChatMessage } from '../../all_user_entities/live-chat-message.entity';
 import { SupportService } from './support.service';
 import { SupportController } from './support.controller';
 
