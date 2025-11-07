@@ -12,7 +12,6 @@ import { WithdrawalModule } from './admin/withdrawal/withdrawal.module';
 import { WalletModule } from './admin/wallet/wallet.module';
 import { SalonModule } from './user/modules/salon.module';
 import { BookingModule } from './user/modules/booking.module';
-// import { UserModule } from './user/user.module';
 
 import { AppService } from './app.service';
 import { AppController } from './app.controller';
@@ -27,6 +26,7 @@ import { ModerationModule } from './admin/moderation/moderation.module';
 import { SupportModule } from './admin/support/support.module';
 import { PlatformSettingsModule } from './admin/platform-settings/platform-settings.module';
 import { ClientModule } from './business/client.module';
+import { UserModule } from './user/modules/user.module';
 
 @Module({
   imports: [
@@ -56,7 +56,7 @@ import { ClientModule } from './business/client.module';
     WalletModule,
     ClientModule,
 
-    // UserModule,
+    UserModule,
     SalonModule,
     SeedsModule,
     BookingModule,

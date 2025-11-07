@@ -196,18 +196,20 @@ describe('ClientController - addClientAddress', () => {
   it('should add a client address successfully', async () => {
     const req = { user: { sub: 'owner-123' } };
 
-    const dto: CreateClientAddressDto = {
-      clientId: 'client-1',
-      addressName: 'Home',
-      addressLine1: '123 Street',
-      addressLine2: 'Apt 4',
-      location: 'Lagos',
-      city: 'Ikeja',
-      state: 'Lagos',
-      zipCode: '100001',
-      country: 'Nigeria',
-      isPrimary: true,
-    };
+    const dto: CreateClientAddressDto[] = [
+      {
+        clientId: 'client-1',
+        addressName: 'Home',
+        addressLine1: '123 Street',
+        addressLine2: 'Apt 4',
+        location: 'Lagos',
+        city: 'Ikeja',
+        state: 'Lagos',
+        zipCode: '100001',
+        country: 'Nigeria',
+        isPrimary: true,
+      },
+    ];
 
     const expectedTransformed = {
       clientId: 'client-1',
@@ -225,7 +227,9 @@ describe('ClientController - addClientAddress', () => {
     const result = { success: true, data: { id: 'address-1' } };
     mockClientAddressService.addClientAddress.mockResolvedValue(result);
 
-    expect(await controller.addClientAddress(req, dto)).toBe(result);
+    expect(await controller.addClientAddress(req, { addresses: dto })).toBe(
+      result,
+    );
 
     expect(service.addClientAddress).toHaveBeenCalledWith(
       expectedTransformed,
@@ -236,9 +240,11 @@ describe('ClientController - addClientAddress', () => {
   // ✅ MISSING OWNER ID
   it('should throw UNAUTHORIZED when user is not authenticated', async () => {
     const req = { user: {} }; // missing sub and userId
-    const dto = {} as CreateClientAddressDto;
+    const dto = {} as CreateClientAddressDto[];
 
-    await expect(controller.addClientAddress(req, dto)).rejects.toThrow(
+    await expect(
+      controller.addClientAddress(req, { addresses: dto }),
+    ).rejects.toThrow(
       new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED),
     );
   });
@@ -247,18 +253,20 @@ describe('ClientController - addClientAddress', () => {
   it('should return BAD_REQUEST when service returns failure', async () => {
     const req = { user: { sub: 'owner-123' } };
 
-    const dto: CreateClientAddressDto = {
-      clientId: 'client-1',
-      addressName: 'Home',
-      addressLine1: '123 Street',
-      addressLine2: undefined,
-      location: 'Lagos',
-      city: undefined,
-      state: '',
-      zipCode: '',
-      country: '',
-      isPrimary: false,
-    };
+    const dto: CreateClientAddressDto[] = [
+      {
+        clientId: 'client-1',
+        addressName: 'Home',
+        addressLine1: '123 Street',
+        addressLine2: undefined,
+        location: 'Lagos',
+        city: undefined,
+        state: '',
+        zipCode: '',
+        country: '',
+        isPrimary: false,
+      },
+    ];
 
     const errorResponse = {
       success: false,
@@ -268,7 +276,9 @@ describe('ClientController - addClientAddress', () => {
 
     mockClientAddressService.addClientAddress.mockResolvedValue(errorResponse);
 
-    await expect(controller.addClientAddress(req, dto)).rejects.toThrow(
+    await expect(
+      controller.addClientAddress(req, { addresses: dto }),
+    ).rejects.toThrow(
       new HttpException(
         { message: 'Invalid client ID', error: 'CLIENT_NOT_FOUND' },
         HttpStatus.BAD_REQUEST,
@@ -314,19 +324,23 @@ describe('ClientController - addEmergencyContact', () => {
   it('should add an emergency contact successfully', async () => {
     const req = { user: { sub: 'owner-123' } };
 
-    const dto: CreateEmergencyContactDto = {
-      clientId: 'client-1',
-      firstName: 'Sarah',
-      lastName: 'Johnson',
-      relationship: 'Sister',
-      phone: '+61422334455',
-      email: 'sarah@example.com',
-    };
+    const dto: CreateEmergencyContactDto[] = [
+      {
+        clientId: 'client-1',
+        firstName: 'Sarah',
+        lastName: 'Johnson',
+        relationship: 'Sister',
+        phone: '+61422334455',
+        email: 'sarah@example.com',
+      },
+    ];
 
     const result = { success: true, data: { id: 'contact-1' } };
     mockEmergencyContactService.addEmergencyContact.mockResolvedValue(result);
 
-    expect(await controller.addEmergencyContact(req, dto)).toBe(result);
+    expect(
+      await controller.addEmergencyContact(req, { contactsData: dto }),
+    ).toBe(result);
 
     expect(service.addEmergencyContact).toHaveBeenCalledWith(dto, 'owner-123');
   });
@@ -334,9 +348,11 @@ describe('ClientController - addEmergencyContact', () => {
   // ✅ MISSING OWNER ID
   it('should throw UNAUTHORIZED when user is not authenticated', async () => {
     const req = { user: {} }; // missing sub or userId
-    const dto = {} as CreateEmergencyContactDto;
+    const dto = [{}] as CreateEmergencyContactDto[];
 
-    await expect(controller.addEmergencyContact(req, dto)).rejects.toThrow(
+    await expect(
+      controller.addEmergencyContact(req, { contactsData: dto }),
+    ).rejects.toThrow(
       new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED),
     );
   });
@@ -345,14 +361,16 @@ describe('ClientController - addEmergencyContact', () => {
   it('should return BAD_REQUEST when service returns failure', async () => {
     const req = { user: { sub: 'owner-123' } };
 
-    const dto: CreateEmergencyContactDto = {
-      clientId: 'client-1',
-      firstName: 'Sarah',
-      lastName: 'Johnson',
-      relationship: 'Sister',
-      phone: '+61422334455',
-      email: 'sarah@example.com',
-    };
+    const dto: CreateEmergencyContactDto[] = [
+      {
+        clientId: 'client-1',
+        firstName: 'Sarah',
+        lastName: 'Johnson',
+        relationship: 'Sister',
+        phone: '+61422334455',
+        email: 'sarah@example.com',
+      },
+    ];
 
     const errorResponse = {
       success: false,
@@ -364,7 +382,9 @@ describe('ClientController - addEmergencyContact', () => {
       errorResponse,
     );
 
-    await expect(controller.addEmergencyContact(req, dto)).rejects.toThrow(
+    await expect(
+      controller.addEmergencyContact(req, { contactsData: dto }),
+    ).rejects.toThrow(
       new HttpException(
         { message: 'Client not found', error: 'CLIENT_NOT_FOUND' },
         HttpStatus.BAD_REQUEST,

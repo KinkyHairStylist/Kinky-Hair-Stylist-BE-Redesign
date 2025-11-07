@@ -25,7 +25,7 @@ export class EmergencyContactService {
         return {
           success: false,
           error: 'Client ID missing',
-          message: 'clientId is required',
+          message: 'Each contact must include a valid Client ID',
         };
       }
 

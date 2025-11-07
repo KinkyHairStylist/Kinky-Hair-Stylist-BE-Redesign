@@ -53,8 +53,8 @@ export class ClientSchema {
   @Column()
   phone: string;
 
-  @Column({ type: 'date', nullable: true })
-  dateOfBirth: Date;
+  @Column({ type: 'varchar', nullable: true })
+  dateOfBirth: Date | string;
 
   @Column({
     type: 'enum',

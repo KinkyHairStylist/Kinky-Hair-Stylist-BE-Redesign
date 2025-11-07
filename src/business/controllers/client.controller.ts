@@ -29,7 +29,10 @@ import {
 } from '../dtos/requests/client.dto';
 import { JwtAuthGuard } from '../middlewares/guards/jwt-auth.guard';
 import { ClientFormData } from '../types/client.types';
-import { ClientType } from '../entities/client-settings.entity';
+import {
+  ClientType,
+  PreferredContactMethod,
+} from '../entities/client-settings.entity';
 import { ClientSettingsService } from '../services/client-settings.service';
 
 @Controller('clients')
@@ -63,23 +66,20 @@ export class ClientController {
         email: createClientDto.profile.email,
         phone: createClientDto.profile.phone,
         dateOfBirth: createClientDto.profile.dateOfBirth
-          ? typeof createClientDto.profile.dateOfBirth === 'string'
-            ? new Date(createClientDto.profile.dateOfBirth)
-            : createClientDto.profile.dateOfBirth
-          : new Date(),
+          ? new Date(createClientDto.profile.dateOfBirth)
+          : undefined,
         gender: createClientDto.profile.gender || undefined,
         pronouns: createClientDto.profile.pronouns || undefined,
         clientSource: createClientDto.profile.clientSource,
         profileImage: createClientDto.profile.profileImage || undefined,
-        address: undefined,
       },
       addresses: createClientDto.addresses
         ? createClientDto.addresses.map((addr) => ({
             addressName: addr.addressName,
             addressLine1: addr.addressLine1,
-            addressLine2: addr.addressLine2 || null,
+            addressLine2: addr.addressLine2 || undefined,
             location: addr.location,
-            city: addr.city || null,
+            city: addr.city || undefined,
             state: addr.state || '',
             zipCode: addr.zipCode || '',
             country: addr.country || '',
@@ -104,8 +104,8 @@ export class ClientController {
         notes: createClientDto.settings?.notes || undefined,
         preferences: {
           preferredContactMethod:
-            createClientDto.settings?.preferences.preferredContactMethod ??
-            'email',
+            createClientDto.settings?.preferences?.preferredContactMethod ??
+            PreferredContactMethod.EMAIL,
           language: createClientDto.settings?.preferences?.language || 'en',
           timezone: createClientDto.settings?.preferences?.timezone || 'UTC',
         },
@@ -340,27 +340,26 @@ export class ClientController {
     return result;
   }
 
-  @Post('/client/validate/profile')
-  async validateClientProfile(@Body() profileData: any) {
-    const result =
-      await this.clientProfileService.validateClientProfile(profileData);
+  // @Post('/client/validate/profile')
+  // async validateClientProfile(@Body() profileData: any) {
+  //   const result =
+  //     await this.clientProfileService.validateClientProfile(profileData);
 
-    if (!result.success) {
-      throw new HttpException(
-        { message: result.message, error: result.error },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+  //   if (!result.success) {
+  //     throw new HttpException(
+  //       { message: result.message, error: result.error },
+  //       HttpStatus.BAD_REQUEST,
+  //     );
+  //   }
 
-    return result;
-  }
+  //   return result;
+  // }
 
   @Post('/client/addresses')
   async addClientAddress(
     @Request() req,
     @Body() body: { addresses: CreateClientAddressDto[] },
   ) {
-    console.log('BODY', body.addresses);
     const ownerId = req.user.sub || req.user.userId;
 
     if (!ownerId) {
@@ -370,7 +369,6 @@ export class ClientController {
       );
     }
 
-    // Validate that addresses array exists and is not empty
     if (
       !body.addresses ||
       !Array.isArray(body.addresses) ||
@@ -390,7 +388,24 @@ export class ClientController {
       );
     }
 
-    // Transform all addresses
+    // Validate each address
+    body.addresses.forEach((address, index) => {
+      if (!address.addressLine1 || !address.addressLine1.trim()) {
+        throw new HttpException(
+          `Address name is missing`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (!address.location || !address.location.trim()) {
+        throw new HttpException(
+          `Address location is missing`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    });
+
+    // Transform address data to match ClientAddress type
+
     const transformedAddresses = body.addresses.map((addressData) => ({
       clientId: addressData.clientId,
       addressName: addressData.addressName,
@@ -404,7 +419,7 @@ export class ClientController {
       isPrimary: addressData.isPrimary || false,
     }));
 
-    // Process all addresses with individual error handling
+    // Process all addresses
     const results = await Promise.all(
       transformedAddresses.map((address) =>
         this.clientAddressService.addClientAddress(address as any, ownerId),
@@ -415,9 +430,11 @@ export class ClientController {
     const failedResults = results.filter((result) => !result.success);
 
     if (failedResults.length > 0) {
+      const combinedMessage = failedResults.map((r) => r.message).join('; '); // Add separator
+
       throw new HttpException(
         {
-          message: 'Some addresses failed to save',
+          message: combinedMessage, // ✅ FINAL message shown to the user
           errors: failedResults.map((r) => ({
             message: r.message,
             error: r.error,
@@ -470,7 +487,7 @@ export class ClientController {
   @Post('/client/emergency-contacts')
   async addEmergencyContact(
     @Request() req,
-    @Body() contactData: CreateEmergencyContactDto,
+    @Body() body: { contactsData: CreateEmergencyContactDto[] },
   ) {
     const ownerId = req.user.sub || req.user.userId;
     if (!ownerId) {
@@ -480,19 +497,104 @@ export class ClientController {
       );
     }
 
-    const result = await this.emergencyContactService.addEmergencyContact(
-      contactData,
-      ownerId,
-    );
-
-    if (!result.success) {
+    if (
+      !body.contactsData ||
+      !Array.isArray(body.contactsData) ||
+      body.contactsData.length === 0
+    ) {
       throw new HttpException(
-        { message: result.message, error: result.error },
+        'Emergency Contacts array is required and must not be empty',
         HttpStatus.BAD_REQUEST,
       );
     }
 
-    return result;
+    // Optional: Limit to 2 addresses
+    if (body.contactsData.length > 2) {
+      throw new HttpException(
+        'Maximum 2 emergency contacts allowed',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Validate each address
+    body.contactsData.forEach((contact, index) => {
+      if (!contact.firstName || !contact.firstName.trim()) {
+        throw new HttpException(
+          `contact First Name is missing`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (!contact.email || !contact.email.trim()) {
+        throw new HttpException(
+          `contact Email is missing`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (!contact.phone || !contact.phone.trim()) {
+        throw new HttpException(
+          `Enter contact valid phone number`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (!contact.relationship || !contact.relationship.trim()) {
+        throw new HttpException(
+          `Specify Relationship with contact`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    });
+
+    // Transform address data to match ClientAddress type
+    const transformedContacts = body.contactsData.map((contactData) => ({
+      clientId: contactData.clientId,
+      firstName: contactData.firstName,
+
+      lastName: contactData.lastName,
+
+      email: contactData.email,
+
+      relationship: contactData.relationship,
+
+      phone: contactData.phone,
+    }));
+
+    // Process all addresses
+    const results = await Promise.all(
+      transformedContacts.map((contact) =>
+        this.emergencyContactService.addEmergencyContact(
+          contact as any,
+          ownerId,
+        ),
+      ),
+    );
+
+    // Check if any failed
+    const failedResults = results.filter((result) => !result.success);
+
+    if (failedResults.length > 0) {
+      const combinedMessage = failedResults.map((r) => r.message).join('; '); // Add separator
+
+      throw new HttpException(
+        {
+          message: combinedMessage, // ✅ FINAL message shown to the user
+          errors: failedResults.map((r) => ({
+            message: r.message,
+            error: r.error,
+          })),
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    // Collect all successfully saved addresses
+    const savedContacts = results
+      .filter((r) => r.success && r.data)
+      .map((r) => r.data);
+
+    return {
+      success: true,
+      message: `${savedContacts.length} contact(es) added successfully`,
+      data: savedContacts,
+    };
   }
 
   @Get('/client/:clientId/emergency-contacts')

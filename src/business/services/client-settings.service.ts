@@ -34,7 +34,7 @@ export class ClientSettingsService {
         return {
           success: false,
           error: 'Client ID missing',
-          message: 'clientId is required',
+          message: 'A valid Client ID is required to update settings.',
         };
       }
 

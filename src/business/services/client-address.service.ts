@@ -35,7 +35,7 @@ export class ClientAddressService {
         return {
           success: false,
           error: 'Client ID missing',
-          message: 'clientId is required',
+          message: 'Each address must include a valid Client ID',
         };
       }
 

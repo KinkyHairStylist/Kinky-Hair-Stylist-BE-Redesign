@@ -12,7 +12,11 @@ import { Business } from '../entities/business.entity';
 import { ClientSchema } from '../entities/client.entity';
 import { ClientAddressSchema } from '../entities/client-address.entity';
 import { EmergencyContactSchema } from '../entities/emergency-contact.entity';
-import { ClientSettingsSchema } from '../entities/client-settings.entity';
+import {
+  ClientSettingsSchema,
+  ClientType,
+} from '../entities/client-settings.entity';
+import { formatClientType } from '../utils/client.utils';
 
 @Injectable()
 export class ClientService {
@@ -38,16 +42,16 @@ export class ClientService {
     ownerId: string,
   ): Promise<ApiResponse<any>> {
     try {
-      const business = await this.businessRepo.findOne({
-        where: { ownerId },
-      });
-      if (!business) {
-        return {
-          success: false,
-          error: 'Business not found',
-          message: 'No business found for this user',
-        };
-      }
+      // const business = await this.businessRepo.findOne({
+      //   where: { ownerId },
+      // });
+      // if (!business) {
+      //   return {
+      //     success: false,
+      //     error: 'Business not found',
+      //     message: 'No business found for this user',
+      //   };
+      // }
 
       const existingClient = await this.clientRepo.findOne({
         where: {
@@ -68,19 +72,28 @@ export class ClientService {
       const savedClient = await this.clientRepo.save({
         ...clientData.profile,
         ownerId: ownerId,
-        businessId: business.id,
       });
 
+      // Addresses
       if (clientData.addresses && clientData.addresses.length > 0) {
         const addresses = clientData.addresses.map((address) => ({
           ...address,
           clientId: savedClient.id,
-          addressLine2: address.addressLine2 ?? undefined,
-          city: address.city ?? undefined,
         }));
+        // Ensure only one primary
+        const hasPrimary = addresses.some((a) => a.isPrimary);
+        if (hasPrimary) {
+          await this.clientAddressRepo.update(
+            { clientId: savedClient.id, isPrimary: true },
+            { isPrimary: false },
+          );
+        }
+
+        // Insert all
         await this.clientAddressRepo.insert(addresses);
       }
 
+      // Emergency coNTACTS
       if (
         clientData.emergencyContacts &&
         clientData.emergencyContacts.length > 0
@@ -92,21 +105,14 @@ export class ClientService {
         await this.emergencyContactRepo.insert(contacts);
       }
 
-      // Create settings
-      // const settingsData = clientData?.settings || {};
-
-      // await this.clientSettingsRepo.save({
-      //   ...settingsData,
-      //   clientId: savedClient.id,
-      //   preferences: {
-      //     ...(settingsData.preferences || {}),
-      //     language: 'en',
-      //     timezone: 'Australia/Sydney',
-      //     preferredContactMethod:
-      //       settingsData.preferences?.preferredContactMethod || 'email',
-      //   },
-      // });
-      // await settings.save();
+      // Settings
+      if (clientData.settings) {
+        const settingsData = {
+          ...clientData.settings,
+          clientId: savedClient.id,
+        };
+        await this.clientSettingsRepo.save(settingsData);
+      }
 
       // Return populated client
       const populatedClient = await this.getClientWithRelations(savedClient.id);
@@ -131,17 +137,17 @@ export class ClientService {
     filters: ClientFilters,
   ): Promise<ApiResponse<ClientlistResponse>> {
     try {
-      const business = await this.businessRepo.findOne({
-        where: { ownerId },
-      });
-      if (!business) {
-        return {
-          success: false,
-          error: 'Business not found',
-          message: 'No business found for this user',
-          data: { clients: [], total: 0, page: 1, limit: 10, totalPages: 0 },
-        };
-      }
+      // const business = await this.businessRepo.findOne({
+      //   where: { ownerId },
+      // });
+      // if (!business) {
+      //   return {
+      //     success: false,
+      //     error: 'Business not found',
+      //     message: 'No business found for this user',
+      //     data: { clients: [], total: 0, page: 1, limit: 10, totalPages: 0 },
+      //   };
+      // }
 
       const {
         search,
@@ -219,9 +225,19 @@ export class ClientService {
         .andWhere('address.isPrimary = :isPrimary', { isPrimary: true })
         .getMany();
 
+      // Fetch client settings
+      const settings = await this.clientSettingsRepo
+        .createQueryBuilder('settings')
+        .where('settings.clientId IN (:...clientIds)', { clientIds })
+        .getMany();
+
       // Create a map of clientId -> address for quick lookup
       const addressMap = new Map(
         addresses.map((addr) => [addr.clientId, addr.addressLine1]),
+      );
+
+      const clientTypeMap = new Map(
+        settings.map((setting) => [setting.clientId, setting.clientType]),
       );
 
       // Transform data (settings already loaded via leftJoinAndSelect)
@@ -235,6 +251,9 @@ export class ClientService {
         gender: client.gender,
         pronouns: client.pronouns,
         address: addressMap.get(client.id) || undefined,
+        clientType: formatClientType(
+          clientTypeMap.get(client.id) || ClientType.REGULAR,
+        ),
         clientSource: client.clientSource,
         profileImage: client.profileImage,
         isActive: client.isActive,
@@ -439,7 +458,7 @@ export class ClientService {
       this.clientRepo.findOneBy({ id: clientId }),
       this.clientAddressRepo.findBy({ clientId }),
       this.emergencyContactRepo.findBy({ clientId }),
-      this.clientSettingsRepo.findBy({ clientId }),
+      this.clientSettingsRepo.findOneBy({ clientId }),
     ]);
 
     return {

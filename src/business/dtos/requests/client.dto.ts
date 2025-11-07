@@ -43,8 +43,7 @@ export class CreateClientProfileDto {
   phone: string;
 
   @IsOptional()
-  @IsDateString()
-  dateOfBirth?: string;
+  dateOfBirth?: Date | string;
 
   @IsOptional()
   @IsEnum(Gender)
@@ -96,9 +95,8 @@ export class CreateClientAddressDto {
   @IsOptional()
   isPrimary?: boolean;
 
-  @IsString()
-  @MinLength(1)
-  clientId: string;
+  @IsOptional()
+  clientId?: string;
 }
 
 export class CreateEmergencyContactDto {
@@ -120,9 +118,8 @@ export class CreateEmergencyContactDto {
   @MinLength(1)
   phone: string;
 
-  @IsString()
-  @MinLength(1)
-  clientId: string;
+  @IsOptional()
+  clientId?: string;
 }
 
 export class CreateClientSettingsDto {
@@ -145,9 +142,8 @@ export class CreateClientSettingsDto {
   @IsOptional()
   notes?: string;
 
-  @IsString()
-  @MinLength(1)
-  clientId: string;
+  @IsOptional()
+  clientId?: string;
 
   preferences: {
     preferredContactMethod: PreferredContactMethod;
@@ -175,7 +171,7 @@ export class CreateClientDto {
 
   @ValidateNested()
   @Type(() => CreateClientSettingsDto)
-  settings?: CreateClientSettingsDto;
+  settings: CreateClientSettingsDto;
 }
 
 export class UpdateClientDto {

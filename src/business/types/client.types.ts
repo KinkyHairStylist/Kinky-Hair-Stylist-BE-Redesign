@@ -1,4 +1,10 @@
 import {
+  CreateClientAddressDto,
+  CreateClientProfileDto,
+  CreateClientSettingsDto,
+  CreateEmergencyContactDto,
+} from '../dtos/requests/client.dto';
+import {
   ClientType,
   PreferredContactMethod,
 } from '../entities/client-settings.entity';
@@ -67,23 +73,24 @@ export interface ClientSettings {
   updatedAt: Date;
 }
 
+// export interface ClientFormData {
+//   profile: Omit<
+//     Client,
+//     'id' | 'ownerId' | 'isActive' | 'createdAt' | 'updatedAt'
+//   >;
+//   addresses?: Omit<ClientAddress, 'id' | 'createdAt' | 'updatedAt'>[];
+//   emergencyContacts?: Omit<
+//     EmergencyContact,
+//     'id' | 'createdAt' | 'updatedAt'
+//   >[];
+//   settings?: Omit<ClientSettings, 'id' | 'createdAt' | 'updatedAt'>;
+// }
+
 export interface ClientFormData {
-  profile: Omit<
-    Client,
-    'id' | 'ownerId' | 'isActive' | 'createdAt' | 'updatedAt'
-  >;
-  addresses?: Omit<
-    ClientAddress,
-    'id' | 'clientId' | 'createdAt' | 'updatedAt'
-  >[];
-  emergencyContacts?: Omit<
-    EmergencyContact,
-    'id' | 'clientId' | 'createdAt' | 'updatedAt'
-  >[];
-  settings?: Omit<
-    ClientSettings,
-    'id' | 'clientId' | 'createdAt' | 'updatedAt'
-  >;
+  profile: Partial<CreateClientProfileDto>;
+  addresses?: CreateClientAddressDto[];
+  emergencyContacts?: CreateEmergencyContactDto[];
+  settings?: Partial<CreateClientSettingsDto>;
 }
 
 export interface ClientFilters {

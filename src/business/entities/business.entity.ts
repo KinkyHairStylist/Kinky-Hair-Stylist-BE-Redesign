@@ -14,6 +14,7 @@ import { BookingPolicies } from './booking-policies.entity';
 import { BookingDay } from './booking-day.entity';
 import { CompanySize } from '../types/constants';
 import { Appointment } from './appointment.entity';
+// import { Staff } from './staff.entity';
 
 export enum BusinessStatus {
   PENDING = 'pending',
@@ -68,8 +69,14 @@ export class Business {
   @Column({ nullable: true })
   category?: string;
 
-  @Column()
-  location: string;
+  @Column({ nullable: true })
+  businessAddress: string;
+
+  @Column({ type: 'float', nullable: true })
+  longitude: number;
+
+  @Column({ type: 'float', nullable: true })
+  latitude: number;
 
   @OneToOne(() => BookingPolicies, (policies) => policies.business, {
     cascade: true,
@@ -86,8 +93,8 @@ export class Business {
   })
   bookingHours: BookingDay[];
 
-  @Column()
-  howDidYouHear: string;
+  @Column('text', { array: true, default: [] })
+  howDidYouHear: string[];
 
   @Column({
     type: 'enum',

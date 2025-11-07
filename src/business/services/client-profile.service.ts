@@ -20,6 +20,17 @@ export class ClientProfileService {
     ownerId: string,
   ): Promise<ApiResponse<Client>> {
     try {
+      const existingClient = await this.clientRepo.findOne({
+        where: { email: profileData.email },
+      });
+
+      if (existingClient) {
+        return {
+          success: false,
+          error: 'Client already exists',
+          message: 'A client with this email already exists in your business',
+        };
+      }
       const client = await this.clientRepo.save({
         ...profileData,
         ownerId,
@@ -31,7 +42,7 @@ export class ClientProfileService {
         message: 'Client profile created successfully',
       };
     } catch (error) {
-      // console.log('ERROR PROFILE: ', error);
+      console.log('ERROR PROFILE: ', error);
       return {
         success: false,
         error: error.message,
@@ -131,16 +142,24 @@ export class ClientProfileService {
   ): Promise<ApiResponse<boolean>> {
     try {
       const requiredFields = ['firstName', 'lastName', 'email', 'phone'];
-      const missingFields = requiredFields.filter(
-        (field) => !profileData[field],
-      );
+      const missingFields = requiredFields.filter((field) => {
+        const value = profileData[field];
+
+        // Missing entirely, null, undefined
+        if (value === undefined || value === null) return true;
+
+        // If value is a string, check after trimming
+        if (typeof value === 'string' && value.trim() === '') return true;
+
+        return false;
+      });
 
       if (missingFields.length > 0) {
         return {
           success: false,
-          error: `Missing required fields: ${missingFields.join(', ')}`,
+          error: 'Profile validation failed',
           data: false,
-          message: 'Profile validation failed',
+          message: `Missing required fields: ${missingFields.join(', ')}`,
         };
       }
 
@@ -157,7 +176,7 @@ export class ClientProfileService {
             success: false,
             error: 'Email already exists',
             data: false,
-            message: 'A client with this email already exists',
+            message: 'You already have a client with this email',
           };
         }
       }
@@ -170,9 +189,9 @@ export class ClientProfileService {
     } catch (error) {
       return {
         success: false,
-        error: error.message,
+        message: error.message,
         data: false,
-        message: 'Profile validation failed',
+        error: 'Profile validation failed',
       };
     }
   }
