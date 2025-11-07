@@ -60,7 +60,7 @@ export class BusinessController {
   }
 
   @Get('/ping')
-  ping(){
-    return "server is live"
+  ping() {
+    return 'server is live';
   }
 }

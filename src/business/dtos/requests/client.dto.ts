@@ -1,21 +1,30 @@
-
-import { 
-  IsEmail, 
-  IsPhoneNumber, 
-  IsOptional, 
-  IsEnum, 
-  IsBoolean, 
-  IsArray, 
-  ValidateNested, 
+import {
+  IsEmail,
+  IsPhoneNumber,
+  IsOptional,
+  IsEnum,
+  IsBoolean,
+  IsArray,
+  ValidateNested,
   IsString,
   MinLength,
   IsNumber,
   Min,
-  IsMongoId, 
-  IsDateString
+  IsMongoId,
+  IsDateString,
+  IsUUID,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Types } from 'mongoose';
+import {
+  ClientSource,
+  Gender,
+  Pronouns,
+} from 'src/business/entities/client.entity';
+import {
+  ClientType,
+  PreferredContactMethod,
+} from 'src/business/entities/client-settings.entity';
 
 export class CreateClientProfileDto {
   @IsString()
@@ -34,22 +43,21 @@ export class CreateClientProfileDto {
   phone: string;
 
   @IsOptional()
-  @IsDateString()
-  dateOfBirth?: string;
+  dateOfBirth?: Date | string;
 
   @IsOptional()
-  @IsEnum(['male', 'female', 'other', 'prefer-not-to-say'])
-  gender?: string;
+  @IsEnum(Gender)
+  gender?: Gender;
 
   @IsOptional()
-  @IsEnum(['he-him', 'she-her', 'they-them', 'other'])
-  pronouns?: string;
+  @IsEnum(Pronouns)
+  pronouns?: Pronouns;
 
   @IsOptional()
   occupation?: string;
 
-  @IsEnum(['walk-in', 'referral', 'instagram', 'website', 'facebook', 'other'])
-  clientSource: string;
+  @IsEnum(ClientSource)
+  clientSource: ClientSource;
 
   @IsOptional()
   profileImage?: string;
@@ -87,8 +95,8 @@ export class CreateClientAddressDto {
   @IsOptional()
   isPrimary?: boolean;
 
-  @IsMongoId()
-  clientId: string;
+  @IsOptional()
+  clientId?: string;
 }
 
 export class CreateEmergencyContactDto {
@@ -110,8 +118,8 @@ export class CreateEmergencyContactDto {
   @MinLength(1)
   phone: string;
 
-  @IsMongoId()
-  clientId: string;
+  @IsOptional()
+  clientId?: string;
 }
 
 export class CreateClientSettingsDto {
@@ -127,18 +135,20 @@ export class CreateClientSettingsDto {
   @IsOptional()
   marketingEmails?: boolean;
 
-  @IsEnum(['vip', 'regular', 'new'])
+  @IsEnum(ClientType)
   @IsOptional()
-  clientType?: string;
+  clientType?: ClientType;
 
   @IsOptional()
   notes?: string;
 
   @IsOptional()
-  preferences?: {
-    preferredContactMethod?: 'email' | 'sms' | 'phone';
-    language?: string;
-    timezone?: string;
+  clientId?: string;
+
+  preferences: {
+    preferredContactMethod: PreferredContactMethod;
+    language: string;
+    timezone: string;
   };
 }
 
@@ -161,8 +171,7 @@ export class CreateClientDto {
 
   @ValidateNested()
   @Type(() => CreateClientSettingsDto)
-  @IsOptional()
-  settings?: CreateClientSettingsDto;
+  settings: CreateClientSettingsDto;
 }
 
 export class UpdateClientDto {
@@ -187,19 +196,19 @@ export class UpdateClientDto {
   dateOfBirth?: string;
 
   @IsOptional()
-  @IsEnum(['male', 'female', 'other', 'prefer-not-to-say'])
-  gender?: string;
+  @IsEnum(Gender)
+  gender?: Gender;
 
   @IsOptional()
-  @IsEnum(['he-him', 'she-her', 'they-them', 'other'])
-  pronouns?: string;
+  @IsEnum(Pronouns)
+  pronouns?: Pronouns;
 
   @IsOptional()
   occupation?: string;
 
   @IsOptional()
-  @IsEnum(['walk-in', 'referral', 'instagram', 'website', 'facebook', 'other'])
-  clientSource?: string;
+  @IsEnum(ClientSource)
+  clientSource?: ClientSource;
 
   @IsOptional()
   profileImage?: string;

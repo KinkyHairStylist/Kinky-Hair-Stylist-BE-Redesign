@@ -111,8 +111,14 @@ describe('BookingController', () => {
       const booking = new Booking();
       mockBookingService.rescheduleBooking.mockResolvedValue(booking);
 
-      expect(await controller.rescheduleBooking(id, newDate, newTime)).toBe(booking);
-      expect(service.rescheduleBooking).toHaveBeenCalledWith(id, new Date(newDate), newTime);
+      expect(await controller.rescheduleBooking(id, newDate, newTime)).toBe(
+        booking,
+      );
+      expect(service.rescheduleBooking).toHaveBeenCalledWith(
+        id,
+        new Date(newDate),
+        newTime,
+      );
     });
   });
 });

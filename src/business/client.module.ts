@@ -1,23 +1,31 @@
-import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+  RequestMethod,
+} from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { ClientController } from './controllers/client.controller';
 import { ClientService } from './services/client.service';
 import { ClientProfileService } from './services/client-profile.service';
 import { ClientAddressService } from './services/client-address.service';
 import { EmergencyContactService } from './services/emergency-contact.service';
-import { ClientModel, ClientSchema } from './schemas/client.schema';
-import { ClientAddressModel, ClientAddressSchema } from './schemas/client-address.schema';
-import { EmergencyContact } from './schemas/emergency-contact.schema';
-import { ClientSettingsModel, ClientSettingsSchema } from './schemas/client-settings.schema';
+import { ClientSchema } from './entities/client.entity';
+import { ClientAddressSchema } from './entities/client-address.entity';
+import { EmergencyContactSchema } from './entities/emergency-contact.entity';
+import { ClientSettingsSchema } from './entities/client-settings.entity';
+import { Business } from './entities/business.entity';
+import { ClientSettingsService } from './services/client-settings.service';
+import { ClientProfileValidationMiddleware } from './middlewares/validate-client-data.middleware';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: ClientModel.name, schema: ClientSchema },
-      { name: ClientAddressModel.name, schema: ClientAddressSchema },
-      { name: EmergencyContact.name, schema: EmergencyContact },
-      { name: ClientSettingsModel.name, schema: ClientSettingsSchema },
-      { name: 'Business', schema: require('./schemes/business.schema').BusinessSchema },
+    TypeOrmModule.forFeature([
+      ClientSchema,
+      ClientAddressSchema,
+      EmergencyContactSchema,
+      ClientSettingsSchema,
+      Business,
     ]),
   ],
   controllers: [ClientController],
@@ -26,7 +34,18 @@ import { ClientSettingsModel, ClientSettingsSchema } from './schemas/client-sett
     ClientProfileService,
     ClientAddressService,
     EmergencyContactService,
+    ClientSettingsService,
   ],
   exports: [ClientService],
 })
-export class ClientModule {}
+export class ClientModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(ClientProfileValidationMiddleware).forRoutes(
+      // POST /clients
+      { path: 'clients', method: RequestMethod.POST },
+
+      // POST /clients/client/profile
+      { path: 'clients/client/profile', method: RequestMethod.POST },
+    );
+  }
+}

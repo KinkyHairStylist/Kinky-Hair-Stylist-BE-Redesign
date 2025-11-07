@@ -1,16 +1,19 @@
 // services/emergency-contact.service.ts
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { EmergencyContact, ApiResponse } from '../types/client.types';
-import { EmergencyContact as EmergencyContactModel } from '../schemas/emergency-contact.schema';
-import { ClientModel } from '../schemas/client.schema';
+import { ClientSchema } from '../entities/client.entity';
+import { EmergencyContactSchema } from '../entities/emergency-contact.entity';
 
 @Injectable()
 export class EmergencyContactService {
   constructor(
-    @InjectModel(EmergencyContactModel.name) private emergencyContactModel: Model<EmergencyContact>,
-    @InjectModel(ClientModel.name) private clientModel: Model<any>,
+    @InjectRepository(ClientSchema)
+    private readonly clientRepo: Repository<ClientSchema>,
+
+    @InjectRepository(EmergencyContactSchema)
+    private readonly emergencyContactRepo: Repository<EmergencyContactSchema>,
   ) {}
 
   async addEmergencyContact(
@@ -18,11 +21,21 @@ export class EmergencyContactService {
     ownerId: string,
   ): Promise<ApiResponse<EmergencyContact>> {
     try {
+      if (!contactData.clientId) {
+        return {
+          success: false,
+          error: 'Client ID missing',
+          message: 'Each contact must include a valid Client ID',
+        };
+      }
+
       // Verify client belongs to owner
-      const client = await this.clientModel.findOne({
-        _id: new Types.ObjectId(contactData.clientId),
-        ownerId: new Types.ObjectId(ownerId),
-        isActive: true,
+      const client = await this.clientRepo.findOne({
+        where: {
+          id: contactData.clientId,
+          ownerId: ownerId,
+          isActive: true,
+        },
       });
 
       if (!client) {
@@ -33,12 +46,12 @@ export class EmergencyContactService {
         };
       }
 
-      const contact = new this.emergencyContactModel(contactData);
-      const savedContact = await contact.save();
+      const contact = await this.emergencyContactRepo.save(contactData);
+      // const savedContact = await contact.save();
 
       return {
         success: true,
-        data: savedContact,
+        data: contact,
         message: 'Emergency contact added successfully',
       };
     } catch (error) {
@@ -50,13 +63,18 @@ export class EmergencyContactService {
     }
   }
 
-  async getEmergencyContacts(clientId: string, ownerId: string): Promise<ApiResponse<EmergencyContact[]>> {
+  async getEmergencyContacts(
+    clientId: string,
+    ownerId: string,
+  ): Promise<ApiResponse<EmergencyContact[]>> {
     try {
       // Verify client belongs to owner
-      const client = await this.clientModel.findOne({
-        _id: new Types.ObjectId(clientId),
-        ownerId: new Types.ObjectId(ownerId),
-        isActive: true,
+      const client = await this.clientRepo.findOne({
+        where: {
+          id: clientId,
+          ownerId: ownerId,
+          isActive: true,
+        },
       });
 
       if (!client) {
@@ -67,8 +85,8 @@ export class EmergencyContactService {
         };
       }
 
-      const contacts = await this.emergencyContactModel.find({ 
-        clientId: new Types.ObjectId(clientId) 
+      const contacts = await this.emergencyContactRepo.findBy({
+        clientId,
       });
 
       return {

@@ -1,14 +1,17 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ClientAddress, ApiResponse } from '../types/client.types';
+import { ClientAddressSchema } from '../entities/client-address.entity';
+import { ClientSchema } from '../entities/client.entity';
 // Update the import path below to match your actual schema file location and name
-import { ClientAddressModel } from '../schemas/client-address.schema';
 // OR
 // import { ClientAddressModel } from '../schemes/client-address.schema';
 // (Choose the correct path and filename based on your project structure)
 // Update the import path if the file is named differently or located elsewhere
-import { ClientModel } from '../schemas/client.schema';
+
 // OR
 // import { ClientModel } from '../schemes/client.schema';
 // (Choose the correct path and filename based on your project structure)
@@ -16,8 +19,11 @@ import { ClientModel } from '../schemas/client.schema';
 @Injectable()
 export class ClientAddressService {
   constructor(
-    @InjectModel(ClientAddressModel.name) private addressModel: Model<ClientAddress>,
-    @InjectModel(ClientModel.name) private clientModel: Model<any>,
+    @InjectRepository(ClientAddressSchema)
+    private readonly clientAddressRepo: Repository<ClientAddressSchema>,
+
+    @InjectRepository(ClientSchema)
+    private readonly clientRepo: Repository<ClientSchema>,
   ) {}
 
   async addClientAddress(
@@ -25,11 +31,21 @@ export class ClientAddressService {
     ownerId: string,
   ): Promise<ApiResponse<ClientAddress>> {
     try {
+      if (!addressData.clientId) {
+        return {
+          success: false,
+          error: 'Client ID missing',
+          message: 'Each address must include a valid Client ID',
+        };
+      }
+
       // Verify client belongs to owner
-      const client = await this.clientModel.findOne({
-        _id: new Types.ObjectId(addressData.clientId),
-        ownerId: new Types.ObjectId(ownerId),
-        isActive: true,
+      const client = await this.clientRepo.findOne({
+        where: {
+          id: addressData.clientId,
+          ownerId: ownerId,
+          isActive: true,
+        },
       });
 
       if (!client) {
@@ -42,18 +58,16 @@ export class ClientAddressService {
 
       // If this is set as primary, unset other primary addresses
       if (addressData.isPrimary) {
-        await this.addressModel.updateMany(
+        await this.clientAddressRepo.update(
           { clientId: addressData.clientId, isPrimary: true },
           { isPrimary: false },
         );
       }
 
-      const address = new this.addressModel(addressData);
-      const savedAddress = await address.save();
-
+      const address = await this.clientAddressRepo.save(addressData);
       return {
         success: true,
-        data: savedAddress,
+        data: address,
         message: 'Address added successfully',
       };
     } catch (error) {
@@ -65,15 +79,19 @@ export class ClientAddressService {
     }
   }
 
-  async getClientAddresses(clientId: string, ownerId: string): Promise<ApiResponse<ClientAddress[]>> {
+  async getClientAddresses(
+    clientId: string,
+    ownerId: string,
+  ): Promise<ApiResponse<ClientAddress[]>> {
     try {
       // Verify client belongs to owner
-      const client = await this.clientModel.findOne({
-        _id: new Types.ObjectId(clientId),
-        ownerId: new Types.ObjectId(ownerId),
-        isActive: true,
+      const client = await this.clientRepo.findOne({
+        where: {
+          id: clientId,
+          ownerId: ownerId,
+          isActive: true,
+        },
       });
-
       if (!client) {
         return {
           success: false,
@@ -82,8 +100,8 @@ export class ClientAddressService {
         };
       }
 
-      const addresses = await this.addressModel.find({ 
-        clientId: new Types.ObjectId(clientId) 
+      const addresses = await this.clientAddressRepo.findBy({
+        clientId,
       });
 
       return {

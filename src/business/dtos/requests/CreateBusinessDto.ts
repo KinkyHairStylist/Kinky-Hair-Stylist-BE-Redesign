@@ -56,5 +56,5 @@ export class CreateBusinessDto {
 
   @IsString({ message: 'How did you hear must be a string.' })
   @IsNotEmpty({ message: 'How did you hear is required.' })
-  readonly howDidYouHear: string;
+  readonly howDidYouHear: string[];
 }
