@@ -141,7 +141,16 @@ export class ClientProfileService {
     profileData: Partial<Client>,
   ): Promise<ApiResponse<boolean>> {
     try {
-      const requiredFields = ['firstName', 'lastName', 'email', 'phone'];
+      const requiredFields = [
+        'firstName',
+        'lastName',
+        'email',
+        'phone',
+        'pronouns',
+        'gender',
+        'clientType',
+        'clientSource',
+      ];
       const missingFields = requiredFields.filter((field) => {
         const value = profileData[field];
 

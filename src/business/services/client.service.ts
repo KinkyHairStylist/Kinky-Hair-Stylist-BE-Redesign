@@ -17,6 +17,10 @@ import {
   ClientType,
 } from '../entities/client-settings.entity';
 import { formatClientType } from '../utils/client.utils';
+import {
+  UpdateClientDto,
+  UpdateEmergencyContactDto,
+} from '../dtos/requests/client.dto';
 
 @Injectable()
 export class ClientService {
@@ -155,7 +159,7 @@ export class ClientService {
         sortBy = 'createdAt',
         sortOrder = 'desc',
         page = 1,
-        limit = 10,
+        limit = 9,
       } = filters;
 
       // Build query with QueryBuilder
@@ -225,19 +229,9 @@ export class ClientService {
         .andWhere('address.isPrimary = :isPrimary', { isPrimary: true })
         .getMany();
 
-      // Fetch client settings
-      const settings = await this.clientSettingsRepo
-        .createQueryBuilder('settings')
-        .where('settings.clientId IN (:...clientIds)', { clientIds })
-        .getMany();
-
       // Create a map of clientId -> address for quick lookup
       const addressMap = new Map(
         addresses.map((addr) => [addr.clientId, addr.addressLine1]),
-      );
-
-      const clientTypeMap = new Map(
-        settings.map((setting) => [setting.clientId, setting.clientType]),
       );
 
       // Transform data (settings already loaded via leftJoinAndSelect)
@@ -251,9 +245,7 @@ export class ClientService {
         gender: client.gender,
         pronouns: client.pronouns,
         address: addressMap.get(client.id) || undefined,
-        clientType: formatClientType(
-          clientTypeMap.get(client.id) || ClientType.REGULAR,
-        ),
+        clientType: formatClientType(client.clientType || ClientType.REGULAR),
         clientSource: client.clientSource,
         profileImage: client.profileImage,
         isActive: client.isActive,
@@ -288,16 +280,16 @@ export class ClientService {
     ownerId: string,
   ): Promise<ApiResponse<any>> {
     try {
-      const business = await this.businessRepo.findOne({
-        where: { ownerId },
-      });
-      if (!business) {
-        return {
-          success: false,
-          error: 'Business not found',
-          message: 'No business found for this user',
-        };
-      }
+      // const business = await this.businessRepo.findOne({
+      //   where: { ownerId },
+      // });
+      // if (!business) {
+      //   return {
+      //     success: false,
+      //     error: 'Business not found',
+      //     message: 'No business found for this user',
+      //   };
+      // }
 
       const client = await this.clientRepo.findOne({
         where: {
@@ -335,17 +327,31 @@ export class ClientService {
   async updateClient(
     clientId: string,
     ownerId: string,
-    updates: Partial<Client>,
-  ): Promise<ApiResponse<Client>> {
+    updates: UpdateClientDto,
+  ): Promise<ApiResponse<UpdateClientDto>> {
     try {
-      const business = await this.businessRepo.findOne({
-        where: { owner: { id: ownerId } },
-      });
-      if (!business) {
+      // const business = await this.businessRepo.findOne({
+      //   where: { owner: { id: ownerId } },
+      // });
+      // if (!business) {
+      //   return {
+      //     success: false,
+      //     error: 'Business not found',
+      //     message: 'No business found for this user',
+      //   };
+      // }
+
+      // Check if all fields are undefined
+      const hasUpdates = Object.values(updates).some(
+        (value) => value !== undefined,
+      );
+
+      if (!hasUpdates) {
+        // No updates provided
         return {
-          success: false,
-          error: 'Business not found',
-          message: 'No business found for this user',
+          success: true,
+          data: updates,
+          message: 'No changes made to profile.',
         };
       }
 

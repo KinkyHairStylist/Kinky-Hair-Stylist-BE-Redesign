@@ -23,6 +23,29 @@ export enum PreferredContactMethod {
   PHONE = 'phone',
 }
 
+export enum Languages {
+  ENGLISH = 'en',
+  FRENCH = 'fr',
+  SPANISH = 'es',
+  GERMAN = 'de',
+  CHINESE = 'zh',
+  // add more as needed
+}
+
+// Example timezone enum
+export enum Timezone {
+  SYDNEY = 'Australia/Sydney',
+  MELBOURNE = 'Australia/Melbourne',
+  BRISBANE = 'Australia/Brisbane',
+  PERTH = 'Australia/Perth',
+  ADELAIDE = 'Australia/Adelaide',
+  UTC = 'UTC',
+  NEW_YORK = 'America/New_York',
+  LONDON = 'Europe/London',
+  TOKYO = 'Asia/Tokyo',
+  // add more as needed
+}
+
 @Entity('client_settings')
 @Index(['clientType'])
 export class ClientSettingsSchema {
@@ -50,7 +73,7 @@ export class ClientSettingsSchema {
     enum: ClientType,
     default: ClientType.REGULAR,
   })
-  clientType: ClientType;
+  clientType?: ClientType;
 
   @Column({ type: 'text', nullable: true })
   notes: string;
@@ -65,8 +88,8 @@ export class ClientSettingsSchema {
   })
   preferences: {
     preferredContactMethod: PreferredContactMethod;
-    language: string;
-    timezone: string;
+    language: Languages;
+    timezone: Timezone;
   };
 
   @CreateDateColumn()

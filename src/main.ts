@@ -23,11 +23,18 @@ async function bootstrap() {
 
   // CORS Configuration
   app.enableCors({
-    origin: ['http://localhost:3000'], // safer than using '*'
+    origin: 'http://localhost:3000',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+    }),
+  );
 
   // Input sanitization setup
   const sanitizer = new InputSanitizationMiddleware();

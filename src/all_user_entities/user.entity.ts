@@ -4,22 +4,26 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   OneToMany,
+  OneToOne,
   UpdateDateColumn,
 } from 'typeorm';
-
-// import { Card } from './card.entity';
-// import { GiftCard } from './gift-card.entity';
+import { Card } from './card.entity';
+import { GiftCard } from './gift-card.entity';
 import { Referral } from '../user/user_entities/referrals.entity';
 import { Appointment } from 'src/business/entities/appointment.entity';
 import { RefreshToken } from 'src/business/entities/refresh.token.entity';
 import { Business } from 'src/business/entities/business.entity';
 import { Gender } from 'src/business/types/constants';
 import { Booking } from 'src/user/user_entities/booking.entity';
+import { UserPreferences } from 'src/user/user_entities/preferences.entity';
 
 @Entity()
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  avatarUrl?: string;
 
   @Column({ unique: true })
   email: string;
@@ -111,4 +115,16 @@ export class User {
 
   @OneToMany(() => Booking, (booking) => booking.user)
   bookings: Booking[];
+
+  @OneToMany(() => Card, (card) => card.user)
+  cards: Card[];
+
+  @OneToMany(() => GiftCard, (giftCard) => giftCard.sender)
+  giftCards: GiftCard[];
+
+  @OneToOne(() => UserPreferences, (preferences) => preferences.user, {
+    cascade: true,
+    eager: true,
+  })
+  preferences: UserPreferences;
 }

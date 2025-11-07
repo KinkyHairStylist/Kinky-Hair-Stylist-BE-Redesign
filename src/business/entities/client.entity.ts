@@ -10,6 +10,7 @@ import {
   JoinColumn,
   BeforeUpdate,
 } from 'typeorm';
+import { ClientType } from './client-settings.entity';
 
 export enum Gender {
   MALE = 'male',
@@ -52,6 +53,13 @@ export class ClientSchema {
 
   @Column()
   phone: string;
+
+  @Column({
+    type: 'enum',
+    enum: ClientType,
+    default: ClientType.REGULAR,
+  })
+  clientType: ClientType;
 
   @Column({ type: 'varchar', nullable: true })
   dateOfBirth: Date | string;

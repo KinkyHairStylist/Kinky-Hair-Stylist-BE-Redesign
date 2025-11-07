@@ -11,13 +11,13 @@ import sgMail from '@sendgrid/mail';
 import { randomUUID } from 'crypto';
 
 import { User } from '../../all_user_entities/user.entity';
+
 import {
   GetStartedDto,
   VerifyCodeDto,
   ResendCodeDto,
   SignUpDto,
-  LoginDto,
-  // CustomerLoginDto,
+  CustomerLoginDto,
   ResetPasswordStartDto,
   ResetPasswordVerifyDto,
   ResetPasswordFinishDto,
@@ -244,7 +244,7 @@ export class UserService {
     };
   }
 
-  async login(dto: LoginDto): Promise<AuthResponseDto> {
+  async login(dto: CustomerLoginDto): Promise<AuthResponseDto> {
     const { email, password } = dto;
 
     const user = await this.userRepository.findOne({ where: { email } });
@@ -253,22 +253,22 @@ export class UserService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    // if (!user.isVerified) {
-    //   throw new BadRequestException('Email not verified');
-    // }
+    if (!user.isVerified) {
+      throw new BadRequestException('Email not verified');
+    }
 
-    // if (!user.password) {
-    //   throw new UnauthorizedException('Account not fully set up');
-    // }
+    if (!user.password) {
+      throw new UnauthorizedException('Account not fully set up');
+    }
 
-    // const isMatch = await PasswordHashingHelper.comparePassword(
-    //   password,
-    //   user.password,
-    // );
+    const isMatch = await PasswordHashingHelper.comparePassword(
+      password,
+      user.password,
+    );
 
-    // if (!isMatch) {
-    //   throw new UnauthorizedException('Invalid email or password');
-    // }
+    if (!isMatch) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
 
     const { accessToken, refreshToken } = await this.getTokens(
       user.id,
@@ -389,7 +389,8 @@ export class UserService {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: process.env.JWT_ACCESS_SECRET,
-        expiresIn: '15m',
+        expiresIn: '3h',
+        // expiresIn: '15m',
       }),
       this.jwtService.signAsync(payload, {
         secret: process.env.JWT_REFRESH_SECRET,

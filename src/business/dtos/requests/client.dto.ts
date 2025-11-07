@@ -23,7 +23,9 @@ import {
 } from 'src/business/entities/client.entity';
 import {
   ClientType,
+  Languages,
   PreferredContactMethod,
+  Timezone,
 } from 'src/business/entities/client-settings.entity';
 
 export class CreateClientProfileDto {
@@ -45,13 +47,15 @@ export class CreateClientProfileDto {
   @IsOptional()
   dateOfBirth?: Date | string;
 
-  @IsOptional()
   @IsEnum(Gender)
-  gender?: Gender;
+  gender: Gender;
+
+  @IsEnum(ClientType)
+  clientType: ClientType;
 
   @IsOptional()
   @IsEnum(Pronouns)
-  pronouns?: Pronouns;
+  pronouns: Pronouns;
 
   @IsOptional()
   occupation?: string;
@@ -147,8 +151,8 @@ export class CreateClientSettingsDto {
 
   preferences: {
     preferredContactMethod: PreferredContactMethod;
-    language: string;
-    timezone: string;
+    language: Languages;
+    timezone: Timezone;
   };
 }
 
@@ -174,44 +178,161 @@ export class CreateClientDto {
   settings: CreateClientSettingsDto;
 }
 
+// export class UpdateClientDto {
+//   @IsOptional()
+//   @IsString()
+//   firstName?: string;
+
+//   @IsOptional()
+//   @IsString()
+//   lastName?: string;
+
+//   @IsOptional()
+//   @IsEmail()
+//   email?: string;
+
+//   @IsOptional()
+//   @IsString()
+//   phone?: string;
+
+//   @IsOptional()
+//   @IsDateString()
+//   dateOfBirth?: string;
+
+//   @IsOptional()
+//   @IsEnum(Gender)
+//   gender?: Gender;
+
+//   @IsOptional()
+//   @IsEnum(Pronouns)
+//   pronouns?: Pronouns;
+
+//   @IsOptional()
+//   occupation?: string;
+
+//   @IsOptional()
+//   @IsEnum(ClientSource)
+//   clientSource?: ClientSource;
+
+//   @IsOptional()
+//   profileImage?: string;
+// }
+
 export class UpdateClientDto {
   @IsOptional()
   @IsString()
-  firstName?: string;
+  @MinLength(1)
+  firstName: string;
 
   @IsOptional()
   @IsString()
-  lastName?: string;
+  @MinLength(1)
+  lastName: string;
 
   @IsOptional()
   @IsEmail()
-  email?: string;
+  email: string;
 
   @IsOptional()
   @IsString()
-  phone?: string;
+  @MinLength(1)
+  phone: string;
 
   @IsOptional()
-  @IsDateString()
-  dateOfBirth?: string;
+  dateOfBirth?: Date | string;
 
   @IsOptional()
   @IsEnum(Gender)
-  gender?: Gender;
+  gender: Gender;
 
   @IsOptional()
-  @IsEnum(Pronouns)
-  pronouns?: Pronouns;
+  @IsEnum(ClientType)
+  clientType: ClientType;
 
+  @IsOptional()
+  @IsOptional()
+  @IsEnum(Pronouns)
+  pronouns: Pronouns;
+
+  @IsOptional()
   @IsOptional()
   occupation?: string;
 
   @IsOptional()
   @IsEnum(ClientSource)
-  clientSource?: ClientSource;
+  clientSource: ClientSource;
 
   @IsOptional()
   profileImage?: string;
+}
+
+export class UpdateEmergencyContactDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  id: string;
+
+  @IsString()
+  @MinLength(1)
+  firstName: string;
+
+  @IsOptional()
+  lastName?: string;
+
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @MinLength(1)
+  relationship: string;
+
+  @IsString()
+  @MinLength(1)
+  phone: string;
+
+  @IsOptional()
+  clientId?: string;
+}
+
+export class UpdateClientAddressDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  id: string;
+
+  @IsString()
+  @MinLength(1)
+  addressName: string;
+
+  @IsString()
+  @MinLength(1)
+  addressLine1: string;
+
+  @IsOptional()
+  addressLine2: string | null;
+
+  @IsString()
+  @MinLength(1)
+  location: string;
+
+  @IsOptional()
+  city: string | null;
+
+  @IsOptional()
+  state?: string;
+
+  @IsOptional()
+  zipCode?: string;
+
+  @IsOptional()
+  country?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isPrimary?: boolean;
+
+  @IsOptional()
+  clientId?: string;
 }
 
 export class ClientFiltersDto {
@@ -238,4 +359,40 @@ export class ClientFiltersDto {
   @IsNumber()
   @Min(1)
   limit?: number;
+}
+
+export class UpdateClientSettingsDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  id: string;
+
+  @IsBoolean()
+  @IsOptional()
+  emailNotifications?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  smsNotifications?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  marketingEmails?: boolean;
+
+  @IsEnum(ClientType)
+  @IsOptional()
+  clientType?: ClientType;
+
+  @IsOptional()
+  notes?: string;
+
+  @IsOptional()
+  clientId?: string;
+
+  @IsOptional() // <--- mark preferences optional
+  preferences?: Partial<{
+    preferredContactMethod: PreferredContactMethod;
+    language: Languages;
+    timezone: Timezone;
+  }>;
 }

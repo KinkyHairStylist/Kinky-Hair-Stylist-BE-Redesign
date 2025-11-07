@@ -26,6 +26,9 @@ import {
   CreateEmergencyContactDto,
   CreateClientSettingsDto,
   CreateClientProfileDto,
+  UpdateEmergencyContactDto,
+  UpdateClientAddressDto,
+  UpdateClientSettingsDto,
 } from '../dtos/requests/client.dto';
 import { JwtAuthGuard } from '../middlewares/guards/jwt-auth.guard';
 import { ClientFormData } from '../types/client.types';
@@ -65,11 +68,12 @@ export class ClientController {
         lastName: createClientDto.profile.lastName,
         email: createClientDto.profile.email,
         phone: createClientDto.profile.phone,
+        clientType: createClientDto.profile.clientType,
         dateOfBirth: createClientDto.profile.dateOfBirth
           ? new Date(createClientDto.profile.dateOfBirth)
           : undefined,
-        gender: createClientDto.profile.gender || undefined,
-        pronouns: createClientDto.profile.pronouns || undefined,
+        gender: createClientDto.profile.gender,
+        pronouns: createClientDto.profile.pronouns,
         clientSource: createClientDto.profile.clientSource,
         profileImage: createClientDto.profile.profileImage || undefined,
       },
@@ -100,7 +104,6 @@ export class ClientController {
           createClientDto.settings?.emailNotifications || false,
         smsNotifications: createClientDto.settings?.smsNotifications || false,
         marketingEmails: createClientDto.settings?.marketingEmails || false,
-        clientType: createClientDto.settings?.clientType,
         notes: createClientDto.settings?.notes || undefined,
         preferences: {
           preferredContactMethod:
@@ -214,7 +217,7 @@ export class ClientController {
 
   @Get('/client/:clientId')
   async getClientDetails(@Request() req, @Param('clientId') clientId: string) {
-    const ownerId = req.user._id || req.user.userId;
+    const ownerId = req.user.sub || req.user.userId;
     if (!ownerId) {
       throw new HttpException(
         'User not authenticated',
@@ -228,36 +231,6 @@ export class ClientController {
       throw new HttpException(
         { message: result.message, error: result.error },
         HttpStatus.NOT_FOUND,
-      );
-    }
-
-    return result;
-  }
-
-  @Patch('/client/:clientId')
-  async updateClient(
-    @Request() req,
-    @Param('clientId') clientId: string,
-    @Body() updateClientDto: UpdateClientDto,
-  ) {
-    const ownerId = req.user._id || req.user.userId;
-    if (!ownerId) {
-      throw new HttpException(
-        'User not authenticated',
-        HttpStatus.UNAUTHORIZED,
-      );
-    }
-
-    const result = await this.clientService.updateClient(
-      clientId,
-      ownerId,
-      updateClientDto,
-    );
-
-    if (!result.success) {
-      throw new HttpException(
-        { message: result.message, error: result.error },
-        HttpStatus.BAD_REQUEST,
       );
     }
 
@@ -456,6 +429,106 @@ export class ClientController {
     };
   }
 
+  @Patch('/client/addresses/:clientId')
+  async updateClientAddresess(
+    @Request() req,
+    @Param('clientId') clientId: string,
+    @Body() body: { addresses: UpdateClientAddressDto[] },
+  ) {
+    const ownerId = req.user.sub || req.user.userId;
+    if (!ownerId) {
+      throw new HttpException(
+        'User not authenticated',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    // Optional: Limit to 2 contacts
+    if (body.addresses.length > 2) {
+      throw new HttpException(
+        'Maximum 2 addresses allowed',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Validate each contact
+    body.addresses.forEach((address, index) => {
+      if (!clientId || !clientId.trim()) {
+        throw new HttpException(`Client ID is missing`, HttpStatus.BAD_REQUEST);
+      }
+
+      if (!address.addressName || !address.addressName.trim()) {
+        throw new HttpException(
+          `Address name is missing`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (!address.location || !address.location.trim()) {
+        throw new HttpException(
+          `Address location is missing`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    });
+
+    // Transform contacts to match service input
+    const transformedAddresses = body.addresses.map((addressData) => ({
+      id: addressData.id,
+      clientId: clientId,
+      addressName: addressData.addressName,
+      addressLine1: addressData.addressLine1,
+      addressLine2: addressData.addressLine2 ? addressData.addressLine2 : null,
+      location: addressData.location,
+      city: addressData.city,
+      state: addressData.state || '',
+      zipCode: addressData.zipCode || '',
+      country: addressData.country || '',
+      isPrimary: addressData.isPrimary || false,
+    }));
+
+    // Update contacts via service
+    const results = await Promise.all(
+      transformedAddresses.map((address) =>
+        this.clientAddressService.updateClientAddress(address, ownerId),
+      ),
+    );
+
+    // Handle failed updates
+    const failedResults = results.filter((result) => !result.success);
+    if (failedResults.length > 0) {
+      const combinedMessage = failedResults.map((r) => r.message).join('; ');
+      throw new HttpException(
+        {
+          message: combinedMessage,
+          errors: failedResults.map((r) => ({
+            message: r.message,
+            error: r.error,
+          })),
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Return successfully updated contacts
+    const updatedAddresses = results
+      .filter((r) => r.success && r.data)
+      .map((r) => r.data);
+
+    if (updatedAddresses.length === 0) {
+      return {
+        success: false,
+        error: 'No updates provided',
+        message: 'No changes made to contact addresses',
+      };
+    } else {
+      return {
+        success: true,
+        message: `${updatedAddresses.length} address(es) updated successfully`,
+        data: updatedAddresses,
+      };
+    }
+  }
+
   @Get('/client/:clientId/addresses')
   async getClientAddresses(
     @Request() req,
@@ -597,6 +670,114 @@ export class ClientController {
     };
   }
 
+  @Patch('/client/emergency-contacts/:clientId')
+  async updateEmergencyContact(
+    @Request() req,
+    @Param('clientId') clientId: string,
+    @Body() body: { contactsData: UpdateEmergencyContactDto[] },
+  ) {
+    const ownerId = req.user.sub || req.user.userId;
+    if (!ownerId) {
+      throw new HttpException(
+        'User not authenticated',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    // Optional: Limit to 2 contacts
+    if (body.contactsData.length > 2) {
+      throw new HttpException(
+        'Maximum 2 emergency contacts allowed',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Validate each contact
+    body.contactsData.forEach((contact, index) => {
+      if (!clientId || !clientId.trim()) {
+        throw new HttpException(`Client ID is missing`, HttpStatus.BAD_REQUEST);
+      }
+
+      if (!contact.firstName || !contact.firstName.trim()) {
+        throw new HttpException(
+          `contact First Name is missing`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (!contact.email || !contact.email.trim()) {
+        throw new HttpException(
+          `contact Email is missing`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (!contact.phone || !contact.phone.trim()) {
+        throw new HttpException(
+          `Enter contact valid phone number`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (!contact.relationship || !contact.relationship.trim()) {
+        throw new HttpException(
+          `Specify Relationship with contact`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    });
+
+    // Transform contacts to match service input
+    const transformedContacts = body.contactsData.map((contactData) => ({
+      id: contactData.id,
+      clientId: clientId,
+      firstName: contactData.firstName,
+      lastName: contactData.lastName,
+      email: contactData.email,
+      relationship: contactData.relationship,
+      phone: contactData.phone,
+    }));
+
+    // Update contacts via service
+    const results = await Promise.all(
+      transformedContacts.map((contact) =>
+        this.emergencyContactService.updateEmergencyContact(contact, ownerId),
+      ),
+    );
+
+    // Handle failed updates
+    const failedResults = results.filter((result) => !result.success);
+    if (failedResults.length > 0) {
+      const combinedMessage = failedResults.map((r) => r.message).join('; ');
+      throw new HttpException(
+        {
+          message: combinedMessage,
+          errors: failedResults.map((r) => ({
+            message: r.message,
+            error: r.error,
+          })),
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Return successfully updated contacts
+    const updatedContacts = results
+      .filter((r) => r.success && r.data)
+      .map((r) => r.data);
+
+    if (updatedContacts.length === 0) {
+      return {
+        success: false,
+        error: 'No updates provided',
+        message: 'No changes made to the emergency contact',
+      };
+    } else {
+      return {
+        success: true,
+        message: `${updatedContacts.length} contact(es) updated successfully`,
+        data: updatedContacts,
+      };
+    }
+  }
+
   @Get('/client/:clientId/emergency-contacts')
   async getEmergencyContacts(
     @Request() req,
@@ -641,6 +822,66 @@ export class ClientController {
     const result = await this.clientSettingsService.addClientSettings(
       clientSettingsData,
       ownerId,
+    );
+
+    if (!result.success) {
+      throw new HttpException(
+        { message: result.message, error: result.error },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return result;
+  }
+
+  @Patch('/client/settings/:clientId')
+  async updateClientSettings(
+    @Request() req,
+    @Param('clientId') clientId: string,
+    @Body() updateClientSettingsDto: UpdateClientSettingsDto,
+  ) {
+    const ownerId = req.user.sub || req.user.userId;
+    if (!ownerId) {
+      throw new HttpException(
+        'User not authenticated',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    const result = await this.clientSettingsService.updateClientSettings(
+      ownerId,
+      clientId,
+      updateClientSettingsDto,
+    );
+
+    if (!result.success) {
+      throw new HttpException(
+        { message: result.message, error: result.error },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return result;
+  }
+
+  @Patch('/client/:clientId')
+  async updateClient(
+    @Request() req,
+    @Param('clientId') clientId: string,
+    @Body() updateClientDto: UpdateClientDto,
+  ) {
+    const ownerId = req.user.sub || req.user.userId;
+    if (!ownerId) {
+      throw new HttpException(
+        'User not authenticated',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    const result = await this.clientService.updateClient(
+      clientId,
+      ownerId,
+      updateClientDto,
     );
 
     if (!result.success) {

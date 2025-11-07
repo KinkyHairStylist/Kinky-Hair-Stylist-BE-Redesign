@@ -4,7 +4,10 @@ import { Repository } from 'typeorm';
 import { ApiResponse, ClientSettings } from '../types/client.types';
 import { ClientSchema } from '../entities/client.entity';
 import { ClientSettingsSchema } from '../entities/client-settings.entity';
-import { CreateClientSettingsDto } from '../dtos/requests/client.dto';
+import {
+  CreateClientSettingsDto,
+  UpdateClientSettingsDto,
+} from '../dtos/requests/client.dto';
 // Update the import path below to match your actual schema file location and name
 // OR
 // import { ClientAddressModel } from '../schemes/client-address.schema';
@@ -72,42 +75,111 @@ export class ClientSettingsService {
     }
   }
 
-  //   async getClientAddresses(
-  //     clientId: string,
-  //     ownerId: string,
-  //   ): Promise<ApiResponse<ClientAddress[]>> {
-  //     try {
-  //       // Verify client belongs to owner
-  //       const client = await this.clientRepo.findOne({
-  //         where: {
-  //           id: clientId,
-  //           ownerId: ownerId,
-  //           isActive: true,
-  //         },
-  //       });
-  //       if (!client) {
-  //         return {
-  //           success: false,
-  //           error: 'Client not found',
-  //           message: 'Client not found or access denied',
-  //         };
-  //       }
+  async updateClientSettings(
+    ownerId: string,
+    clientId: string,
+    settingsData: UpdateClientSettingsDto,
+  ): Promise<ApiResponse<UpdateClientSettingsDto>> {
+    try {
+      const { id, ...updates } = settingsData;
+      // const business = await this.businessRepo.findOne({
+      //   where: { owner: { id: ownerId } },
+      // });
+      // if (!business) {
+      //   return {
+      //     success: false,
+      //     error: 'Business not found',
+      //     message: 'No business found for this user',
+      //   };
+      // }
 
-  //       const addresses = await this.clientAddressRepo.findBy({
-  //         clientId,
-  //       });
+      // if (!id) {
+      //   return {
+      //     success: false,
+      //     error: 'Settings ID required',
+      //     message: 'Settings ID required',
+      //   };
+      // }
 
-  //       return {
-  //         success: true,
-  //         data: addresses,
-  //         message: 'Addresses retrieved successfully',
-  //       };
-  //     } catch (error) {
-  //       return {
-  //         success: false,
-  //         error: error.message,
-  //         message: 'Failed to fetch client addresses',
-  //       };
-  //     }
-  //   }
+      if (!clientId) {
+        return {
+          success: false,
+          error: 'clientId ID is missing',
+          message: 'clientId ID is missing',
+        };
+      }
+
+      // Verify client belongs to owner
+      const client = await this.clientRepo.findOne({
+        where: {
+          id: clientId,
+          ownerId: ownerId,
+          isActive: true,
+        },
+      });
+
+      if (!client) {
+        return {
+          success: false,
+          error: 'Client not found',
+          message: 'Client not found or access denied',
+        };
+      }
+
+      // Check if all fields are undefined
+      const hasUpdates = Object.values(updates).some(
+        (value) => value !== undefined,
+      );
+
+      if (!hasUpdates) {
+        // No updates provided
+        return {
+          success: true,
+          data: settingsData,
+          message: 'No changes made to client preferences.',
+        };
+      }
+
+      const existingSettings = await this.clientSettingsRepo.findOne({
+        where: { clientId },
+      });
+
+      if (!existingSettings) {
+        return {
+          success: false,
+          error: 'Client Settings not found',
+          message: 'Client Settings not found for this client',
+          data: undefined,
+        };
+      }
+
+      // Merge updates, including nested preferences
+      const mergedSettings = {
+        ...existingSettings,
+        ...updates,
+        preferences: {
+          ...existingSettings.preferences,
+          ...(updates.preferences || {}),
+        },
+        updatedAt: new Date(),
+      };
+
+      // Save updated settings
+      const updatedSettings =
+        await this.clientSettingsRepo.save(mergedSettings);
+
+      return {
+        success: true,
+        message: 'Client settings updated successfully',
+        data: updatedSettings,
+      };
+    } catch (error) {
+      console.error('Update client error:', error);
+      return {
+        success: false,
+        error: error.message,
+        message: 'Failed to update client',
+      };
+    }
+  }
 }

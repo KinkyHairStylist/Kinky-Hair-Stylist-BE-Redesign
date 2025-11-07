@@ -13,8 +13,9 @@ import { User } from 'src/all_user_entities/user.entity';
 import { BookingPolicies } from './booking-policies.entity';
 import { BookingDay } from './booking-day.entity';
 import { CompanySize } from '../types/constants';
+
 import { Appointment } from './appointment.entity';
-// import { Staff } from './staff.entity';
+import { Staff } from './staff.entity';
 
 export enum BusinessStatus {
   PENDING = 'pending',
@@ -109,8 +110,10 @@ export class Business {
   @Column({ type: 'int', default: 0 })
   bookings: number;
 
-  @Column({ type: 'int', default: 0 })
-  staff: number;
+  @OneToMany(() => Staff, (staff) => staff.business, {
+    cascade: true,
+  })
+  staff: Staff[];
 
   @Column({ type: 'varchar', default: 'Free' })
   plan: string;

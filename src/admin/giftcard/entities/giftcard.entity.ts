@@ -44,7 +44,7 @@ export class GiftCard {
   status: GiftCardStatus;
 
   @Column({ nullable: true })
-expiryDate: string;
+  expiryDate: string;
 
   @Column({ type: 'date' })
   purchaseDate: string;

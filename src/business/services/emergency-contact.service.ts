@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { EmergencyContact, ApiResponse } from '../types/client.types';
 import { ClientSchema } from '../entities/client.entity';
 import { EmergencyContactSchema } from '../entities/emergency-contact.entity';
+import { UpdateEmergencyContactDto } from '../dtos/requests/client.dto';
 
 @Injectable()
 export class EmergencyContactService {
@@ -99,6 +100,84 @@ export class EmergencyContactService {
         success: false,
         error: error.message,
         message: 'Failed to fetch emergency contacts',
+      };
+    }
+  }
+
+  async updateEmergencyContact(
+    contactData: UpdateEmergencyContactDto,
+    ownerId: string,
+  ): Promise<ApiResponse<UpdateEmergencyContactDto>> {
+    try {
+      const { id, clientId, ...updates } = contactData;
+
+      if (!clientId) {
+        return {
+          success: false,
+          error: 'Client ID missing',
+          message: 'Each contact must include a valid Client ID',
+        };
+      }
+
+      // Verify client belongs to owner
+      const client = await this.clientRepo.findOne({
+        where: {
+          id: clientId,
+          ownerId: ownerId,
+          isActive: true,
+        },
+      });
+
+      if (!client) {
+        return {
+          success: false,
+          error: 'Client not found',
+          message: 'Client not found or access denied',
+        };
+      }
+
+      // Find the contact to update
+      const existingContact = await this.emergencyContactRepo.findOne({
+        where: { clientId },
+      });
+
+      if (!existingContact) {
+        return {
+          success: false,
+          error: 'Contact not found',
+          message: 'Emergency contact not found for this client',
+        };
+      }
+
+      // Check if there are any actual updates
+      const hasUpdates = Object.values(updates).some(
+        (value) => value !== undefined,
+      );
+      if (!hasUpdates) {
+        return {
+          success: true,
+          data: contactData,
+          message: 'No changes made to the emergency contact',
+        };
+      }
+
+      // Perform the update
+      const updatedContact = await this.emergencyContactRepo.save({
+        ...existingContact,
+        ...updates,
+        updatedAt: new Date(),
+      });
+
+      return {
+        success: true,
+        data: updatedContact,
+        message: 'Emergency contact updated successfully',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        message: 'Failed to update emergency contact',
       };
     }
   }

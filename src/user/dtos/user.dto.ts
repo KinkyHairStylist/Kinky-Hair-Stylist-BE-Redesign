@@ -128,7 +128,7 @@ export class SignUpDto {
 /**
  * @description DTO for user login.
  */
-export class LoginDto {
+export class CustomerLoginDto {
   @ApiProperty({
     example: 'jane.doe@example.com',
     description: 'The email address of the user',

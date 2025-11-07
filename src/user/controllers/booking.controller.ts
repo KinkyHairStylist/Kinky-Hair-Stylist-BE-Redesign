@@ -1,7 +1,10 @@
-import { Controller, Post, Body, Get, Param, Patch } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Patch, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { BookingService } from '../services/booking.service';
 import { CreateBookingDto } from '../dtos/create-booking.dto';
+import { GetUser } from 'src/middleware/get-user.decorator';
+import { User } from 'src/all_user_entities/user.entity';
+import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
 
 @ApiTags('Bookings')
 @ApiBearerAuth('access-token')
@@ -11,11 +14,12 @@ export class BookingController {
 
   // Create a new booking
   @Post('create')
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Create a new booking' })
   @ApiResponse({ status: 201, description: 'The booking has been successfully created.' })
   @ApiBody({ type: CreateBookingDto })
-  async createBooking(@Body() createBookingDto: CreateBookingDto) {
-    return this.bookingService.createBooking(createBookingDto);
+  async createBooking(@Body() createBookingDto: CreateBookingDto, @GetUser() user: User) {
+    return this.bookingService.createBooking(createBookingDto, user);
   }
 
   // Confirm a booking

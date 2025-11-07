@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
+
 import { EmailModule } from './email/email.module';
 import { BusinessModule } from './business/business.module';
 import { AdminModule } from './admin/admin.module';
@@ -21,6 +22,7 @@ import { typeOrmConfig } from './config/database';
 import { AuthMiddleware } from './middleware/anth.middleware';
 import { ReferralModule } from './user/modules/referral.module';
 import { MembershipModule } from './user/modules/membership-tier.module';
+import { CardModule } from './user/modules/card.module';
 // import { ModerationModule } from './admin/moderation/moderation.module';
 import { ModerationModule } from './admin/moderation/moderation.module';
 import { SupportModule } from './admin/support/support.module';
@@ -62,6 +64,7 @@ import { UserModule } from './user/modules/user.module';
     BookingModule,
     ReferralModule,
     MembershipModule,
+    CardModule,
     ModerationModule,
     SupportModule,
     PlatformSettingsModule,
