@@ -9,11 +9,13 @@ import {
   CreateClientProfileDto,
   CreateClientSettingsDto,
   CreateEmergencyContactDto,
-} from '../dtos/requests/client.dto';
-import { ClientSource } from '../entities/client.entity';
+} from '../dtos/requests/Client.dto';
+import { ClientSource, Gender, Pronouns } from '../entities/client.entity';
 import {
   ClientType,
+  Languages,
   PreferredContactMethod,
+  Timezone,
 } from '../entities/client-settings.entity';
 import { ClientAddressService } from '../services/client-address.service';
 import { EmergencyContactService } from '../services/emergency-contact.service';
@@ -84,6 +86,9 @@ describe('ClientController - createClientProfile', () => {
       email: 'john@example.com',
       phone: '1234567890',
       clientSource: ClientSource.WALK_IN,
+      clientType: ClientType.NEW,
+      gender: Gender.MALE,
+      pronouns: Pronouns.HE_HIM,
     };
 
     const req = { user: { sub: 'owner-123' } };
@@ -113,6 +118,9 @@ describe('ClientController - createClientProfile', () => {
       email: 'john@example.com',
       phone: '1234567890',
       clientSource: ClientSource.WALK_IN,
+      clientType: ClientType.NEW,
+      gender: Gender.MALE,
+      pronouns: Pronouns.HE_HIM,
 
       // profile: {
       //   firstName: 'John',
@@ -434,8 +442,8 @@ describe('ClientController - addClientSettings', () => {
       clientId: 'client-1',
       preferences: {
         preferredContactMethod: PreferredContactMethod.EMAIL,
-        language: 'en',
-        timezone: 'Aus',
+        language: Languages.ENGLISH,
+        timezone: Timezone.BRISBANE,
       },
       clientType: ClientType.REGULAR,
       emailNotifications: true,
@@ -469,8 +477,8 @@ describe('ClientController - addClientSettings', () => {
       clientId: 'client-1',
       preferences: {
         preferredContactMethod: PreferredContactMethod.EMAIL,
-        language: 'en',
-        timezone: 'Aus',
+        language: Languages.FRENCH,
+        timezone: Timezone.ADELAIDE,
       },
       clientType: ClientType.REGULAR,
       emailNotifications: true,

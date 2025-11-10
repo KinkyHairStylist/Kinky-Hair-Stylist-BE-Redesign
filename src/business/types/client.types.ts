@@ -3,7 +3,7 @@ import {
   CreateClientProfileDto,
   CreateClientSettingsDto,
   CreateEmergencyContactDto,
-} from '../dtos/requests/client.dto';
+} from '../dtos/requests/Client.dto';
 import {
   ClientType,
   PreferredContactMethod,
@@ -111,8 +111,10 @@ export interface ApiResponse<T> {
 
 export interface ClientlistResponse {
   clients: Client[];
-  total: number;
-  page: number;
-  limit: number;
   totalPages: number;
+  totalItems: number;
+  currentPage: number;
+  pageSize: number;
+  startIndex: number;
+  endIndex: number;
 }

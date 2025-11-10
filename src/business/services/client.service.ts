@@ -17,10 +17,11 @@ import {
   ClientType,
 } from '../entities/client-settings.entity';
 import { formatClientType } from '../utils/client.utils';
+import { ClientFiltersDto, UpdateClientDto } from '../dtos/requests/Client.dto';
 import {
-  UpdateClientDto,
-  UpdateEmergencyContactDto,
-} from '../dtos/requests/client.dto';
+  BusinessCloudinaryService,
+  FileUpload,
+} from './business-cloudinary.service';
 
 @Injectable()
 export class ClientService {
@@ -39,11 +40,14 @@ export class ClientService {
 
     @InjectRepository(Business)
     private readonly businessRepo: Repository<Business>,
+
+    private readonly businessCloudinaryService: BusinessCloudinaryService,
   ) {}
 
   async createClient(
     clientData: ClientFormData,
     ownerId: string,
+    bodyProfileImage: FileUpload,
   ): Promise<ApiResponse<any>> {
     try {
       // const business = await this.businessRepo.findOne({
@@ -73,41 +77,83 @@ export class ClientService {
         };
       }
 
+      let profileImage;
+
+      const folderPath = `KHS/business/${ownerId}/clients/${encodeURIComponent(clientData.profile.firstName + '-' + clientData.profile.lastName)}`;
+
+      if (bodyProfileImage) {
+        try {
+          const { profileImageUrl } =
+            await this.businessCloudinaryService.uploadClientProfileImage(
+              bodyProfileImage,
+              folderPath,
+            );
+
+          profileImage = profileImageUrl;
+        } catch (error) {
+          return {
+            success: false,
+            error: error.message,
+            message: error.message || 'Failed to create client profile image',
+          };
+        }
+      }
+
       const savedClient = await this.clientRepo.save({
         ...clientData.profile,
+        profileImage,
         ownerId: ownerId,
       });
 
-      // Addresses
-      if (clientData.addresses && clientData.addresses.length > 0) {
-        const addresses = clientData.addresses.map((address) => ({
-          ...address,
-          clientId: savedClient.id,
-        }));
-        // Ensure only one primary
-        const hasPrimary = addresses.some((a) => a.isPrimary);
-        if (hasPrimary) {
-          await this.clientAddressRepo.update(
-            { clientId: savedClient.id, isPrimary: true },
-            { isPrimary: false },
-          );
-        }
+      const placeholderAddress = [{ addressName: 'None' }];
 
-        // Insert all
-        await this.clientAddressRepo.insert(addresses);
-      }
+      // Addresses
+      const addresses = await this.clientAddressRepo.insert(
+        placeholderAddress.map(() => ({
+          clientId: savedClient.id,
+          isPrimary: true,
+        })),
+      );
+
+      // if (clientData.addresses && clientData.addresses.length > 0) {
+      //   const addresses = clientData.addresses.map((address) => ({
+      //     ...address,
+      //     clientId: savedClient.id,
+      //   }));
+      //   // Ensure only one primary
+      //   const hasPrimary = addresses.some((a) => a.isPrimary);
+      //   if (hasPrimary) {
+      //     await this.clientAddressRepo.update(
+      //       { clientId: savedClient.id, isPrimary: true },
+      //       { isPrimary: false },
+      //     );
+      //   }
+
+      //   // Insert all
+      //   await this.clientAddressRepo.insert(addresses);
+      // }
 
       // Emergency coNTACTS
-      if (
-        clientData.emergencyContacts &&
-        clientData.emergencyContacts.length > 0
-      ) {
-        const contacts = clientData.emergencyContacts.map((contact) => ({
-          ...contact,
+
+      const placeholderEmergencyContacts = [{ firstName: 'None' }];
+
+      // contacts
+      const contacts = await this.emergencyContactRepo.insert(
+        placeholderEmergencyContacts.map(() => ({
           clientId: savedClient.id,
-        }));
-        await this.emergencyContactRepo.insert(contacts);
-      }
+        })),
+      );
+
+      // if (
+      //   clientData.emergencyContacts &&
+      //   clientData.emergencyContacts.length > 0
+      // ) {
+      //   const contacts = clientData.emergencyContacts.map((contact) => ({
+      //     ...contact,
+      //     clientId: savedClient.id,
+      //   }));
+      //   await this.emergencyContactRepo.insert(contacts);
+      // }
 
       // Settings
       if (clientData.settings) {
@@ -138,7 +184,7 @@ export class ClientService {
 
   async getClients(
     ownerId: string,
-    filters: ClientFilters,
+    filters: ClientFiltersDto,
   ): Promise<ApiResponse<ClientlistResponse>> {
     try {
       // const business = await this.businessRepo.findOne({
@@ -162,6 +208,8 @@ export class ClientService {
         limit = 9,
       } = filters;
 
+      console.log('FILTERS: ', filters);
+
       // Build query with QueryBuilder
       const queryBuilder = this.clientRepo
         .createQueryBuilder('client')
@@ -181,13 +229,9 @@ export class ClientService {
 
       // Client type filter (join with settings table)
       if (clientType && clientType !== 'all') {
-        queryBuilder
-          .innerJoin(
-            'client_settings',
-            'settings',
-            'settings.client_id = client.id',
-          )
-          .andWhere('settings.clientType = :clientType', { clientType });
+        queryBuilder.andWhere('client.clientType = :clientType', {
+          clientType,
+        });
       }
 
       // Sorting
@@ -211,10 +255,12 @@ export class ClientService {
           success: true,
           data: {
             clients: [],
-            total: 0,
-            page,
-            limit,
+            totalItems: 0,
             totalPages: 0,
+            currentPage: page,
+            pageSize: limit,
+            startIndex: 0,
+            endIndex: 0,
           },
           message: 'No clients found',
         };
@@ -254,14 +300,20 @@ export class ClientService {
         ownerId,
       }));
 
+      const totalPages = Math.ceil(total / limit);
+      const startIndex = (page - 1) * limit + 1;
+      const endIndex = Math.min(page * limit, total);
+
       return {
         success: true,
         data: {
           clients: clientsWithSettings,
-          total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit),
+          totalItems: total,
+          totalPages,
+          currentPage: page,
+          pageSize: limit,
+          startIndex,
+          endIndex,
         },
         message: 'Clients retrieved successfully',
       };
@@ -328,6 +380,7 @@ export class ClientService {
     clientId: string,
     ownerId: string,
     updates: UpdateClientDto,
+    bodyProfileImage: FileUpload,
   ): Promise<ApiResponse<UpdateClientDto>> {
     try {
       // const business = await this.businessRepo.findOne({
@@ -340,6 +393,33 @@ export class ClientService {
       //     message: 'No business found for this user',
       //   };
       // }
+
+      const profilePictureExist =
+        updates.profilePicture?.includes('cloudinary');
+
+      let profileImage;
+
+      if (!profilePictureExist) {
+        const folderPath = `KHS/business/${ownerId}/clients/${encodeURIComponent(updates.firstName + '-' + updates.lastName)}`;
+
+        if (bodyProfileImage) {
+          try {
+            const { profileImageUrl } =
+              await this.businessCloudinaryService.uploadClientProfileImage(
+                bodyProfileImage,
+                folderPath,
+              );
+
+            profileImage = profileImageUrl;
+          } catch (error) {
+            return {
+              success: false,
+              error: error.message,
+              message: error.message || 'Failed to create client profile image',
+            };
+          }
+        }
+      }
 
       // Check if all fields are undefined
       const hasUpdates = Object.values(updates).some(
@@ -355,6 +435,8 @@ export class ClientService {
         };
       }
 
+      const { profilePicture, ...restUpdates } = updates;
+
       // Perform the update
       const result = await this.clientRepo.update(
         {
@@ -363,7 +445,10 @@ export class ClientService {
           isActive: true,
         },
         {
-          ...updates,
+          ...restUpdates,
+          profileImage: profilePictureExist
+            ? updates.profilePicture
+            : profileImage,
           updatedAt: new Date(),
         },
       );
@@ -468,7 +553,7 @@ export class ClientService {
     ]);
 
     return {
-      ...client,
+      profile: client,
       addresses,
       emergencyContacts,
       settings,

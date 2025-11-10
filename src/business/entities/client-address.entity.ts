@@ -23,16 +23,16 @@ export class ClientAddressSchema {
   @JoinColumn({ name: 'client_id' })
   client: ClientSchema;
 
-  @Column()
+  @Column({ type: 'varchar', nullable: true, default: 'No address' })
   addressName: string;
 
-  @Column()
+  @Column({ type: 'varchar', nullable: true, default: 'No address' })
   addressLine1: string;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', nullable: true, default: 'No address' })
   addressLine2: string | null;
 
-  @Column()
+  @Column({ type: 'varchar', nullable: true, default: 'No address' })
   location: string;
 
   @Column({ type: 'varchar', nullable: true })

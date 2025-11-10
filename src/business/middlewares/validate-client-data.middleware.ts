@@ -14,6 +14,8 @@ export class ClientProfileValidationMiddleware implements NestMiddleware {
   async use(req: Request, res: Response, next: NextFunction) {
     const profileData = req.body?.profile || req.body;
 
+    const url = req.originalUrl;
+
     // No profile in request body
     if (!profileData) {
       throw new HttpException(
@@ -22,8 +24,11 @@ export class ClientProfileValidationMiddleware implements NestMiddleware {
       );
     }
 
-    const validation =
-      await this.clientProfileService.validateClientProfile(profileData);
+    const validation = await this.clientProfileService.validateClientProfile(
+      profileData,
+      req.files,
+      url,
+    );
 
     if (!validation.success) {
       throw new HttpException(

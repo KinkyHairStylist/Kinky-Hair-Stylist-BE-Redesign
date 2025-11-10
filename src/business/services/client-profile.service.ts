@@ -3,21 +3,24 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Client, ApiResponse } from '../types/client.types';
 import { ClientSchema } from '../entities/client.entity';
+import { CreateClientProfileDto } from '../dtos/requests/Client.dto';
 import {
-  CreateClientDto,
-  CreateClientProfileDto,
-} from '../dtos/requests/client.dto';
+  BusinessCloudinaryService,
+  FileUpload,
+} from './business-cloudinary.service';
 
 @Injectable()
 export class ClientProfileService {
   constructor(
     @InjectRepository(ClientSchema)
     private readonly clientRepo: Repository<ClientSchema>,
+    private readonly businessCloudinaryService: BusinessCloudinaryService,
   ) {}
 
   async createClientProfile(
     profileData: Partial<CreateClientProfileDto>,
     ownerId: string,
+    bodyProfileImage: FileUpload,
   ): Promise<ApiResponse<Client>> {
     try {
       const existingClient = await this.clientRepo.findOne({
@@ -31,8 +34,32 @@ export class ClientProfileService {
           message: 'A client with this email already exists in your business',
         };
       }
+
+      let profileImage;
+
+      const folderPath = `KHS/business/${ownerId}/clients/${encodeURIComponent(profileData.firstName + '-' + profileData.lastName)}`;
+
+      if (bodyProfileImage) {
+        try {
+          const { profileImageUrl } =
+            await this.businessCloudinaryService.uploadClientProfileImage(
+              bodyProfileImage,
+              folderPath,
+            );
+
+          profileImage = profileImageUrl;
+        } catch (error) {
+          return {
+            success: false,
+            error: error.message,
+            message: error.message || 'Failed to create client profile image',
+          };
+        }
+      }
+
       const client = await this.clientRepo.save({
         ...profileData,
+        profileImage,
         ownerId,
       });
 
@@ -42,7 +69,6 @@ export class ClientProfileService {
         message: 'Client profile created successfully',
       };
     } catch (error) {
-      console.log('ERROR PROFILE: ', error);
       return {
         success: false,
         error: error.message,
@@ -138,7 +164,9 @@ export class ClientProfileService {
   }
 
   async validateClientProfile(
-    profileData: Partial<Client>,
+    profileData: any,
+    files: any,
+    url: string,
   ): Promise<ApiResponse<boolean>> {
     try {
       const requiredFields = [
@@ -172,21 +200,66 @@ export class ClientProfileService {
         };
       }
 
-      // Check if email already exists
-      if (profileData.email) {
-        const existingClient = await this.clientRepo.findOne({
-          where: {
-            email: profileData.email,
-            isActive: true,
-          },
-        });
-        if (existingClient) {
-          return {
-            success: false,
-            error: 'Email already exists',
-            data: false,
-            message: 'You already have a client with this email',
-          };
+      const profilePictureExist =
+        profileData.profilePicture?.includes('cloudinary');
+
+      if (!profilePictureExist) {
+        // Validate uploaded image
+        const uploadedImage = files?.profileImage;
+
+        if (uploadedImage) {
+          if (Array.isArray(uploadedImage)) {
+            return {
+              success: false,
+              error: 'Profile validation failed',
+              data: false,
+              message: `Multiple images not allowed`,
+            };
+          }
+
+          const mimetype = uploadedImage.mimetype || uploadedImage.type;
+
+          if (
+            mimetype?.startsWith('image/svg') ||
+            !mimetype?.startsWith('image')
+          ) {
+            return {
+              success: false,
+              error: 'Profile validation failed',
+              data: false,
+              message: `Invalid image format. Only .jpg, .png, .jpeg allowed`,
+            };
+          }
+
+          const MAX_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB
+          if (uploadedImage.size > MAX_SIZE_BYTES) {
+            return {
+              success: false,
+              error: 'Profile validation failed',
+              data: false,
+              message: `Image is too large. Maximum allowed size is 2 MB`,
+            };
+          }
+        }
+      }
+
+      if (!url.includes('update-profile')) {
+        // Check if email already exists
+        if (profileData.email) {
+          const existingClient = await this.clientRepo.findOne({
+            where: {
+              email: profileData.email,
+              isActive: true,
+            },
+          });
+          if (existingClient) {
+            return {
+              success: false,
+              error: 'Email already exists',
+              data: false,
+              message: 'You already have a client with this email',
+            };
+          }
         }
       }
 

@@ -14,11 +14,17 @@ import { Business } from './entities/business.entity';
 import { RefreshToken } from './entities/refresh.token.entity';
 import { EmailVerification } from './entities/email-verification.entity';
 import { EmailModule } from '../email/email.module';
-import {Appointment} from "./entities/appointment.entity";
+import { Appointment } from './entities/appointment.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Business, RefreshToken, EmailVerification,Appointment]),
+    TypeOrmModule.forFeature([
+      User,
+      Business,
+      RefreshToken,
+      EmailVerification,
+      Appointment,
+    ]),
     JwtModule.register({}),
     EmailModule,
   ],

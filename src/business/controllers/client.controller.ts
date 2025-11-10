@@ -19,7 +19,6 @@ import { ClientProfileService } from '../services/client-profile.service';
 import { ClientAddressService } from '../services/client-address.service';
 import { EmergencyContactService } from '../services/emergency-contact.service';
 import {
-  CreateClientDto,
   UpdateClientDto,
   ClientFiltersDto,
   CreateClientAddressDto,
@@ -29,7 +28,7 @@ import {
   UpdateEmergencyContactDto,
   UpdateClientAddressDto,
   UpdateClientSettingsDto,
-} from '../dtos/requests/client.dto';
+} from '../dtos/requests/Client.dto';
 import { JwtAuthGuard } from '../middlewares/guards/jwt-auth.guard';
 import { ClientFormData } from '../types/client.types';
 import {
@@ -37,6 +36,7 @@ import {
   PreferredContactMethod,
 } from '../entities/client-settings.entity';
 import { ClientSettingsService } from '../services/client-settings.service';
+import { plainToInstance } from 'class-transformer';
 
 @Controller('clients')
 // @UseGuards(JwtAuthGuard)
@@ -51,7 +51,15 @@ export class ClientController {
   ) {}
 
   @Post()
-  async createClient(@Request() req, @Body() createClientDto: CreateClientDto) {
+  async createClient(@Request() req) {
+    const body = req.body;
+
+    const files = req.files;
+    if (files?.profileImage) {
+      body.profileImage = files.profileImage;
+    }
+    const bodyProfileImage = body.profileImage;
+
     const ownerId = req.user.sub || req.user.userId;
 
     if (!ownerId) {
@@ -64,53 +72,27 @@ export class ClientController {
     // Transform the data to match ClientFormData exactly
     const clientFormData: ClientFormData = {
       profile: {
-        firstName: createClientDto.profile.firstName,
-        lastName: createClientDto.profile.lastName,
-        email: createClientDto.profile.email,
-        phone: createClientDto.profile.phone,
-        clientType: createClientDto.profile.clientType,
-        dateOfBirth: createClientDto.profile.dateOfBirth
-          ? new Date(createClientDto.profile.dateOfBirth)
-          : undefined,
-        gender: createClientDto.profile.gender,
-        pronouns: createClientDto.profile.pronouns,
-        clientSource: createClientDto.profile.clientSource,
-        profileImage: createClientDto.profile.profileImage || undefined,
+        firstName: body.firstName,
+        lastName: body.lastName,
+        email: body.email,
+        phone: body.phone,
+        clientType: body.clientType,
+        dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : undefined,
+        gender: body.gender,
+        pronouns: body.pronouns,
+        clientSource: body.clientSource,
       },
-      addresses: createClientDto.addresses
-        ? createClientDto.addresses.map((addr) => ({
-            addressName: addr.addressName,
-            addressLine1: addr.addressLine1,
-            addressLine2: addr.addressLine2 || undefined,
-            location: addr.location,
-            city: addr.city || undefined,
-            state: addr.state || '',
-            zipCode: addr.zipCode || '',
-            country: addr.country || '',
-            isPrimary: addr.isPrimary || false,
-          }))
-        : undefined,
-      emergencyContacts: createClientDto.emergencyContacts
-        ? createClientDto.emergencyContacts.map((contact) => ({
-            firstName: contact.firstName,
-            lastName: contact.lastName || undefined,
-            email: contact.email,
-            relationship: contact.relationship,
-            phone: contact.phone,
-          }))
-        : undefined,
       settings: {
-        emailNotifications:
-          createClientDto.settings?.emailNotifications || false,
-        smsNotifications: createClientDto.settings?.smsNotifications || false,
-        marketingEmails: createClientDto.settings?.marketingEmails || false,
-        notes: createClientDto.settings?.notes || undefined,
+        emailNotifications: body?.emailNotifications || false,
+        smsNotifications: body?.smsNotifications || false,
+        marketingEmails: body?.marketingEmails || false,
+        notes: body?.notes || undefined,
         preferences: {
           preferredContactMethod:
-            createClientDto.settings?.preferences?.preferredContactMethod ??
+            body?.preferences?.preferredContactMethod ??
             PreferredContactMethod.EMAIL,
-          language: createClientDto.settings?.preferences?.language || 'en',
-          timezone: createClientDto.settings?.preferences?.timezone || 'UTC',
+          language: body?.preferences?.language || 'en',
+          timezone: body?.preferences?.timezone || 'UTC',
         },
       },
     };
@@ -118,6 +100,7 @@ export class ClientController {
     const result = await this.clientService.createClient(
       clientFormData,
       ownerId,
+      bodyProfileImage,
     );
 
     if (!result.success) {
@@ -140,25 +123,7 @@ export class ClientController {
       );
     }
 
-    // Validate clientType to match allowed values
-    const allowedTypes: ClientType[] = [];
-    const clientType: (typeof allowedTypes)[number] | undefined =
-      filters.clientType && allowedTypes.includes(filters.clientType as any)
-        ? (filters.clientType as (typeof allowedTypes)[number])
-        : undefined;
-
-    // Ensure sortOrder is "asc", "desc", or undefined
-    const allowedSortOrders = ['asc', 'desc'] as const;
-    const sortOrder: (typeof allowedSortOrders)[number] | undefined =
-      filters.sortOrder && allowedSortOrders.includes(filters.sortOrder as any)
-        ? (filters.sortOrder as (typeof allowedSortOrders)[number])
-        : undefined;
-
-    const result = await this.clientService.getClients(ownerId, {
-      ...filters,
-      clientType,
-      sortOrder,
-    });
+    const result = await this.clientService.getClients(ownerId, filters);
 
     if (!result.success) {
       throw new HttpException(
@@ -264,6 +229,13 @@ export class ClientController {
     @Request() req,
     @Body() profileData: CreateClientProfileDto,
   ) {
+    const body = req.body;
+    const files = req.files;
+    if (files?.profileImage) {
+      body.profileImage = files.profileImage;
+    }
+    const bodyProfileImage = body.profileImage;
+
     const ownerId = req.user.sub || req.user.userId;
 
     if (!ownerId) {
@@ -276,6 +248,7 @@ export class ClientController {
     const result = await this.clientProfileService.createClientProfile(
       profileData,
       ownerId,
+      bodyProfileImage,
     );
 
     if (!result.success) {
@@ -864,12 +837,20 @@ export class ClientController {
     return result;
   }
 
-  @Patch('/client/:clientId')
+  @Patch('/client/update-profile/:clientId')
   async updateClient(
     @Request() req,
     @Param('clientId') clientId: string,
     @Body() updateClientDto: UpdateClientDto,
   ) {
+    const body = req.body;
+
+    const files = req.files;
+    if (files?.profileImage) {
+      body.profileImage = files.profileImage;
+    }
+    const bodyProfileImage = body.profileImage;
+
     const ownerId = req.user.sub || req.user.userId;
     if (!ownerId) {
       throw new HttpException(
@@ -882,6 +863,7 @@ export class ClientController {
       clientId,
       ownerId,
       updateClientDto,
+      bodyProfileImage,
     );
 
     if (!result.success) {

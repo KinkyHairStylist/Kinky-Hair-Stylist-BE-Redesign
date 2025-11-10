@@ -6,7 +6,7 @@ import { Model, Types } from 'mongoose';
 import { ClientAddress, ApiResponse } from '../types/client.types';
 import { ClientAddressSchema } from '../entities/client-address.entity';
 import { ClientSchema } from '../entities/client.entity';
-import { UpdateClientAddressDto } from '../dtos/requests/client.dto';
+import { UpdateClientAddressDto } from '../dtos/requests/Client.dto';
 // Update the import path below to match your actual schema file location and name
 // OR
 // import { ClientAddressModel } from '../schemes/client-address.schema';

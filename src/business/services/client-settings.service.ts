@@ -7,7 +7,7 @@ import { ClientSettingsSchema } from '../entities/client-settings.entity';
 import {
   CreateClientSettingsDto,
   UpdateClientSettingsDto,
-} from '../dtos/requests/client.dto';
+} from '../dtos/requests/Client.dto';
 // Update the import path below to match your actual schema file location and name
 // OR
 // import { ClientAddressModel } from '../schemes/client-address.schema';
@@ -67,6 +67,7 @@ export class ClientSettingsService {
         message: 'Settings added successfully',
       };
     } catch (error) {
+      console.log(error);
       return {
         success: false,
         error: error.message,

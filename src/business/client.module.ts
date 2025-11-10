@@ -17,6 +17,8 @@ import { ClientSettingsSchema } from './entities/client-settings.entity';
 import { Business } from './entities/business.entity';
 import { ClientSettingsService } from './services/client-settings.service';
 import { ClientProfileValidationMiddleware } from './middlewares/validate-client-data.middleware';
+import { FormidableMiddleware } from './middlewares/formidable.middleware';
+import { BusinessCloudinaryModule } from './business-cloudinary.module';
 
 @Module({
   imports: [
@@ -27,6 +29,7 @@ import { ClientProfileValidationMiddleware } from './middlewares/validate-client
       ClientSettingsSchema,
       Business,
     ]),
+    BusinessCloudinaryModule,
   ],
   controllers: [ClientController],
   providers: [
@@ -40,12 +43,29 @@ import { ClientProfileValidationMiddleware } from './middlewares/validate-client
 })
 export class ClientModule {
   configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(FormidableMiddleware)
+      .forRoutes(
+        { path: 'clients', method: RequestMethod.POST },
+        { path: 'clients/client/profile', method: RequestMethod.POST },
+        {
+          path: 'clients/client/update-profile/:clientId',
+          method: RequestMethod.PATCH,
+        },
+      );
+
     consumer.apply(ClientProfileValidationMiddleware).forRoutes(
       // POST /clients
       { path: 'clients', method: RequestMethod.POST },
 
       // POST /clients/client/profile
       { path: 'clients/client/profile', method: RequestMethod.POST },
+
+      // POST /clients/client/profile
+      {
+        path: 'clients/client/update-profile/:clientId',
+        method: RequestMethod.PATCH,
+      },
     );
   }
 }

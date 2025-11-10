@@ -1,6 +1,5 @@
 import {
   IsEmail,
-  IsPhoneNumber,
   IsOptional,
   IsEnum,
   IsBoolean,
@@ -10,12 +9,8 @@ import {
   MinLength,
   IsNumber,
   Min,
-  IsMongoId,
-  IsDateString,
-  IsUUID,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { Types } from 'mongoose';
 import {
   ClientSource,
   Gender,
@@ -63,8 +58,8 @@ export class CreateClientProfileDto {
   @IsEnum(ClientSource)
   clientSource: ClientSource;
 
-  @IsOptional()
-  profileImage?: string;
+  // @IsOptional()
+  // profileImage?: any;
 }
 
 export class CreateClientAddressDto {
@@ -263,7 +258,7 @@ export class UpdateClientDto {
   clientSource: ClientSource;
 
   @IsOptional()
-  profileImage?: string;
+  profilePicture?: string;
 }
 
 export class UpdateEmergencyContactDto {
@@ -340,8 +335,8 @@ export class ClientFiltersDto {
   search?: string;
 
   @IsOptional()
-  @IsEnum(['vip', 'regular', 'new', 'all'])
-  clientType?: string;
+  @IsEnum(ClientType)
+  clientType?: ClientType;
 
   @IsOptional()
   sortBy?: string;

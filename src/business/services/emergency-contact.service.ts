@@ -5,7 +5,7 @@ import { Repository } from 'typeorm';
 import { EmergencyContact, ApiResponse } from '../types/client.types';
 import { ClientSchema } from '../entities/client.entity';
 import { EmergencyContactSchema } from '../entities/emergency-contact.entity';
-import { UpdateEmergencyContactDto } from '../dtos/requests/client.dto';
+import { UpdateEmergencyContactDto } from '../dtos/requests/Client.dto';
 
 @Injectable()
 export class EmergencyContactService {

@@ -29,6 +29,8 @@ import { SupportModule } from './admin/support/support.module';
 import { PlatformSettingsModule } from './admin/platform-settings/platform-settings.module';
 import { ClientModule } from './business/client.module';
 import { UserModule } from './user/modules/user.module';
+import { ReminderModule } from './business/reminder.module';
+import { CustomMessageModule } from './business/custom-message.module';
 
 @Module({
   imports: [
@@ -57,6 +59,8 @@ import { UserModule } from './user/modules/user.module';
     WithdrawalModule,
     WalletModule,
     ClientModule,
+    ReminderModule,
+    CustomMessageModule,
 
     UserModule,
     SalonModule,

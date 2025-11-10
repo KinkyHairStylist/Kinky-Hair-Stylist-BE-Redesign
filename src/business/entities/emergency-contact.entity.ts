@@ -21,19 +21,19 @@ export class EmergencyContactSchema {
   @JoinColumn({ name: 'client_id' })
   client: ClientSchema;
 
-  @Column()
+  @Column({ nullable: true, default: 'No Name' })
   firstName: string;
 
-  @Column()
+  @Column({ nullable: true, default: 'No Name' })
   lastName: string;
 
-  @Column()
+  @Column({ nullable: true, default: 'No Email' })
   email: string;
 
-  @Column()
+  @Column({ nullable: true, default: 'None' })
   relationship: string;
 
-  @Column()
+  @Column({ nullable: true, default: 'None' })
   phone: string;
 
   @CreateDateColumn()
