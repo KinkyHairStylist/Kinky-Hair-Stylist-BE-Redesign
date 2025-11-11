@@ -1,4 +1,8 @@
-import { Injectable, NestMiddleware, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NestMiddleware,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Request, Response, NextFunction } from 'express';
 
@@ -11,6 +15,7 @@ export class AuthMiddleware implements NestMiddleware {
       return next();
     }
     const authHeader = req.headers['authorization'];
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Missing or invalid token');
     }
@@ -19,6 +24,7 @@ export class AuthMiddleware implements NestMiddleware {
 
     try {
       const decoded = this.jwtService.verify(token);
+      // console.log('DECODED', decoded);
       req['user'] = decoded; // attach user data
       next();
     } catch (err) {

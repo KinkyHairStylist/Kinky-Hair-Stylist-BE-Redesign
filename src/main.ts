@@ -12,9 +12,12 @@ async function bootstrap() {
   // Global Prefix
   app.setGlobalPrefix('api');
 
+  // Validation Pipe
+  app.useGlobalPipes(new ValidationPipe());
+
   // CORS Configuration
   app.enableCors({
-    origin: "http://localhost:3000",
+    origin: 'http://localhost:3000',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -25,6 +28,9 @@ async function bootstrap() {
     whitelist: true,
     transform: true,
   }));
+
+
+  
 
   // Input sanitization setup
   const sanitizer = new InputSanitizationMiddleware();
@@ -44,6 +50,42 @@ async function bootstrap() {
     }),
   );
 
+  // Global Authentication Middleware
+  // Define public routes that should bypass authentication
+  const publicRoutes = [
+    '/api/docs',
+    '/api',
+    '/api/get-started',
+    '/api/auth/get-started',
+    '/api/auth/verify-code',
+    '/api/auth/resend-code',
+    '/api/auth/signup',
+    '/api/auth/login',
+    '/api/auth/reset-password/start',
+    '/api/auth/reset-password/verify',
+    '/api/auth/reset-password/finish',
+    // Add other public routes here
+  ];
+
+  // Ensure AuthMiddleware protects routes globally, except for public ones
+  app.use((req, res, next) => {
+    // Check if the request path starts with any of the public routes
+    const isPublic = publicRoutes.some((route) => req.path.startsWith(route));
+
+    if (isPublic) {
+      // Skip authentication for public routes
+      return next();
+    }
+
+    // For all other routes, apply the AuthMiddleware
+    try {
+      const authMiddleware = app.get(AuthMiddleware);
+      authMiddleware.use(req, res, next);
+    } catch (error) {
+      // Handle cases where middleware fails (e.g., token issues)
+      next(error);
+    }
+  });
 
   // Swagger Setup
   const config = new DocumentBuilder()
@@ -71,7 +113,7 @@ async function bootstrap() {
   });
 
   const port = process.env.PORT || 8080;
-  
+
   await app.listen(port, '0.0.0.0');
   console.log(`Server running on http://localhost:${port}`);
   console.log(`Swagger Docs available at http://localhost:${port}/api/docs`);

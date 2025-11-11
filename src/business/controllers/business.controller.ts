@@ -4,7 +4,8 @@ import {
   Controller,
   Get,
   HttpCode,
-  HttpStatus, Param,
+  HttpStatus,
+  Param,
   Post,
   Req,
   UseGuards,
@@ -16,7 +17,7 @@ import { BusinessService } from '../services/business.service';
 import { CreateBusinessDto } from '../dtos/requests/CreateBusinessDto';
 import { BookingPoliciesData, BusinessServiceData } from '../types/constants';
 import { Public } from '../middlewares/public.decorator';
-import {GetAvailableSlotsDto} from "../dtos/requests/GetAvailableSlotsDto";
+import { GetAvailableSlotsDto } from '../dtos/requests/GetAvailableSlotsDto';
 
 interface RequestWithUser extends Request {
   user: User;
@@ -27,9 +28,8 @@ interface RequestWithUser extends Request {
 export class BusinessController {
   constructor(private readonly businessService: BusinessService) {}
 
-
   @Post('getBookings')
-  async getBookings(@Req() req:RequestWithUser) {
+  async getBookings(@Req() req: RequestWithUser) {
     const user = req.user.id;
     return this.businessService.getBookings(user);
   }
@@ -62,7 +62,9 @@ export class BusinessController {
   }
 
   @Post('rescheduleBooking')
-  async rescheduleBooking(@Body() body:{id:string,reason:string,date:string,time:string}) {
+  async rescheduleBooking(
+    @Body() body: { id: string; reason: string; date: string; time: string },
+  ) {
     return this.businessService.rescheduleBooking(body);
   }
 
@@ -72,7 +74,6 @@ export class BusinessController {
     @Body() createBusinessDto: CreateBusinessDto,
     @Req() req: RequestWithUser,
   ) {
-
     const owner = req.user;
 
     const business = await this.businessService.create(
@@ -102,8 +103,8 @@ export class BusinessController {
   }
 
   @Get('/ping')
-  ping(){
-    console.log("yo")
-    return "server is live"
+  ping() {
+    console.log('yo');
+    return 'server is live';
   }
 }

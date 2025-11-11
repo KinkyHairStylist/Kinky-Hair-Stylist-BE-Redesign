@@ -57,7 +57,7 @@ export class UserService {
     if (!apiKey || !fromEmail) {
       throw new Error('SENDGRID_API_KEY and SENDGRID_FROM_EMAIL must be set');
     }
-    
+
     sgMail.setApiKey(apiKey);
     this.fromEmail = fromEmail;
   }
@@ -153,7 +153,6 @@ export class UserService {
     return { message: 'Verification code sent', success: true };
   }
 
-    
   async verifyCode(dto: VerifyCodeDto): Promise<AuthResponseDto> {
     const { email, code } = dto;
 
@@ -197,11 +196,11 @@ export class UserService {
     const user = await this.userRepository.findOne({ where: { email } });
 
     if (!user) {
-        throw new NotFoundException('User not found');
+      throw new NotFoundException('User not found');
     }
 
     if (user.isVerified) {
-        return { message: 'Already verified', success: true };
+      return { message: 'Already verified', success: true };
     }
 
     user.verificationCode = this.generateCode();
@@ -214,7 +213,15 @@ export class UserService {
   }
 
   async signUp(dto: SignUpDto): Promise<AuthResponseDto> {
-    const { email, password, firstName, surname, phoneNumber, gender, referralCode } = dto;
+    const {
+      email,
+      password,
+      firstName,
+      surname,
+      phoneNumber,
+      gender,
+      referralCode,
+    } = dto;
 
     const user = await this.userRepository.findOne({ where: { email } });
 
@@ -243,7 +250,10 @@ export class UserService {
       await this.referralService.completeReferral(email, user.id);
     }
 
-    const { accessToken, refreshToken } = await this.getTokens(user.id, user.email);
+    const { accessToken, refreshToken } = await this.getTokens(
+      user.id,
+      user.email,
+    );
 
     return {
       message: 'Signup successful',
@@ -284,7 +294,10 @@ export class UserService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const { accessToken, refreshToken } = await this.getTokens(user.id, user.email);
+    const { accessToken, refreshToken } = await this.getTokens(
+      user.id,
+      user.email,
+    );
 
     return {
       message: 'Login successful',
@@ -408,7 +421,8 @@ export class UserService {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: process.env.JWT_ACCESS_SECRET,
-        expiresIn: '15m',
+        expiresIn: '5d',
+        // expiresIn: '15m',
       }),
       this.jwtService.signAsync(payload, {
         secret: process.env.JWT_REFRESH_SECRET,
@@ -425,12 +439,15 @@ export class UserService {
         secret: process.env.JWT_REFRESH_SECRET,
       });
 
-      const user = await this.userRepository.findOne({ where: { id: payload.sub } });
+      const user = await this.userRepository.findOne({
+        where: { id: payload.sub },
+      });
       if (!user) {
         throw new UnauthorizedException('User not found');
       }
 
-      const { accessToken, refreshToken: newRefreshToken } = await this.getTokens(user.id, user.email);
+      const { accessToken, refreshToken: newRefreshToken } =
+        await this.getTokens(user.id, user.email);
 
       return {
         success: true,
