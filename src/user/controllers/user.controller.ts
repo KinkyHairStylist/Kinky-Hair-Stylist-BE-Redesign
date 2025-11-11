@@ -93,7 +93,7 @@ export class UserController {
     return this.userService.signUp(dto);
   }
 
-   @Post('/auth/login')
+  @Post('/auth/login')
   @ApiOperation({ summary: 'Authenticate user and start session' })
   @ApiBody({ type: CustomerLoginDto })
   @ApiResponse({

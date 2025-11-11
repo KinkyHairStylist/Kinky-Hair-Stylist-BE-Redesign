@@ -13,24 +13,28 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // Validation Pipe
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  );
 
   // CORS Configuration
   app.enableCors({
-    origin: "http://localhost:3000",
+    origin: 'http://localhost:3000',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    transform: true,
-  }));
-
-
-  
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+    }),
+  );
 
   // Input sanitization setup
   const sanitizer = new InputSanitizationMiddleware();
@@ -54,7 +58,7 @@ async function bootstrap() {
   // Define public routes that should bypass authentication
   const publicRoutes = [
     '/api/docs',
-    '/api',
+    // '/api',
     '/api/get-started',
     '/api/auth/get-started',
     '/api/auth/verify-code',
@@ -64,6 +68,7 @@ async function bootstrap() {
     '/api/auth/reset-password/start',
     '/api/auth/reset-password/verify',
     '/api/auth/reset-password/finish',
+    '/api/auth/business/login',
     // Add other public routes here
   ];
 
@@ -113,7 +118,7 @@ async function bootstrap() {
   });
 
   const port = process.env.PORT || 8080;
-  
+
   await app.listen(port, '0.0.0.0');
   console.log(`Server running on http://localhost:${port}`);
   console.log(`Swagger Docs available at http://localhost:${port}/api/docs`);
