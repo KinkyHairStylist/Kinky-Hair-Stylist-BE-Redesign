@@ -62,7 +62,7 @@ export class Business {
   @Column({ nullable: true })
   category?: string;
 
-  @Column()
+  @Column({ nullable: true })
   businessAddress: string;
 
   @Column({ type: 'float', nullable: true })

@@ -30,11 +30,20 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     if (!authHeader) {
       throw new UnauthorizedException('Authorization header not found.');
     }
+
     const refreshToken = authHeader.replace('Bearer', '').trim();
-    const user = await this.userService.findById(payload.sub);
+
+    // ✅ UPDATED: load user with email (and password if needed)
+    const user = await this.userService.findById({
+      where: { id: payload.sub, isDeleted: false },
+      select: ['id', 'email'],   // include password here only if you need to verify refresh token hash
+    });
+
     if (!user) {
       throw new UnauthorizedException('User not found or token invalid.');
     }
+
+    // ✅ return user + refresh token
     return { ...user, refreshToken };
   }
 }

@@ -36,15 +36,15 @@ export class BusinessController {
 
   // @Post('createBooking')
 
-  @Post('available-slots/:businessId')
-  async getAvailableSlots(
-      @Param('businessId') businessId: string,
-      @Body() body: GetAvailableSlotsDto,
-  ) {
-    if (!body?.date) throw new BadRequestException('date is required in body (YYYY-MM-DD)');
-    const slots = await this.businessService.getAvailableSlots(businessId, body.date);
-    return { date: body.date, slots };
-  }
+  // @Post('available-slots/:businessId')
+  // async getAvailableSlots(
+  //     @Param('businessId') businessId: string,
+  //     @Body() body: GetAvailableSlotsDto,
+  // ) {
+  //   if (!body?.date) throw new BadRequestException('date is required in body (YYYY-MM-DD)');
+  //   const slots = await this.businessService.getAvailableSlots(businessId, body.date);
+  //   return { date: body.date, slots };
+  // }
 
   @Get('getBooking/:id')
   async getBooking(@Param('id') id: string) {

@@ -8,7 +8,12 @@ import {
   Res,
   Get,
   UseGuards,
+  Put,
+  Delete,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import type { Request, Response } from 'express';
 import { Session } from 'express-session';
@@ -23,9 +28,14 @@ import {
   ResetPasswordVerifyDto,
   ResetPasswordFinishDto,
   AuthResponseDto,
+  ChangePasswordDto,
 } from '../dtos/user.dto';
+
 import { RefreshTokenDto } from '../../business/dtos/requests/RefreshTokenDto';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { GetUser } from 'src/middleware/get-user.decorator';
+import { User } from 'src/all_user_entities/user.entity';
+import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
 
 interface RequestWithSession extends Request {
   session: Session & {
@@ -212,5 +222,32 @@ export class UserController {
   })
   async refreshTokens(@Req() req) {
     return this.userService.refreshTokens(req.user.refreshToken);
+  }
+
+  @Put('/auth/change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Change account password' })
+  async changePassword(@GetUser() user: User, @Body() dto: ChangePasswordDto) {
+    console.log('===== CHANGE PASSWORD HIT =====');
+    console.log('REQ USER:', user);
+    console.log('DTO:', dto);
+    return this.userService.changePassword(user, dto);
+  }
+
+  @Delete('/auth/delete-account')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Delete user account (soft delete)' })
+  async deleteAccount(@GetUser() user: User) {
+    return this.userService.deleteAccount(user);
+  }
+
+  @Delete('/auth/delete-account-permanently')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Delete user account (permanently)' })
+  async deleteAccountPermanently(@GetUser() user: User) {
+    return this.userService.permanentlyDeleteAccount(user);
   }
 }

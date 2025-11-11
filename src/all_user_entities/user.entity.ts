@@ -17,6 +17,7 @@ import { Business } from 'src/business/entities/business.entity';
 import { Gender } from 'src/business/types/constants';
 import { Booking } from 'src/user/user_entities/booking.entity';
 import { UserPreferences } from 'src/user/user_entities/preferences.entity';
+import { UserNotificationSettings } from 'src/user/user_entities/user_notification_settings.entity';
 
 @Entity()
 export class User {
@@ -98,6 +99,9 @@ export class User {
   @Column({default: "just now"})
   activity: string;
 
+  @Column({ default: false })
+  isDeleted: boolean;
+
   //  Relationship — one user can refer many others
   @OneToMany(() => Referral, (referral) => referral.referrer)
   referrals: Referral[];
@@ -126,4 +130,7 @@ export class User {
     eager: true,
   })
   preferences: UserPreferences;
+
+  @OneToOne(() => UserNotificationSettings, (settings) => settings.user)
+  notificationSettings: UserNotificationSettings;
 }

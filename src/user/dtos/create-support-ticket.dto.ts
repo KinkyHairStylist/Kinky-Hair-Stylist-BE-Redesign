@@ -29,7 +29,7 @@ export class CreateSupportTicketDto {
   userName?: string;
 
   @ApiPropertyOptional({ example: 'mary@example.com', description: 'User email (optional if pulled from user entity)' })
-  @IsOptional()
+  @IsOptional()git 
   @IsEmail()
   userEmail?: string;
 }

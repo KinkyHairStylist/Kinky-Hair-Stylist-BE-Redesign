@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import sgMail from '@sendgrid/mail';
 import { randomUUID } from 'crypto';
@@ -20,7 +20,8 @@ import {
   ResetPasswordStartDto, 
   ResetPasswordVerifyDto, 
   ResetPasswordFinishDto, 
-  AuthResponseDto 
+  AuthResponseDto,
+  ChangePasswordDto, 
 } from '../dtos/user.dto';
 import { PasswordHashingHelper } from '../../helpers/password-hashing.helper';
 import { Referral } from '../user_entities/referrals.entity';
@@ -84,6 +85,26 @@ export class UserService {
       from: this.fromEmail,
       subject: 'Password Reset Code',
       text: `Your password reset code is: ${code}. It is valid for 10 minutes.`,
+    };
+    await sgMail.send(msg);
+  }
+
+  private async sendPasswordChangedEmail(email: string): Promise<void> {
+    const msg = {
+      to: email,
+      from: this.fromEmail,
+      subject: 'Your Password Was Changed',
+      text: `Your password was successfully changed. If this wasn't you, please contact support immediately.`,
+    };
+    await sgMail.send(msg);
+  }
+
+  private async sendAccountDeletedEmail(email: string): Promise<void> {
+    const msg = {
+      to: email,
+      from: this.fromEmail,
+      subject: 'Account Deleted Confirmation',
+      text: `Your account has been deleted successfully. If this action was not initiated by you, please contact support immediately.`,
     };
     await sgMail.send(msg);
   }
@@ -242,6 +263,10 @@ export class UserService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
+    if (user.isDeleted) {
+      throw new UnauthorizedException('Login not allowed for deleted accounts');
+    }
+
     if (!user.isVerified) {
         throw new BadRequestException('Email not verified');
     }
@@ -350,8 +375,16 @@ export class UserService {
     return { message: 'Password reset successful', success: true };
   }
 
-  async findById(id: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { id } });
+  async findById(
+    options: {
+      where: { id: string; isDeleted?: boolean };
+      select?: (keyof User)[];
+    }
+  ): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: options.where,
+      select: options.select,
+    });
   }
 
   public sanitizeUser(user: User): SanitizedUser {
@@ -409,5 +442,64 @@ export class UserService {
     } catch (e) {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
+  }
+
+  async changePassword(user: User, dto: ChangePasswordDto) {
+    // Load full user with password + email
+    const fullUser = await this.userRepository.findOne({
+      where: { id: user.id },
+      select: ['id', 'password', 'email'], // ensure password + email are selected
+    });
+
+    console.log(fullUser);
+
+    if (!fullUser) {
+      throw new BadRequestException('User not found');
+    }
+
+    const { currentPassword, newPassword } = dto;
+
+    if (!fullUser.password) {
+      throw new BadRequestException("Password change not allowed for this account");
+    }
+
+    const isValid = await PasswordHashingHelper.comparePassword(
+      currentPassword,
+      fullUser.password,
+    );
+
+    if (!isValid) {
+      throw new BadRequestException('Current password is incorrect');
+    }
+
+    fullUser.password = await PasswordHashingHelper.hashPassword(newPassword);
+    await this.userRepository.save(fullUser);
+
+    // ✅ now email exists, so this will not throw anymore
+    await this.sendPasswordChangedEmail(fullUser.email);
+
+    return { message: 'Password changed successfully' };
+  }
+
+  async deleteAccount(user: User) {
+
+    user.isDeleted = true;
+    user.email = `deleted_${user.id}@deleted.com`; // prevent conflicts
+    user.phoneNumber = '';
+    user.firstName = 'Deleted';
+    user.surname = 'User';
+
+    await this.userRepository.save(user);
+
+    await this.sendAccountDeletedEmail(user.email);
+
+    return { message: 'Account deleted successfully' };
+  }
+
+  // Hard Delete Version (if needed)
+  async permanentlyDeleteAccount(user: User) {
+    await this.sendAccountDeletedEmail(user.email);
+    await this.userRepository.remove(user);
+    return { message: 'Account permanently removed' };
   }
 }

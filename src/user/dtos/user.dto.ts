@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsNotEmpty, Matches, IsOptional } from 'class-validator';
+import { IsEmail, IsString, IsNotEmpty, Matches, IsOptional, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 /**
@@ -259,4 +259,16 @@ export class AuthResponseDto {
     gender?: string;
     isVerified: boolean;
   };
+}
+
+
+export class ChangePasswordDto {
+  @ApiProperty({ example: 'currentPassword123' })
+  @IsString()
+  currentPassword: string;
+
+  @ApiProperty({ example: 'newSecurePassword456' })
+  @IsString()
+  @MinLength(6, { message: 'New password must be at least 6 characters long' })
+  newPassword: string;
 }

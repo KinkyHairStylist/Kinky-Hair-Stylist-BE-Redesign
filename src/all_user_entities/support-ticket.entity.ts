@@ -22,10 +22,10 @@ export class SupportTicket {
  @Column({ nullable: true })
   userEmail: string;
 
-  @Column({ nullable: false, default: 'General' })
+  @Column({ nullable: true, default: 'General' })
   category?: ConversationCategory;
 
-  @Column()
+  @Column({ nullable: true })
   lastMessage: string;
 
   @Column({ nullable: true })

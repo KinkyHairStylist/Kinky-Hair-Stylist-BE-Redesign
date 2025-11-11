@@ -29,25 +29,13 @@ import { CardModule } from './user/modules/card.module';
 import { ModerationModule } from './admin/moderation/moderation.module';
 import { SupportModule } from './admin/support/support.module';
 import { PlatformSettingsModule } from './admin/platform-settings/platform-settings.module';
+import { NotificationSettingsModule } from './user/modules/notification-settings.module';
 
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-    }),
-    TypeOrmModule.forRoot(
-      process.env.NODE_ENV === 'test' ? testTypeOrmConfig : typeOrmConfig,
-    ),
-    JwtModule.registerAsync({
-      global: true, // Make JwtModule globally available
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_ACCESS_SECRET'),
-        signOptions: { expiresIn: '1d' },
-      }),
-      inject: [ConfigService],
-      
     }),
     TypeOrmModule.forRoot(
       process.env.NODE_ENV === 'test' ? testTypeOrmConfig : typeOrmConfig,
@@ -81,9 +69,10 @@ import { PlatformSettingsModule } from './admin/platform-settings/platform-setti
     ModerationModule,
     SupportModule,
     PlatformSettingsModule,
+    NotificationSettingsModule,
   ],
   controllers: [AppController],
-  providers: [AppService, AuthMiddleware],
+  providers: [AppService],
 })
 
 export class AppModule {}
