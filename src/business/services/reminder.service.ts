@@ -93,7 +93,7 @@ export class ReminderService {
       case 'follow_up':
         emailText = `Hello ${data.clientName},
   
-  ${data.message}
+  ${data.message} 
         
   This is a quick follow-up regarding the previous appointment on ${data.date} at ${data.time}.
   

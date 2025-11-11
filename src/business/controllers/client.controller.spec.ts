@@ -9,7 +9,7 @@ import {
   CreateClientProfileDto,
   CreateClientSettingsDto,
   CreateEmergencyContactDto,
-} from '../dtos/requests/Client.dto';
+} from '../dtos/requests/ClientDto';
 import { ClientSource, Gender, Pronouns } from '../entities/client.entity';
 import {
   ClientType,
@@ -89,6 +89,7 @@ describe('ClientController - createClientProfile', () => {
       clientType: ClientType.NEW,
       gender: Gender.MALE,
       pronouns: Pronouns.HE_HIM,
+      phoneCode: '+61',
     };
 
     const req = { user: { sub: 'owner-123' } };
@@ -121,6 +122,7 @@ describe('ClientController - createClientProfile', () => {
       clientType: ClientType.NEW,
       gender: Gender.MALE,
       pronouns: Pronouns.HE_HIM,
+      phoneCode: '+61',
 
       // profile: {
       //   firstName: 'John',
@@ -338,8 +340,9 @@ describe('ClientController - addEmergencyContact', () => {
         firstName: 'Sarah',
         lastName: 'Johnson',
         relationship: 'Sister',
-        phone: '+61422334455',
+        phone: '422334455',
         email: 'sarah@example.com',
+        emergencyPhoneCode: '+61',
       },
     ];
 
@@ -375,8 +378,9 @@ describe('ClientController - addEmergencyContact', () => {
         firstName: 'Sarah',
         lastName: 'Johnson',
         relationship: 'Sister',
-        phone: '+61422334455',
+        phone: '422334455',
         email: 'sarah@example.com',
+        emergencyPhoneCode: '+61',
       },
     ];
 

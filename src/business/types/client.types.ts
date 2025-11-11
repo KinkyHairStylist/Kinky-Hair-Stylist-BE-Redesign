@@ -3,7 +3,7 @@ import {
   CreateClientProfileDto,
   CreateClientSettingsDto,
   CreateEmergencyContactDto,
-} from '../dtos/requests/Client.dto';
+} from '../dtos/requests/ClientDto';
 import {
   ClientType,
   PreferredContactMethod,

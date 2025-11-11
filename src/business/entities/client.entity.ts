@@ -54,6 +54,9 @@ export class ClientSchema {
   @Column()
   phone: string;
 
+  @Column({ nullable: true })
+  phoneCode: string;
+
   @Column({
     type: 'enum',
     enum: ClientType,

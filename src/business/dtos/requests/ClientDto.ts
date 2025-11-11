@@ -39,6 +39,10 @@ export class CreateClientProfileDto {
   @MinLength(1)
   phone: string;
 
+  @IsString()
+  @MinLength(1)
+  phoneCode: string;
+
   @IsOptional()
   dateOfBirth?: Date | string;
 
@@ -116,6 +120,10 @@ export class CreateEmergencyContactDto {
   @IsString()
   @MinLength(1)
   phone: string;
+
+  @IsString()
+  @MinLength(1)
+  emergencyPhoneCode: string;
 
   @IsOptional()
   clientId?: string;
@@ -234,6 +242,11 @@ export class UpdateClientDto {
   phone: string;
 
   @IsOptional()
+  @IsString()
+  @MinLength(1)
+  phoneCode: string;
+
+  @IsOptional()
   dateOfBirth?: Date | string;
 
   @IsOptional()
@@ -284,6 +297,10 @@ export class UpdateEmergencyContactDto {
   @IsString()
   @MinLength(1)
   phone: string;
+
+  @IsString()
+  @MinLength(1)
+  emergencyPhoneCode: string;
 
   @IsOptional()
   clientId?: string;

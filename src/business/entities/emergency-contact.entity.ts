@@ -36,6 +36,9 @@ export class EmergencyContactSchema {
   @Column({ nullable: true, default: 'None' })
   phone: string;
 
+  @Column({ nullable: true, default: 'None' })
+  emergencyPhoneCode: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

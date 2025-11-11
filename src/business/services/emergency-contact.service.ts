@@ -5,7 +5,7 @@ import { Repository } from 'typeorm';
 import { EmergencyContact, ApiResponse } from '../types/client.types';
 import { ClientSchema } from '../entities/client.entity';
 import { EmergencyContactSchema } from '../entities/emergency-contact.entity';
-import { UpdateEmergencyContactDto } from '../dtos/requests/Client.dto';
+import { UpdateEmergencyContactDto } from '../dtos/requests/ClientDto';
 
 @Injectable()
 export class EmergencyContactService {
@@ -47,8 +47,24 @@ export class EmergencyContactService {
         };
       }
 
-      const contact = await this.emergencyContactRepo.save(contactData);
-      // const savedContact = await contact.save();
+      const placeholderEmergencyContact =
+        await this.emergencyContactRepo.findOne({
+          where: {
+            clientId: contactData.clientId,
+            firstName: 'No Name',
+          },
+        });
+
+      if (placeholderEmergencyContact) {
+        await this.emergencyContactRepo.delete(placeholderEmergencyContact.id);
+      }
+
+      const newContact = this.emergencyContactRepo.create({
+        ...contactData,
+        id: undefined,
+      });
+
+      const contact = await this.emergencyContactRepo.save(newContact);
 
       return {
         success: true,
@@ -136,17 +152,21 @@ export class EmergencyContactService {
         };
       }
 
-      // Find the contact to update
-      const existingContact = await this.emergencyContactRepo.findOne({
-        where: { clientId },
-      });
+      let existingContact;
 
-      if (!existingContact) {
-        return {
-          success: false,
-          error: 'Contact not found',
-          message: 'Emergency contact not found for this client',
-        };
+      if (id && id !== '') {
+        // Find the contact to update
+        existingContact = await this.emergencyContactRepo.findOne({
+          where: { id, clientId },
+        });
+
+        if (!existingContact) {
+          return {
+            success: false,
+            error: 'Contact not found',
+            message: 'Emergency contact not found for this client',
+          };
+        }
       }
 
       // Check if there are any actual updates
@@ -163,7 +183,8 @@ export class EmergencyContactService {
 
       // Perform the update
       const updatedContact = await this.emergencyContactRepo.save({
-        ...existingContact,
+        ...(existingContact || {}),
+        clientId,
         ...updates,
         updatedAt: new Date(),
       });
@@ -174,6 +195,7 @@ export class EmergencyContactService {
         message: 'Emergency contact updated successfully',
       };
     } catch (error) {
+      console.log(error);
       return {
         success: false,
         error: error.message,

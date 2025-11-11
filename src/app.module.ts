@@ -31,6 +31,8 @@ import { ClientModule } from './business/client.module';
 import { UserModule } from './user/modules/user.module';
 import { ReminderModule } from './business/reminder.module';
 import { CustomMessageModule } from './business/custom-message.module';
+import { PromotionModule } from './business/promotion.module';
+import { ReviewModule } from './business/review.module';
 
 @Module({
   imports: [
@@ -61,6 +63,8 @@ import { CustomMessageModule } from './business/custom-message.module';
     ClientModule,
     ReminderModule,
     CustomMessageModule,
+    PromotionModule,
+    ReviewModule,
 
     UserModule,
     SalonModule,

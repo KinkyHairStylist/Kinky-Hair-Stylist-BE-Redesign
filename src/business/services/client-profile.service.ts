@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Client, ApiResponse } from '../types/client.types';
 import { ClientSchema } from '../entities/client.entity';
-import { CreateClientProfileDto } from '../dtos/requests/Client.dto';
+import { CreateClientProfileDto } from '../dtos/requests/ClientDto';
 import {
   BusinessCloudinaryService,
   FileUpload,
@@ -37,7 +37,11 @@ export class ClientProfileService {
 
       let profileImage;
 
-      const folderPath = `KHS/business/${ownerId}/clients/${encodeURIComponent(profileData.firstName + '-' + profileData.lastName)}`;
+      const clientName = `${profileData.firstName}-${profileData.lastName}`
+        .trim()
+        .replace(/\s+/g, '_'); // replace spaces with underscores
+
+      const folderPath = `KHS/business/${ownerId}/clients/${clientName}`;
 
       if (bodyProfileImage) {
         try {

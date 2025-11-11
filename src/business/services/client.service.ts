@@ -17,7 +17,7 @@ import {
   ClientType,
 } from '../entities/client-settings.entity';
 import { formatClientType } from '../utils/client.utils';
-import { ClientFiltersDto, UpdateClientDto } from '../dtos/requests/Client.dto';
+import { ClientFiltersDto, UpdateClientDto } from '../dtos/requests/ClientDto';
 import {
   BusinessCloudinaryService,
   FileUpload,
@@ -79,7 +79,12 @@ export class ClientService {
 
       let profileImage;
 
-      const folderPath = `KHS/business/${ownerId}/clients/${encodeURIComponent(clientData.profile.firstName + '-' + clientData.profile.lastName)}`;
+      const clientName =
+        `${clientData.profile.firstName}-${clientData.profile.lastName}`
+          .trim()
+          .replace(/\s+/g, '_'); // replace spaces with underscores
+
+      const folderPath = `KHS/business/${ownerId}/clients/${clientName}`;
 
       if (bodyProfileImage) {
         try {
@@ -108,10 +113,10 @@ export class ClientService {
       const placeholderAddress = [{ addressName: 'None' }];
 
       // Addresses
-      const addresses = await this.clientAddressRepo.insert(
+      await this.clientAddressRepo.insert(
         placeholderAddress.map(() => ({
           clientId: savedClient.id,
-          isPrimary: true,
+          isPrimary: false,
         })),
       );
 
@@ -138,7 +143,7 @@ export class ClientService {
       const placeholderEmergencyContacts = [{ firstName: 'None' }];
 
       // contacts
-      const contacts = await this.emergencyContactRepo.insert(
+      await this.emergencyContactRepo.insert(
         placeholderEmergencyContacts.map(() => ({
           clientId: savedClient.id,
         })),
@@ -208,8 +213,6 @@ export class ClientService {
         limit = 9,
       } = filters;
 
-      console.log('FILTERS: ', filters);
-
       // Build query with QueryBuilder
       const queryBuilder = this.clientRepo
         .createQueryBuilder('client')
@@ -272,7 +275,6 @@ export class ClientService {
       const addresses = await this.clientAddressRepo
         .createQueryBuilder('address')
         .where('address.clientId IN (:...clientIds)', { clientIds })
-        .andWhere('address.isPrimary = :isPrimary', { isPrimary: true })
         .getMany();
 
       // Create a map of clientId -> address for quick lookup
@@ -318,7 +320,7 @@ export class ClientService {
         message: 'Clients retrieved successfully',
       };
     } catch (error) {
-      console.error('Get clients error:', error);
+      // console.log('Get clients error:', error);
       return {
         success: false,
         error: error.message,
@@ -400,7 +402,11 @@ export class ClientService {
       let profileImage;
 
       if (!profilePictureExist) {
-        const folderPath = `KHS/business/${ownerId}/clients/${encodeURIComponent(updates.firstName + '-' + updates.lastName)}`;
+        const clientName = `${updates.firstName}-${updates.lastName}`
+          .trim()
+          .replace(/\s+/g, '_'); // replace spaces with underscores
+
+        const folderPath = `KHS/business/${ownerId}/clients/${clientName}`;
 
         if (bodyProfileImage) {
           try {

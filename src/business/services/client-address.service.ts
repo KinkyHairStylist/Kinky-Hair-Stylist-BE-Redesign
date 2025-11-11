@@ -6,7 +6,7 @@ import { Model, Types } from 'mongoose';
 import { ClientAddress, ApiResponse } from '../types/client.types';
 import { ClientAddressSchema } from '../entities/client-address.entity';
 import { ClientSchema } from '../entities/client.entity';
-import { UpdateClientAddressDto } from '../dtos/requests/Client.dto';
+import { UpdateClientAddressDto } from '../dtos/requests/ClientDto';
 // Update the import path below to match your actual schema file location and name
 // OR
 // import { ClientAddressModel } from '../schemes/client-address.schema';
@@ -57,15 +57,32 @@ export class ClientAddressService {
         };
       }
 
-      // If this is set as primary, unset other primary addresses
-      if (addressData.isPrimary) {
-        await this.clientAddressRepo.update(
-          { clientId: addressData.clientId, isPrimary: true },
-          { isPrimary: false },
-        );
+      const placeholderAddress = await this.clientAddressRepo.findOne({
+        where: {
+          clientId: addressData.clientId,
+          addressName: 'No address',
+        },
+      });
+
+      if (placeholderAddress) {
+        await this.clientAddressRepo.delete(placeholderAddress.id);
       }
 
-      const address = await this.clientAddressRepo.save(addressData);
+      // If this is set as primary, unset other primary addresses
+      // if (addressData.isPrimary) {
+      //   await this.clientAddressRepo.update(
+      //     { clientId: addressData.clientId, isPrimary: true },
+      //     { isPrimary: false },
+      //   );
+      // }
+
+      const newAddress = this.clientAddressRepo.create({
+        ...addressData,
+        id: undefined,
+      });
+
+      const address = await this.clientAddressRepo.save(newAddress);
+
       return {
         success: true,
         data: address,
@@ -112,17 +129,21 @@ export class ClientAddressService {
         };
       }
 
-      // Find the address to update
-      const existingAddress = await this.clientAddressRepo.findOne({
-        where: { clientId },
-      });
+      let existingAddress;
 
-      if (!existingAddress) {
-        return {
-          success: false,
-          error: 'Address not found',
-          message: 'Address not found for this client',
-        };
+      if (id && id !== '') {
+        // Find the address to update
+        existingAddress = await this.clientAddressRepo.findOne({
+          where: { id, clientId },
+        });
+
+        if (!existingAddress) {
+          return {
+            success: false,
+            error: 'Address not found',
+            message: 'Address not found for this client',
+          };
+        }
       }
 
       // Check if there are any actual updates
@@ -138,8 +159,11 @@ export class ClientAddressService {
       }
 
       // Perform the update
+
+      // Perform the update
       const updatedAddress = await this.clientAddressRepo.save({
-        ...existingAddress,
+        ...(existingAddress || {}),
+        clientId,
         ...updates,
         updatedAt: new Date(),
       });

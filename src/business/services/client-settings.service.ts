@@ -7,7 +7,7 @@ import { ClientSettingsSchema } from '../entities/client-settings.entity';
 import {
   CreateClientSettingsDto,
   UpdateClientSettingsDto,
-} from '../dtos/requests/Client.dto';
+} from '../dtos/requests/ClientDto';
 // Update the import path below to match your actual schema file location and name
 // OR
 // import { ClientAddressModel } from '../schemes/client-address.schema';

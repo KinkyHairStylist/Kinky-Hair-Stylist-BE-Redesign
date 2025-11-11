@@ -28,7 +28,7 @@ import {
   UpdateEmergencyContactDto,
   UpdateClientAddressDto,
   UpdateClientSettingsDto,
-} from '../dtos/requests/Client.dto';
+} from '../dtos/requests/ClientDto';
 import { JwtAuthGuard } from '../middlewares/guards/jwt-auth.guard';
 import { ClientFormData } from '../types/client.types';
 import {
@@ -36,7 +36,6 @@ import {
   PreferredContactMethod,
 } from '../entities/client-settings.entity';
 import { ClientSettingsService } from '../services/client-settings.service';
-import { plainToInstance } from 'class-transformer';
 
 @Controller('clients')
 // @UseGuards(JwtAuthGuard)
@@ -53,6 +52,16 @@ export class ClientController {
   @Post()
   async createClient(@Request() req) {
     const body = req.body;
+
+    const isEmailValid: RegExp =
+      /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+    if (!isEmailValid.test(body.email)) {
+      throw new HttpException(
+        'Email is not valid. Please enter a valid email',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
 
     const files = req.files;
     if (files?.profileImage) {
@@ -76,11 +85,13 @@ export class ClientController {
         lastName: body.lastName,
         email: body.email,
         phone: body.phone,
+        occupation: body.occupation,
         clientType: body.clientType,
         dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : undefined,
         gender: body.gender,
         pronouns: body.pronouns,
         clientSource: body.clientSource,
+        phoneCode: body.phoneCode,
       },
       settings: {
         emailNotifications: body?.emailNotifications || false,
@@ -590,7 +601,7 @@ export class ClientController {
       }
     });
 
-    // Transform address data to match ClientAddress type
+    // Transform address data to match Contact type
     const transformedContacts = body.contactsData.map((contactData) => ({
       clientId: contactData.clientId,
       firstName: contactData.firstName,
@@ -602,9 +613,10 @@ export class ClientController {
       relationship: contactData.relationship,
 
       phone: contactData.phone,
+      emergencyPhoneCode: contactData.emergencyPhoneCode,
     }));
 
-    // Process all addresses
+    // Process all contacts
     const results = await Promise.all(
       transformedContacts.map((contact) =>
         this.emergencyContactService.addEmergencyContact(
@@ -635,6 +647,8 @@ export class ClientController {
     const savedContacts = results
       .filter((r) => r.success && r.data)
       .map((r) => r.data);
+
+    console.log('contacts: ', savedContacts);
 
     return {
       success: true,
@@ -706,6 +720,7 @@ export class ClientController {
       email: contactData.email,
       relationship: contactData.relationship,
       phone: contactData.phone,
+      emergencyPhoneCode: contactData.emergencyPhoneCode,
     }));
 
     // Update contacts via service
