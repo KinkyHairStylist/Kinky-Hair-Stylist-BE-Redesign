@@ -12,16 +12,16 @@ export class Review {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'client_id' })
+  @Column()
   clientId: string;
 
-  @Column({ name: 'client_id' })
+  @Column()
   ownerId: string;
 
-  @Column({ name: 'business_id', nullable: true })
-  businessId: string;
+  @Column({ type: 'uuid', nullable: true })
+  businessId: string | null;
 
-  @Column({ type: 'int' })
+  @Column({ type: 'decimal', precision: 2, scale: 1 })
   rating: number;
 
   @Column({ type: 'text' })
@@ -30,8 +30,11 @@ export class Review {
   @Column({ type: 'text', nullable: true })
   reply: string | null;
 
+  @Column({ type: 'timestamptz', nullable: true })
+  replyTime: Date | string | null;
+
   @Column({ type: 'text', nullable: true })
-  replyTime: string | null;
+  replyBy: string | null;
 
   @Column({ type: 'int', default: 0 })
   likes: number;

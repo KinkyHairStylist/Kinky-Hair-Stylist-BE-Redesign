@@ -7,6 +7,8 @@ import { ImageSeed } from './image-seed';
 import { UserSeed } from './user-seed';
 import { User } from 'src/all_user_entities/user.entity';
 import { Business } from 'src/business/entities/business.entity';
+import { Review } from 'src/business/entities/review.entity';
+import { ReviewSeed } from './review.seed';
 // import { BusinessSeed } from './business-seed';
 
 @Module({

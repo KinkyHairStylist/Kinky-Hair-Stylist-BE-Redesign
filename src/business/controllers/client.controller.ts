@@ -49,6 +49,11 @@ export class ClientController {
     private readonly clientSettingsService: ClientSettingsService,
   ) {}
 
+  @Delete('/clear')
+  async deleteAllClients() {
+    await this.clientService.clearAllClients();
+  }
+
   @Post()
   async createClient(@Request() req) {
     const body = req.body;
@@ -127,6 +132,7 @@ export class ClientController {
   @Get()
   async getClients(@Request() req, @Query() filters: ClientFiltersDto) {
     const ownerId = req.user.sub || req.user.userId;
+
     if (!ownerId) {
       throw new HttpException(
         'User not authenticated',
@@ -135,6 +141,29 @@ export class ClientController {
     }
 
     const result = await this.clientService.getClients(ownerId, filters);
+
+    if (!result.success) {
+      throw new HttpException(
+        { message: result.message, error: result.error },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return result;
+  }
+
+  @Get('/list')
+  async getClientsListMessaging(@Request() req) {
+    const ownerId = req.user.sub || req.user.userId;
+
+    if (!ownerId) {
+      throw new HttpException(
+        'User not authenticated',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    const result = await this.clientService.getClientsList(ownerId);
 
     if (!result.success) {
       throw new HttpException(
@@ -647,8 +676,6 @@ export class ClientController {
     const savedContacts = results
       .filter((r) => r.success && r.data)
       .map((r) => r.data);
-
-    console.log('contacts: ', savedContacts);
 
     return {
       success: true,

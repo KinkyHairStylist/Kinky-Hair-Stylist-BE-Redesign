@@ -9,9 +9,21 @@ export function formatClientType(clientType: string): string {
   return clientType.charAt(0).toUpperCase() + clientType.slice(1).toLowerCase();
 }
 
-export function capitalizeString(word: string): string {
-  if (!word) return '';
+export function capitalizeString(text: string): string {
+  if (!text) return '';
 
-  // Capitalize first letter, lowercase the rest
-  return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  return text
+    .split(' ')
+    .filter(Boolean)
+    .map((word) =>
+      word.toLowerCase() === 'ksh'
+        ? 'KSH'
+        : word
+            .split('-')
+            .map(
+              (sub) => sub.charAt(0).toUpperCase() + sub.slice(1).toLowerCase(),
+            )
+            .join('-'),
+    )
+    .join(' ');
 }
