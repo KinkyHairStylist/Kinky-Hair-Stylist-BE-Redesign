@@ -31,3 +31,66 @@
 //     createdAt: new Date("2024-02-02T14:58:00Z"),
 //     updatedAt: new Date("2024-02-02T14:58:00Z")
 //   }
+
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Review } from '../../business/entities/review.entity';
+import { ClientType } from '../../business/entities/client-settings.entity';
+
+@Injectable()
+export class ReviewSeed {
+  constructor(
+    @InjectRepository(Review)
+    private reviewRepository: Repository<Review>,
+  ) {}
+
+  async run() {
+    console.log('Seeding reviews...');
+
+    const reviews = [
+      {
+        clientId: '5fdc9038-346a-40b6-a72c-269df301f626',
+        ownerId: '2e093365-18cb-490c-8aad-23cec296135b',
+        businessId: null,
+        rating: 4.1,
+        comment:
+          'Amazing service! The staff were friendly and the process was fast. Definitely recommend.',
+        reply: null,
+        replyTime: null,
+        likes: 12,
+        clientName: 'Gbenga Alonge',
+        clientProfileImage:
+          'https://res.cloudinary.com/dwfnwg3jo/image/upload/v1762808294/KHS/business/2e093365-18cb-490c-8aad-23cec296135b/clients/Gbenga-Alonge/lkrukjjzek2tih64q8o21uo8x.png',
+        service: 'Facial',
+        clientType: ClientType.NEW,
+        createdAt: new Date('2024-01-15T10:24:00Z'),
+        updatedAt: new Date('2024-01-15T10:24:00Z'),
+      },
+      {
+        clientId: '5fdc9038-346a-40b6-a72c-269df301f626',
+        ownerId: '2e093365-18cb-490c-8aad-23cec296135b',
+        businessId: null,
+        rating: 3.9,
+        comment:
+          'Service was okay, but the wait time this period was longer than expected.',
+        reply: null,
+        replyTime: null,
+        likes: 6,
+        clientName: 'Gbenga Alonge',
+        clientProfileImage:
+          'https://res.cloudinary.com/dwfnwg3jo/image/upload/v1762808294/KHS/business/2e093365-18cb-490c-8aad-23cec296135b/clients/Gbenga-Alonge/lkrukjjzek2tih64q8o21uo8x.png',
+        service: 'Hair Styling',
+        clientType: ClientType.NEW,
+        createdAt: new Date('2024-02-02T14:58:00Z'),
+        updatedAt: new Date('2024-02-02T14:58:00Z'),
+      },
+    ];
+
+    for (const review of reviews) {
+      await this.reviewRepository.save(this.reviewRepository.create(review));
+    }
+
+    console.log(`✅ Seeded ${reviews.length} reviews`);
+  }
+}

@@ -27,6 +27,7 @@ import { PasswordHashingHelper } from '../../helpers/password-hashing.helper';
 import { Referral } from '../user_entities/referrals.entity';
 import { Gender } from 'src/business/types/constants';
 import { ReferralService } from './referral.service';
+import { PasswordUtil } from 'src/business/utils/password.util';
 
 type SanitizedUser = Omit<
   User,
@@ -50,6 +51,7 @@ export class UserService {
 
     private jwtService: JwtService,
     private readonly referralService: ReferralService,
+    private readonly passwordUtil: PasswordUtil,
   ) {
     const apiKey = process.env.SENDGRID_API_KEY;
     const fromEmail = process.env.SENDGRID_FROM_EMAIL;
@@ -426,6 +428,46 @@ export class UserService {
       };
     } catch (e) {
       throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+  }
+
+  async updateUser(userId: string, dto: any): Promise<any> {
+    try {
+      const user = await this.userRepository.findOne({ where: { id: userId } });
+
+      if (!user) {
+        return {
+          success: false,
+          message: 'User not found',
+        };
+      }
+
+      // ✅ Convert dateOfBirth string → Date
+      if (dto.dateOfBirth) {
+        dto.dateOfBirth = new Date(dto.dateOfBirth) as any;
+      }
+
+      // ✅ Hash password ONLY if provided
+      if (dto.password) {
+        dto.password = await this.passwordUtil.hashPassword(dto.password);
+      }
+
+      Object.assign(user, dto);
+
+      await this.userRepository.save(user);
+
+      return {
+        success: true,
+        data: user,
+        message: 'User updated successfully',
+      };
+    } catch (error) {
+      console.log('Update user error:', error);
+      return {
+        success: false,
+        message: 'Failed to update user',
+        error: error.message,
+      };
     }
   }
 }

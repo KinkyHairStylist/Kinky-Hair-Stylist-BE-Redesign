@@ -69,6 +69,7 @@ async function bootstrap() {
     '/api/auth/reset-password/verify',
     '/api/auth/reset-password/finish',
     '/api/auth/business/login',
+    '/api/auth/business/otp/request',
     // Add other public routes here
   ];
 

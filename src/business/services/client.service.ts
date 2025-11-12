@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -43,6 +43,25 @@ export class ClientService {
 
     private readonly businessCloudinaryService: BusinessCloudinaryService,
   ) {}
+
+  async clearAllClients() {
+    try {
+      const count = await this.clientRepo.count(); // total reviews before deletion
+      if (count === 0) {
+        return { message: 'No clients to delete', deleted: 0 };
+      }
+
+      // await this.clientRepo.delete({}); // delete all rows
+      await this.clientRepo.query(`TRUNCATE TABLE "clients" CASCADE`);
+      return { message: '✅ All clients deleted successfully', deleted: count };
+    } catch (err) {
+      console.error('Failed to delete clients:', err);
+      throw new HttpException(
+        'Failed to delete clients',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 
   async createClient(
     clientData: ClientFormData,
@@ -318,6 +337,56 @@ export class ClientService {
           endIndex,
         },
         message: 'Clients retrieved successfully',
+      };
+    } catch (error) {
+      // console.log('Get clients error:', error);
+      return {
+        success: false,
+        error: error.message,
+        message: 'Failed to fetch clients',
+      };
+    }
+  }
+
+  async getClientsList(ownerId: string): Promise<ApiResponse<any[]>> {
+    try {
+      // const business = await this.businessRepo.findOne({
+      //   where: { ownerId },
+      // });
+      // if (!business) {
+      //   return {
+      //     success: false,
+      //     error: 'Business not found',
+      //     message: 'No business found for this user',
+      //     data: { clients: [], total: 0, page: 1, limit: 10, totalPages: 0 },
+      //   };
+      // }
+
+      const clients = await this.clientRepo.find({
+        where: { ownerId, isActive: true },
+      });
+
+      // Early return if no clients found
+      if (clients.length === 0) {
+        return {
+          success: true,
+          data: clients,
+          message: 'No clients available',
+        };
+      }
+
+      // Transform data (settings already loaded via leftJoinAndSelect)
+      const formattedClients = clients.map((client) => ({
+        id: client.id,
+        name: client.firstName + ' ' + client.lastName,
+        profileImage: client.profileImage,
+        email: client.email,
+      }));
+
+      return {
+        success: true,
+        data: formattedClients,
+        message: 'Clients List retrieved successfully',
       };
     } catch (error) {
       // console.log('Get clients error:', error);
