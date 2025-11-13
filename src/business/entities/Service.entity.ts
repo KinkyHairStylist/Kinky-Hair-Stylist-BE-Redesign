@@ -7,7 +7,7 @@ import {
 } from 'typeorm';
 import {Business} from "./business.entity";
 import {Staff} from "./staff.entity";
-import {AdvertisementPlan} from "./advertisment-plan.entity";
+import {AdvertisementPlan} from "./advertisement-plan.entity";
 
 @Entity('Service')
 export class Service {

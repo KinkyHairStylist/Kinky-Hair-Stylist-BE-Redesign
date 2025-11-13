@@ -16,10 +16,10 @@ export class Staff {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
-    @Column()
+    @Column({ nullable: true })
     firstName: string;
 
-    @Column()
+    @Column({ nullable: true })
     lastName: string;
 
     @Column({ nullable: true })
@@ -61,7 +61,6 @@ export class Staff {
 
     @Column({ nullable: true })
     startDate: Date;
-
 
     @Column("simple-array", { nullable: true })
     servicesAssigned: string[];

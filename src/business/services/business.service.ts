@@ -16,7 +16,7 @@ import {BlockedTimeSlot} from "../entities/blocked-time-slot.entity";
 import {CreateBlockedTimeDto} from "../dtos/requests/CreateBlockedTimeDto";
 import {CreateServiceDto} from "../dtos/requests/CreateServiceDto";
 import {Service} from "../entities/Service.entity";
-import {AdvertisementPlan} from "../entities/advertisment-plan.entity";
+import {AdvertisementPlan} from "../entities/advertisement-plan.entity";
 import {CreateStaffDto} from "../dtos/requests/AddStaffDto";
 import {EmergencyContact} from "../entities/emergency-contact.entity";
 import {Address} from "../entities/address.entity";
