@@ -9,24 +9,22 @@ import { PasswordUtil } from './utils/password.util';
 import { OtpService } from './services/otp.service';
 import { BusinessService } from './services/business.service';
 import { BusinessController } from './controllers/business.controller';
-
 import { User } from '../all_user_entities/user.entity';
 import { Business } from './entities/business.entity';
 import { RefreshToken } from './entities/refresh.token.entity';
 import { EmailVerification } from './entities/email-verification.entity';
 import { EmailModule } from '../email/email.module';
-import {Appointment} from "./entities/appointment.entity";
-import {Staff} from "./entities/staff.entity";
-import {BlockedTimeSlot} from "./entities/blocked-time-slot.entity";
-import {BookingDay} from "./entities/booking-day.entity";
-import {Service} from "./entities/Service.entity";
-import {AdvertisementPlan} from "./entities/advertisment-plan.entity";
-import {EmergencyContact} from "./entities/emergency-contact.entity";
-import {Address} from "./entities/address.entity";
+import { Appointment } from './entities/appointment.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User,EmergencyContact,Address,AdvertisementPlan, Business, RefreshToken, EmailVerification,Appointment,Staff,BlockedTimeSlot,BookingDay,Service]),
+    TypeOrmModule.forFeature([
+      User,
+      Business,
+      RefreshToken,
+      EmailVerification,
+      Appointment,
+    ]),
     JwtModule.register({}),
     EmailModule,
   ],

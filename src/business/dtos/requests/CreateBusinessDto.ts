@@ -35,9 +35,11 @@ export class CreateBusinessDto {
   @IsNotEmpty({ message: 'Business address is required.' })
   readonly businessAddress: string;
 
+  @IsOptional()
   @IsNotEmpty({ message: 'address is required.' })
   readonly longitude: number;
 
+  @IsOptional()
   @IsNotEmpty({ message: 'address is required.' })
   readonly latitude: number;
 

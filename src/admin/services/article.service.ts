@@ -14,7 +14,11 @@ export class ArticleService {
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
-  async createArticle(dto: CreateArticleDto, user: User, file?: Express.Multer.File): Promise<Article> {
+  async createArticle(
+    dto: CreateArticleDto,
+    user: User,
+    file?: Express.Multer.File,
+  ): Promise<Article> {
     let fileUrl: string | undefined;
     if (file) {
       fileUrl = await this.cloudinaryService.uploadFile(file);
