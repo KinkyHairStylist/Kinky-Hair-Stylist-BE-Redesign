@@ -14,19 +14,19 @@ export class Service {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @Column()
+    @Column({nullable: true})
     name: string;
 
     @Column({nullable: true})
     category: string;
 
-    @Column()
+    @Column({nullable: true})
     description: string;
 
-    @Column()
+    @Column({nullable: true})
     price: number;
 
-    @Column()
+    @Column({nullable: true})
     duration: string;
 
     @ManyToOne(() => AdvertisementPlan, { eager: true,nullable: true })
@@ -34,7 +34,7 @@ export class Service {
     advertisementPlan: AdvertisementPlan;
 
 
-    @ManyToOne(() => Business, (business) => business.service)
+    @ManyToOne(() => Business, (business) => business.service,{nullable: true})
     business: Business;
 
     @ManyToOne(() => Staff, (staff) => staff.services, {

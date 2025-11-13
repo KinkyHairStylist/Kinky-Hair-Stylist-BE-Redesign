@@ -420,7 +420,7 @@ export class BusinessService {
   }
 
   async createService(createServiceDto: CreateServiceDto) {
-    const { userMail, advertisementPlanId, staffId, name, description, price, duration } = createServiceDto;
+    const { userMail, advertisementPlanId, assignedStaffId, name, description, price, duration } = createServiceDto;
 
 
     const business = await this.businessRepo.findOne({ where: { ownerEmail: userMail } });
@@ -434,8 +434,8 @@ export class BusinessService {
     }
 
     let staff: Staff | undefined;
-    if (staffId) {
-      const foundStaff = await this.staffRepo.findOne({ where: { id: staffId } });
+    if (assignedStaffId) {
+      const foundStaff = await this.staffRepo.findOne({ where: { id: assignedStaffId } });
       if (!foundStaff) throw new Error('Staff not found');
       staff = foundStaff;
     }
@@ -453,7 +453,12 @@ export class BusinessService {
     return this.serviceRepo.save(service);
   }
 
-
+  async deactivateStaff(id:string){
+    const staff = await this.staffRepo.findOne({ where: { id: id } });
+    if (!staff) throw new Error('Staff not found');
+    staff.isActive = false
+    this.staffRepo.save(staff);
+  }
 
 
   async getRescheduledBookings(userId:string){

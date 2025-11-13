@@ -47,6 +47,7 @@ export class Staff {
     @Column({ nullable: true })
     specialization: string;
 
+
     @Column({ nullable: true })
     avatar: string;
 

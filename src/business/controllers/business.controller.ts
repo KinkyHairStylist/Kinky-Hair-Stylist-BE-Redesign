@@ -37,6 +37,11 @@ export class BusinessController {
     return this.businessService.getBookings(user);
   }
 
+  @Post('deactivateStaff/:id')
+  async deactivateStaff(@Param('id') id: string){
+    return this.businessService.deactivateStaff(id);
+  }
+
   @Post('completeBooking/:id')
   async completeBooking(@Param('id') id: string) {
     return this.businessService.completeBooking(id);
@@ -94,7 +99,6 @@ export class BusinessController {
   async getAdvertisementPlans(){
     return this.businessService.getAdvertisementPlans();
   }
-
 
 
   @Get('getTeamMembers')

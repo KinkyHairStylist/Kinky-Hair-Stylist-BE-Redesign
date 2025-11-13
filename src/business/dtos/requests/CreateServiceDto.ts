@@ -1,9 +1,37 @@
+import { IsString, IsNumber, IsOptional, IsUUID } from 'class-validator';
+
 export class CreateServiceDto {
+    @IsString()
     name: string;
-    description: string;
-    duration: string;
-    price: number;
-    advertisementPlanId?: string;
+
+    @IsString()
+    @IsOptional()
     userMail: string;
-    staffId?: string;
+
+    @IsOptional()
+    @IsString()
+    category?: string;
+
+    @IsString()
+    @IsOptional()
+    description: string;
+
+    @IsNumber()
+    price: number;
+
+    @IsString()
+    @IsOptional()
+    duration: string;
+
+    @IsOptional()
+    @IsUUID()
+    advertisementPlanId?: string;
+
+    @IsOptional()
+    @IsUUID()
+    businessId?: string;
+
+    @IsOptional()
+    @IsUUID()
+    assignedStaffId?: string;
 }
