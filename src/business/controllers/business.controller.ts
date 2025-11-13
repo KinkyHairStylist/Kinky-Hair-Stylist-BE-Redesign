@@ -4,9 +4,10 @@ import {
   Controller,
   Get,
   HttpCode,
-  HttpStatus, Param,
-  Post, Query,
-  Req, UnauthorizedException,
+  HttpStatus,
+  Param,
+  Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { Request } from 'express';
@@ -30,93 +31,22 @@ interface RequestWithUser extends Request {
 export class BusinessController {
   constructor(private readonly businessService: BusinessService) {}
 
-
   @Post('getBookings')
-  async getBookings(@Req() req:RequestWithUser) {
+  async getBookings(@Req() req: RequestWithUser) {
     const user = req.user.id;
     return this.businessService.getBookings(user);
   }
 
-  @Post('deactivateStaff/:id')
-  async deactivateStaff(@Param('id') id: string){
-    return this.businessService.deactivateStaff(id);
-  }
+  // @Post('createBooking')
 
-  @Post('completeBooking/:id')
-  async completeBooking(@Param('id') id: string) {
-    return this.businessService.completeBooking(id);
-  }
-
-  @Post('getRescheduledBookings')
-  async getRescheduledBookings(@Req() req:RequestWithUser) {
-    const user = req.user.id;
-    return this.businessService.getRescheduledBookings(user);
-  }
-
-  @Get('available-slots')
+  @Post('available-slots/:businessId')
   async getAvailableSlots(
-      @Req() req:RequestWithUser,
-      @Query('date') date: string,
+      @Param('businessId') businessId: string,
+      @Body() body: GetAvailableSlotsDto,
   ) {
-
-    const userMail = req.user.email;
-
-    if (!date) {
-      throw new BadRequestException("Date query parameter is required");
-    }
-
-    return await this.businessService.getAvailableSlotsForDate(userMail, date);
-  }
-
-  @Post('rescheduleBooking')
-  async rescheduleBooking(
-      @Body() body: { id: string; reason: string; date: string; time: string },
-  ) {
-    return await this.businessService.rescheduleBooking(body);
-  }
-
-  @Post('blockTime')
-  async createBlockedTime(
-      @Body() body: CreateBlockedTimeDto,
-      @Req() req:RequestWithUser,
-  ) {
-    body.ownerMail = req.user.email
-    return this.businessService.createBlockedTime(body);
-  }
-
-  @Post('editBlockTime/:id')
-  async editBlockedTime(
-      @Param('id') id: string,
-      @Body() body: CreateBlockedTimeDto,
-      @Req() req:RequestWithUser,
-  ) {
-    body.ownerMail = req.user.email
-    console.log(body.date)
-    return this.businessService.editBlockedTime(id, body);
-  }
-
-  @Get('getAdvertisementPlans')
-  async getAdvertisementPlans(){
-    return this.businessService.getAdvertisementPlans();
-  }
-
-
-  @Get('getTeamMembers')
-  async getTeamMembers(@Req() req:RequestWithUser) {
-    const userMail = req.user.email;
-    return this.businessService.getTeamMembers(userMail)
-  }
-
-  @Get('getServices')
-  async getBusinessServices(@Req() req:RequestWithUser) {
-    const userMail = req.user.email;
-    return this.businessService.getBusinessServices(userMail)
-  }
-
-  @Post('createService')
-  async createService(@Req() req:RequestWithUser, @Body() body: CreateServiceDto) {
-    body.userMail = req.user.email;
-    return this.businessService.createService(body);
+    if (!body?.date) throw new BadRequestException('date is required in body (YYYY-MM-DD)');
+    // const slots = await this.businessService.getAvailableSlots(businessId, body.date);
+    // return { date: body.date, slots };
   }
 
   @Get('getBooking/:id')
@@ -154,6 +84,10 @@ export class BusinessController {
     return this.businessService.rejectBooking(id);
   }
 
+  @Post('rescheduleBooking')
+  async rescheduleBooking(@Body() body:{id:string,reason:string,date:string,time:string}) {
+    return this.businessService.rescheduleBooking(body);
+  }
 
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
@@ -161,7 +95,6 @@ export class BusinessController {
     @Body() createBusinessDto: CreateBusinessDto,
     @Req() req: RequestWithUser,
   ) {
-
     const owner = req.user;
 
     const business = await this.businessService.create(
@@ -191,8 +124,8 @@ export class BusinessController {
   }
 
   @Get('/ping')
-  ping(){
-    console.log("yo")
-    return "server is live"
+  ping() {
+    console.log('yo');
+    return 'server is live';
   }
 }

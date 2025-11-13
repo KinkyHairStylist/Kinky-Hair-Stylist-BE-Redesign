@@ -13,8 +13,6 @@ import { WithdrawalModule } from './admin/withdrawal/withdrawal.module';
 import { WalletModule } from './admin/wallet/wallet.module';
 import { SalonModule } from './user/modules/salon.module';
 import { BookingModule } from './user/modules/booking.module';
-import { UserModule } from './user/modules/user.module';
-
 
 import { AppService } from './app.service';
 import { AppController } from './app.controller';
@@ -31,6 +29,13 @@ import { SupportModule } from './admin/support/support.module';
 import { PlatformSettingsModule } from './admin/platform-settings/platform-settings.module';
 import { NotificationSettingsModule } from './user/modules/notification-settings.module';
 
+import { ClientModule } from './business/client.module';
+import { UserModule } from './user/modules/user.module';
+import { ReminderModule } from './business/reminder.module';
+import { CustomMessageModule } from './business/custom-message.module';
+import { PromotionModule } from './business/promotion.module';
+import { ReviewModule } from './business/review.module';
+import { CommunicationModule } from './business/communication.module';
 
 @Module({
   imports: [
@@ -48,20 +53,8 @@ import { NotificationSettingsModule } from './user/modules/notification-settings
         signOptions: { expiresIn: '1d' },
       }),
       inject: [ConfigService],
-      
     }),
-    TypeOrmModule.forRoot(
-      process.env.NODE_ENV === 'test' ? testTypeOrmConfig : typeOrmConfig,
-    ),
-    JwtModule.registerAsync({
-      global: true, // Make JwtModule globally available
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_ACCESS_SECRET'),
-        signOptions: { expiresIn: '1d' },
-      }),
-      inject: [ConfigService],
-    }),
+
     EmailModule,
     BusinessModule,
     AdminModule,
@@ -70,7 +63,12 @@ import { NotificationSettingsModule } from './user/modules/notification-settings
     TransactionFeeModule,
     WithdrawalModule,
     WalletModule,
-
+    ClientModule,
+    ReminderModule,
+    CustomMessageModule,
+    PromotionModule,
+    ReviewModule,
+    CommunicationModule,
 
     UserModule,
     SalonModule,
@@ -87,5 +85,4 @@ import { NotificationSettingsModule } from './user/modules/notification-settings
   controllers: [AppController],
   providers: [AppService, AuthMiddleware],
 })
-
 export class AppModule {}

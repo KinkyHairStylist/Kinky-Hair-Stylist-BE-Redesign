@@ -37,7 +37,13 @@ export class Business {
   @Column()
   description: string;
 
-  @ManyToOne(() => User, (user) => user.businesses, { onDelete: 'CASCADE', eager: true })
+  @Column({ name: 'owner_id' })
+  ownerId: string;
+
+  @ManyToOne(() => User, (user) => user.businesses, {
+    onDelete: 'CASCADE',
+    eager: true,
+  })
   @JoinColumn({ name: 'owner_id' })
   owner: User;
 
@@ -54,7 +60,8 @@ export class Business {
   primaryAudience: string;
 
   @OneToMany(() => Appointment, (appointment) => appointment.business, {
-    cascade: true, nullable: true,
+    cascade: true,
+    nullable: true,
   })
   appointments: Appointment[];
 
@@ -94,7 +101,7 @@ export class Business {
   })
   bookingHours: BookingDay[];
 
-  @Column('text',{ array: true, default: [] })
+  @Column('text', { array: true, default: [] })
   howDidYouHear: string[];
 
   @Column({
@@ -103,7 +110,6 @@ export class Business {
     default: BusinessStatus.PENDING,
   })
   status: BusinessStatus;
-
 
   @Column({ type: 'float', default: 0 })
   revenue: number;
@@ -123,7 +129,7 @@ export class Business {
     type: 'jsonb',
     nullable: true,
     default: () =>
-        `'{"rating":0,"reviews":0,"completionRate":0,"avgResponseMins":0}'`,
+      `'{"rating":0,"reviews":0,"completionRate":0,"avgResponseMins":0}'`,
   })
   performance: {
     rating: number;

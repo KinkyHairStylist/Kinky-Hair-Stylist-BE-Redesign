@@ -15,7 +15,7 @@ export class Address {
     @Column({ default: false })
     isPrimary: boolean;
 
-    @ManyToOne(() => Staff, (staff) => staff.addresses, { onDelete: 'CASCADE' })
-    @JoinColumn({ name: "staff_id" })
-    staff: Staff;
+    // @ManyToOne(() => Staff, (staff) => staff.addresses, { onDelete: 'CASCADE' })
+    // @JoinColumn({ name: "staff_id" })
+    // staff: Staff;
 }

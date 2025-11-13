@@ -37,12 +37,12 @@ export class Service {
     @ManyToOne(() => Business, (business) => business.service,{nullable: true})
     business: Business;
 
-    @ManyToOne(() => Staff, (staff) => staff.services, {
-        onDelete: "SET NULL",
-        nullable: true,
-        eager: true
-    })
-    assignedStaff: Staff;
+    // @ManyToOne(() => Staff, (staff) => staff.services, {
+    //     onDelete: "SET NULL",
+    //     nullable: true,
+    //     eager: true
+    // })
+    // assignedStaff: Staff;
 
     @CreateDateColumn()
     createdAt: Date;

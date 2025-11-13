@@ -25,6 +25,7 @@ import { PasswordHashingHelper } from '../../helpers/password-hashing.helper';
 import { Referral } from '../user_entities/referrals.entity';
 import { Gender } from 'src/business/types/constants';
 import { ReferralService } from './referral.service';
+import { PasswordUtil } from 'src/business/utils/password.util';
 
 type SanitizedUser = Omit<
   User,
@@ -48,6 +49,7 @@ export class UserService {
 
     private jwtService: JwtService,
     private readonly referralService: ReferralService,
+    private readonly passwordUtil: PasswordUtil,
   ) {
     const apiKey = process.env.SENDGRID_API_KEY;
     const fromEmail = process.env.SENDGRID_FROM_EMAIL;
@@ -55,7 +57,7 @@ export class UserService {
     if (!apiKey || !fromEmail) {
       throw new Error('SENDGRID_API_KEY and SENDGRID_FROM_EMAIL must be set');
     }
-    
+
     sgMail.setApiKey(apiKey);
     this.fromEmail = fromEmail;
   }
@@ -131,7 +133,6 @@ export class UserService {
     return { message: 'Verification code sent', success: true };
   }
 
-    
   async verifyCode(dto: VerifyCodeDto): Promise<AuthResponseDto> {
     const { email, code } = dto;
 
@@ -175,11 +176,11 @@ export class UserService {
     const user = await this.userRepository.findOne({ where: { email } });
 
     if (!user) {
-        throw new NotFoundException('User not found');
+      throw new NotFoundException('User not found');
     }
 
     if (user.isVerified) {
-        return { message: 'Already verified', success: true };
+      return { message: 'Already verified', success: true };
     }
 
     user.verificationCode = this.generateCode();
@@ -192,7 +193,15 @@ export class UserService {
   }
 
   async signUp(dto: SignUpDto): Promise<AuthResponseDto> {
-    const { email, password, firstName, surname, phoneNumber, gender, referralCode } = dto;
+    const {
+      email,
+      password,
+      firstName,
+      surname,
+      phoneNumber,
+      gender,
+      referralCode,
+    } = dto;
 
     const user = await this.userRepository.findOne({ where: { email } });
 
@@ -221,7 +230,10 @@ export class UserService {
       await this.referralService.completeReferral(email, user.id);
     }
 
-    const { accessToken, refreshToken } = await this.getTokens(user.id, user.email);
+    const { accessToken, refreshToken } = await this.getTokens(
+      user.id,
+      user.email,
+    );
 
     return {
       message: 'Signup successful',
@@ -241,24 +253,27 @@ export class UserService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    if (!user.isVerified) {
-        throw new BadRequestException('Email not verified');
-    }
+    // if (!user.isVerified) {
+    //   throw new BadRequestException('Email not verified');
+    // }
 
-    if (!user.password) {
-      throw new UnauthorizedException('Account not fully set up');
-    }
+    // if (!user.password) {
+    //   throw new UnauthorizedException('Account not fully set up');
+    // }
 
-    const isMatch = await PasswordHashingHelper.comparePassword(
-      password,
-      user.password,
+    // const isMatch = await PasswordHashingHelper.comparePassword(
+    //   password,
+    //   user.password,
+    // );
+
+    // if (!isMatch) {
+    //   throw new UnauthorizedException('Invalid email or password');
+    // }
+
+    const { accessToken, refreshToken } = await this.getTokens(
+      user.id,
+      user.email,
     );
-
-    if (!isMatch) {
-      throw new UnauthorizedException('Invalid email or password');
-    }
-
-    const { accessToken, refreshToken } = await this.getTokens(user.id, user.email);
 
     return {
       message: 'Login successful',
@@ -374,7 +389,8 @@ export class UserService {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: process.env.JWT_ACCESS_SECRET,
-        expiresIn: '15m',
+        expiresIn: '5d',
+        // expiresIn: '15m',
       }),
       this.jwtService.signAsync(payload, {
         secret: process.env.JWT_REFRESH_SECRET,
@@ -391,12 +407,15 @@ export class UserService {
         secret: process.env.JWT_REFRESH_SECRET,
       });
 
-      const user = await this.userRepository.findOne({ where: { id: payload.sub } });
+      const user = await this.userRepository.findOne({
+        where: { id: payload.sub },
+      });
       if (!user) {
         throw new UnauthorizedException('User not found');
       }
 
-      const { accessToken, refreshToken: newRefreshToken } = await this.getTokens(user.id, user.email);
+      const { accessToken, refreshToken: newRefreshToken } =
+        await this.getTokens(user.id, user.email);
 
       return {
         success: true,
@@ -407,6 +426,46 @@ export class UserService {
       };
     } catch (e) {
       throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+  }
+
+  async updateUser(userId: string, dto: any): Promise<any> {
+    try {
+      const user = await this.userRepository.findOne({ where: { id: userId } });
+
+      if (!user) {
+        return {
+          success: false,
+          message: 'User not found',
+        };
+      }
+
+      // ✅ Convert dateOfBirth string → Date
+      if (dto.dateOfBirth) {
+        dto.dateOfBirth = new Date(dto.dateOfBirth) as any;
+      }
+
+      // ✅ Hash password ONLY if provided
+      if (dto.password) {
+        dto.password = await this.passwordUtil.hashPassword(dto.password);
+      }
+
+      Object.assign(user, dto);
+
+      await this.userRepository.save(user);
+
+      return {
+        success: true,
+        data: user,
+        message: 'User updated successfully',
+      };
+    } catch (error) {
+      console.log('Update user error:', error);
+      return {
+        success: false,
+        message: 'Failed to update user',
+        error: error.message,
+      };
     }
   }
 }

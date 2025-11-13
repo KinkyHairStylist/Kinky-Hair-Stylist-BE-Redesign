@@ -18,7 +18,7 @@ import {CreateServiceDto} from "../dtos/requests/CreateServiceDto";
 import {Service} from "../entities/Service.entity";
 import {AdvertisementPlan} from "../entities/advertisement-plan.entity";
 import {CreateStaffDto} from "../dtos/requests/AddStaffDto";
-import {EmergencyContact} from "../entities/emergency-contact.entity";
+// import {EmergencyContact} from "../entities/emergency-contact.entity";
 import {Address} from "../entities/address.entity";
 
 @Injectable()
@@ -42,8 +42,8 @@ export class BusinessService {
     @InjectRepository(AdvertisementPlan)
     private advertisementPlanRepo: Repository<AdvertisementPlan>,
 
-    @InjectRepository(EmergencyContact)
-    private emergencyRepo: Repository<EmergencyContact>,
+    // @InjectRepository(EmergencyContact)
+    // private emergencyRepo: Repository<EmergencyContact>,
 
     @InjectRepository(Address)
     private addressRepo: Repository<Address>,
@@ -256,23 +256,23 @@ export class BusinessService {
 
 
     if (addresses?.length) {
-      const addressEntities = addresses.map(addr =>
-          this.addressRepo.create({ ...addr, staff }),
-      );
-      await this.addressRepo.save(addressEntities);
-      staff.addresses = addressEntities;
+      // const addressEntities = addresses.map(addr =>
+      //     this.addressRepo.create({ ...addr, staff }),
+      // );
+      // await this.addressRepo.save(addressEntities);
+      // staff.addresses = addressEntities;
     }
 
     if (emergencyContacts?.length) {
-      const contactEntities = emergencyContacts.map(contact =>
-          this.emergencyRepo.create({ ...contact, staff }),
-      );
-      await this.emergencyRepo.save(contactEntities);
-      staff.emergencyContacts = contactEntities;
+      // const contactEntities = emergencyContacts.map(contact =>
+      //     this.emergencyRepo.create({ ...contact, staff }),
+      // );
+      // await this.emergencyRepo.save(contactEntities);
+      // staff.emergencyContacts = contactEntities;
     }
 
     if (selectedServices?.length) {
-      staff.services = await this.serviceRepo.findByIds(selectedServices);
+      // staff.services = await this.serviceRepo.findByIds(selectedServices);
       await this.staffRepo.save(staff);
     }
 
@@ -440,17 +440,17 @@ export class BusinessService {
       staff = foundStaff;
     }
 
-    const service = this.serviceRepo.create({
-      name,
-      description,
-      price,
-      duration,
-      business,
-      advertisementPlan,
-      assignedStaff: staff,
-    });
+    // const service = this.serviceRepo.create({
+    //   name,
+    //   description,
+    //   price,
+    //   duration,
+    //   business,
+    //   advertisementPlan,
+    //   assignedStaff: staff,
+    // });
 
-    return this.serviceRepo.save(service);
+    // return this.serviceRepo.save(service);
   }
 
   async deactivateStaff(id:string){

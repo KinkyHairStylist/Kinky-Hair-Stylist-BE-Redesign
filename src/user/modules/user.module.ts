@@ -26,29 +26,44 @@ import { UserProfileController } from '../controllers/user-profile.controller';
 import { UserProfileService } from '../services/user-profile.service';
 import { CloudinaryModule } from './cloudinary.module';
 import { PreferencesModule } from './preferences.module';
+import { PasswordUtil } from 'src/business/utils/password.util';
 
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([User, Referral, GiftCard, Card, Article, SupportTicket, LiveChatMessage]),
-        JwtModule.register({}),
-        EmailModule,
-        ReferralModule,
-        PhoneVerificationModule,
-        CloudinaryModule,
-        PreferencesModule,
-    ],
-    controllers: [UserController, GiftCardController, ArticleController, TicketController, UserProfileController],
-    providers: [
-        UserService,
-        JwtRefreshStrategy,
-        GiftCardService,
-        ArticleService,
-        TicketService,
-        UserProfileService
-    ],
-    exports: [UserService],
+  imports: [
+    TypeOrmModule.forFeature([
+      User,
+      Referral,
+      GiftCard,
+      Card,
+      Article,
+      SupportTicket,
+      LiveChatMessage,
+    ]),
+    JwtModule.register({}),
+    EmailModule,
+    ReferralModule,
+    PhoneVerificationModule,
+    CloudinaryModule,
+    PreferencesModule,
+  ],
+  controllers: [
+    UserController,
+    GiftCardController,
+    ArticleController,
+    TicketController,
+    UserProfileController,
+  ],
+  providers: [
+    UserService,
+    JwtRefreshStrategy,
+    GiftCardService,
+    ArticleService,
+    TicketService,
+    UserProfileService,
+    PasswordUtil,
+  ],
+  exports: [UserService],
 })
-
 export class UserModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(EmailValidationMiddleware).forRoutes(UserController);
