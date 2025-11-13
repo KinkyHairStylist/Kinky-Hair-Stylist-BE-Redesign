@@ -5,8 +5,8 @@ import {
   Get,
   HttpCode,
   HttpStatus, Param,
-  Post,
-  Req,
+  Post, Query,
+  Req, UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { Request } from 'express';
@@ -17,6 +17,9 @@ import { CreateBusinessDto } from '../dtos/requests/CreateBusinessDto';
 import { BookingPoliciesData, BusinessServiceData } from '../types/constants';
 import { Public } from '../middlewares/public.decorator';
 import {GetAvailableSlotsDto} from "../dtos/requests/GetAvailableSlotsDto";
+import {CreateBlockedTimeDto} from "../dtos/requests/CreateBlockedTimeDto";
+import {CreateServiceDto} from "../dtos/requests/CreateServiceDto";
+import {CreateStaffDto} from "../dtos/requests/AddStaffDto";
 
 interface RequestWithUser extends Request {
   user: User;
@@ -45,25 +48,96 @@ export class BusinessController {
     return this.businessService.getRescheduledBookings(user);
   }
 
-  // @Post('createBooking')
-  // async createBooking(@Req() req:RequestWithUser, @Body() body: any) {
-  //   const user = req.user.id;
-  //   return this.businessService.createBooking(user,body);
-  // }
-
-  @Post('available-slots/:businessId')
+  @Get('available-slots')
   async getAvailableSlots(
-      @Param('businessId') businessId: string,
-      @Body() body: GetAvailableSlotsDto,
+      @Req() req:RequestWithUser,
+      @Query('date') date: string,
   ) {
-    if (!body?.date) throw new BadRequestException('date is required in body (YYYY-MM-DD)');
-    const slots = await this.businessService.getAvailableSlots(businessId, body.date);
-    return { date: body.date, slots };
+
+    const userMail = req.user.email;
+
+    if (!date) {
+      throw new BadRequestException("Date query parameter is required");
+    }
+
+    return await this.businessService.getAvailableSlotsForDate(userMail, date);
+  }
+
+  @Post('rescheduleBooking')
+  async rescheduleBooking(
+      @Body() body: { id: string; reason: string; date: string; time: string },
+  ) {
+    return await this.businessService.rescheduleBooking(body);
+  }
+
+  @Post('blockTime')
+  async createBlockedTime(
+      @Body() body: CreateBlockedTimeDto,
+      @Req() req:RequestWithUser,
+  ) {
+    body.ownerMail = req.user.email
+    return this.businessService.createBlockedTime(body);
+  }
+
+  @Post('editBlockTime/:id')
+  async editBlockedTime(
+      @Param('id') id: string,
+      @Body() body: CreateBlockedTimeDto,
+      @Req() req:RequestWithUser,
+  ) {
+    body.ownerMail = req.user.email
+    console.log(body.date)
+    return this.businessService.editBlockedTime(id, body);
+  }
+
+  @Get('getAdvertisementPlans')
+  async getAdvertisementPlans(){
+    return this.businessService.getAdvertisementPlans();
+  }
+
+
+
+  @Get('getTeamMembers')
+  async getTeamMembers(@Req() req:RequestWithUser) {
+    const userMail = req.user.email;
+    return this.businessService.getTeamMembers(userMail)
+  }
+
+  @Get('getServices')
+  async getBusinessServices(@Req() req:RequestWithUser) {
+    const userMail = req.user.email;
+    return this.businessService.getBusinessServices(userMail)
+  }
+
+  @Post('createService')
+  async createService(@Req() req:RequestWithUser, @Body() body: CreateServiceDto) {
+    body.userMail = req.user.email;
+    return this.businessService.createService(body);
   }
 
   @Get('getBooking/:id')
   async getBooking(@Param('id') id: string) {
     return this.businessService.getBooking(id);
+  }
+
+  @Post('deleteBlockedSlot/:id')
+  async deleteBlockedSlot(
+      @Param('id') id: string,
+  ) {
+
+    return this.businessService.deleteBlockedSlot( id);
+  }
+
+  @Post('addStaff')
+  async addStaff(@Req() req:RequestWithUser, @Body() body: CreateStaffDto) {
+    const userMail = req.user.email;
+    return this.businessService.addStaff(userMail,body)
+  }
+
+  @Get('getBlockedSlots')
+  async getBlockedSlots(@Req() req:RequestWithUser) {
+    const user = req.user.email;
+    return this.businessService.getBlockedSlots(user);
   }
 
   @Post('acceptBooking/:id')
@@ -76,10 +150,6 @@ export class BusinessController {
     return this.businessService.rejectBooking(id);
   }
 
-  @Post('rescheduleBooking')
-  async rescheduleBooking(@Body() body:{id:string,reason:string,date:string,time:string}) {
-    return this.businessService.rescheduleBooking(body);
-  }
 
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
