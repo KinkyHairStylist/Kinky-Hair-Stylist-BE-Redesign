@@ -34,7 +34,11 @@ export class Article {
   @Column({ nullable: true })
   fileUrl?: string;
 
-  @ManyToOne(() => User, { eager: true })
+  @ManyToOne(() => User, { 
+    eager: true, 
+    onDelete: 'SET NULL', 
+    nullable: true 
+  })
   author: User;
 
   @CreateDateColumn()

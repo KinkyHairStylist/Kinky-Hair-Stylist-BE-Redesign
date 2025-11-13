@@ -1,5 +1,5 @@
 import { IsString, IsOptional, IsArray, IsEmail } from 'class-validator';
-@IsString()
+// @IsString()
 
 export class CreateStaffDto {
 

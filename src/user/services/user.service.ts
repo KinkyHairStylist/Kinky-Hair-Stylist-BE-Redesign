@@ -8,7 +8,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import sgMail from '@sendgrid/mail';
-import { randomUUID } from 'crypto';
 
 import { User } from '../../all_user_entities/user.entity';
 import { 
@@ -20,7 +19,7 @@ import {
   ResetPasswordStartDto, 
   ResetPasswordVerifyDto, 
   ResetPasswordFinishDto, 
-  AuthResponseDto 
+  AuthResponseDto,
 } from '../dtos/user.dto';
 import { PasswordHashingHelper } from '../../helpers/password-hashing.helper';
 import { Referral } from '../user_entities/referrals.entity';

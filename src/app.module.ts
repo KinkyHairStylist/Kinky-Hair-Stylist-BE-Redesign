@@ -29,6 +29,7 @@ import { CardModule } from './user/modules/card.module';
 import { ModerationModule } from './admin/moderation/moderation.module';
 import { SupportModule } from './admin/support/support.module';
 import { PlatformSettingsModule } from './admin/platform-settings/platform-settings.module';
+import { NotificationSettingsModule } from './user/modules/notification-settings.module';
 
 
 @Module({
@@ -81,6 +82,7 @@ import { PlatformSettingsModule } from './admin/platform-settings/platform-setti
     ModerationModule,
     SupportModule,
     PlatformSettingsModule,
+    NotificationSettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService, AuthMiddleware],
