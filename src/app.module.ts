@@ -34,6 +34,8 @@ import { CustomMessageModule } from './business/custom-message.module';
 import { PromotionModule } from './business/promotion.module';
 import { ReviewModule } from './business/review.module';
 import { CommunicationModule } from './business/communication.module';
+import { BusinessWalletModule } from './business/wallet.module';
+import { WebhookModule } from './webhook/webhook.module';
 
 @Module({
   imports: [
@@ -67,7 +69,8 @@ import { CommunicationModule } from './business/communication.module';
     PromotionModule,
     ReviewModule,
     CommunicationModule,
-
+    BusinessWalletModule,
+    WebhookModule,
     UserModule,
     SalonModule,
     SeedsModule,

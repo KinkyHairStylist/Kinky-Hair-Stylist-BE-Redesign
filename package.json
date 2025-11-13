@@ -6,6 +6,8 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "drop-index": "ts-node --project tsconfig.json ./scripts/drop-index.ts",
+    "cleanup-tx": "ts-node --project tsconfig.json ./scripts/cleanup-transaction.ts",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "node dist/src/main.js",

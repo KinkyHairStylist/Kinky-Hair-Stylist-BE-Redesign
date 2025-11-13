@@ -36,6 +36,7 @@ import {
   PreferredContactMethod,
 } from '../entities/client-settings.entity';
 import { ClientSettingsService } from '../services/client-settings.service';
+import { UserService } from 'src/user/services/user.service';
 
 @Controller('clients')
 // @UseGuards(JwtAuthGuard)

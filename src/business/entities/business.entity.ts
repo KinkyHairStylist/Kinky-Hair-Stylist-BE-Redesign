@@ -16,6 +16,9 @@ import { CompanySize } from '../types/constants';
 
 import { Appointment } from './appointment.entity';
 import { Staff } from './staff.entity';
+import { BlockedTimeSlot } from './blocked-time-slot.entity';
+import { Service } from './service.entity';
+import { Wallet } from './wallet.entity';
 
 export enum BusinessStatus {
   PENDING = 'pending',
@@ -54,6 +57,9 @@ export class Business {
 
   @Column({ nullable: true })
   ownerPhone: string;
+
+  @OneToMany(() => BlockedTimeSlot, (slot) => slot.business, { cascade: true })
+  blockedSlots: BlockedTimeSlot[];
 
   @Column()
   primaryAudience: string;
@@ -97,6 +103,12 @@ export class Business {
   @Column('text', { array: true, default: [] })
   howDidYouHear: string[];
 
+  @OneToMany(() => Service, (service) => service.business, {
+    cascade: true,
+    eager: true,
+  })
+  service: Service[];
+
   @Column({
     type: 'enum',
     enum: BusinessStatus,
@@ -130,6 +142,11 @@ export class Business {
     completionRate: number;
     avgResponseMins: number;
   };
+
+  @OneToOne(() => Wallet, (wallet) => wallet.business, {
+    cascade: true,
+  })
+  wallet: Wallet;
 
   @CreateDateColumn()
   createdAt: Date;

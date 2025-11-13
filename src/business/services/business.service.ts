@@ -1,13 +1,15 @@
-import {Injectable, NotFoundException} from '@nestjs/common';
-import {InjectRepository} from '@nestjs/typeorm';
-import {Not, Repository} from 'typeorm';
-import {Business} from '../entities/business.entity';
-import {User} from '../../all_user_entities/user.entity';
-import {CreateBusinessDto} from '../dtos/requests/CreateBusinessDto';
-import {getBusinessServices} from '../data/business.services';
-import {BookingPoliciesData, BusinessServiceData} from '../types/constants';
-import {getBookingPoliciesConfiguration} from '../data/booking-policies';
-import {Appointment, AppointmentStatus} from "../entities/appointment.entity";
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Not, Repository } from 'typeorm';
+import { Business } from '../entities/business.entity';
+import { User } from '../../all_user_entities/user.entity';
+import { CreateBusinessDto } from '../dtos/requests/CreateBusinessDto';
+import { getBusinessServices } from '../data/business.services';
+import { BookingPoliciesData, BusinessServiceData } from '../types/constants';
+import { getBookingPoliciesConfiguration } from '../data/booking-policies';
+import { Appointment, AppointmentStatus } from '../entities/appointment.entity';
+import { BusinessWalletService } from './wallet.service';
+import { WalletCurrency } from 'src/admin/payment/enums/wallet.enum';
 
 @Injectable()
 export class BusinessService {
@@ -16,6 +18,7 @@ export class BusinessService {
     private readonly businessRepo: Repository<Business>,
     @InjectRepository(Appointment)
     private appointmentRepo: Repository<Appointment>,
+    private readonly walletService: BusinessWalletService,
   ) {}
 
   /**
@@ -33,52 +36,68 @@ export class BusinessService {
       owner,
     });
 
-    business.ownerName = (owner?.firstName + " " + owner?.surname)|| ""
-    business.ownerEmail = owner?.email || ""
-    business.ownerPhone = owner?.phoneNumber || ""
+    business.ownerName = owner?.firstName + ' ' + owner?.surname || '';
+    business.ownerEmail = owner?.email || '';
+    business.ownerPhone = owner?.phoneNumber || '';
 
-    return await this.businessRepo.save(business);
+    await this.businessRepo.save(business);
+
+    // Automatically create wallet
+    await this.walletService.createWalletForBusiness({
+      businessId: business.id,
+      ownerId: owner.id,
+      currency: WalletCurrency.AUD,
+    });
+
+    return business;
   }
 
-  async getBooking(id:string){
-    return await this.appointmentRepo.findOne({where: {id}});
+  async getBooking(id: string) {
+    return await this.appointmentRepo.findOne({ where: { id } });
   }
 
-  async rescheduleBooking(body:{id:string,reason:string,date:string,time:string}){
-    const id = body.id
-    const appointment = await this.appointmentRepo.findOne({where: {id}});
-    if(!appointment){throw new NotFoundException("Appointment not found")}
+  async rescheduleBooking(body: {
+    id: string;
+    reason: string;
+    date: string;
+    time: string;
+  }) {
+    const id = body.id;
+    const appointment = await this.appointmentRepo.findOne({ where: { id } });
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
     appointment.time = body.time;
     appointment.date = body.date;
     appointment.status = AppointmentStatus.RESCHEDULED;
     return await this.appointmentRepo.save(appointment);
-
   }
 
-
-
-  async rejectBooking(id:string){
-    const appointment = await this.appointmentRepo.findOne({where: {id}});
-    if(!appointment){throw new NotFoundException("Appointment not found")}
-    appointment.status = AppointmentStatus.CANCELLED
-    return  this.appointmentRepo.save(appointment);
+  async rejectBooking(id: string) {
+    const appointment = await this.appointmentRepo.findOne({ where: { id } });
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+    appointment.status = AppointmentStatus.CANCELLED;
+    return this.appointmentRepo.save(appointment);
   }
 
-  async acceptBooking(id:string){
-    const appointment = await this.appointmentRepo.findOne({where: {id}});
-    if(!appointment){throw new NotFoundException("Appointment not found")}
-    appointment.status = AppointmentStatus.CONFIRMED
-    return  this.appointmentRepo.save(appointment);
+  async acceptBooking(id: string) {
+    const appointment = await this.appointmentRepo.findOne({ where: { id } });
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+    appointment.status = AppointmentStatus.CONFIRMED;
+    return this.appointmentRepo.save(appointment);
   }
 
   async getBookings(userId: string) {
-
     const business = await this.businessRepo.findOne({
       where: { owner: { id: userId } },
     });
 
     if (!business) {
-      throw new NotFoundException("Business does not exist");
+      throw new NotFoundException('Business does not exist');
     }
 
     return await this.appointmentRepo.find({
@@ -86,14 +105,12 @@ export class BusinessService {
         business: { id: business.id },
         status: Not(AppointmentStatus.CANCELLED),
       },
-      relations: ["business", "staff", "client"],
+      relations: ['business', 'staff', 'client'],
       order: {
-        createdAt: "DESC",
+        createdAt: 'DESC',
       },
     });
   }
-
-
 
   getServices(): BusinessServiceData[] {
     return getBusinessServices();

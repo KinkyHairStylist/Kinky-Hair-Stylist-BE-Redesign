@@ -4,8 +4,12 @@ import {
   Column,
   ManyToOne,
   JoinColumn,
+  OneToMany,
 } from 'typeorm';
 import { Business } from './business.entity';
+import { Service } from './service.entity';
+import { Address } from './address.entity';
+import { EmergencyContactSchema } from './emergency-contact.entity';
 
 @Entity()
 export class Staff {
@@ -13,13 +17,25 @@ export class Staff {
   id: string;
 
   @Column({ nullable: true })
-  name: string;
+  firstName: string;
+
+  @Column({ nullable: true })
+  lastName: string;
 
   @Column({ nullable: true })
   email: string;
 
   @Column({ nullable: true })
   phoneNumber: string;
+
+  @Column({ nullable: true })
+  gender: string;
+
+  @Column({ nullable: true })
+  dob: string;
+
+  @Column({ nullable: true })
+  jobTitle: string;
 
   @Column({
     type: 'enum',
@@ -39,13 +55,33 @@ export class Staff {
   specialization: string;
 
   @Column({ nullable: true })
-  experienceYears: number;
+  avatar: string;
 
-  @Column('text', { array: true, nullable: true })
-  times: string[];
+  @Column({ nullable: true })
+  experienceYears: number;
 
   @Column({ default: true })
   isActive: boolean;
+
+  @Column({ nullable: true })
+  employmentType: string;
+
+  @Column({ nullable: true })
+  startDate: Date;
+
+  @Column('simple-array', { nullable: true })
+  servicesAssigned: string[];
+
+  @OneToMany(() => Service, (service) => service.assignedStaff)
+  services: Service[];
+
+  @OneToMany(() => Address, (address) => address.staff, { cascade: true })
+  addresses: Address[];
+
+  @OneToMany(() => EmergencyContactSchema, (contact) => contact.staff, {
+    cascade: true,
+  })
+  emergencyContacts: EmergencyContactSchema[];
 
   @ManyToOne(() => Business, (business) => business.staff, {
     onDelete: 'CASCADE',

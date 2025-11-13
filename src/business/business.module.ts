@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 
@@ -15,6 +15,7 @@ import { RefreshToken } from './entities/refresh.token.entity';
 import { EmailVerification } from './entities/email-verification.entity';
 import { EmailModule } from '../email/email.module';
 import { Appointment } from './entities/appointment.entity';
+import { BusinessWalletModule } from './wallet.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { Appointment } from './entities/appointment.entity';
     ]),
     JwtModule.register({}),
     EmailModule,
+    forwardRef(() => BusinessWalletModule),
   ],
   controllers: [AuthController, BusinessController],
   providers: [

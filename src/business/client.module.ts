@@ -43,16 +43,14 @@ import { BusinessCloudinaryModule } from './business-cloudinary.module';
 })
 export class ClientModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(FormidableMiddleware)
-      .forRoutes(
-        { path: 'clients', method: RequestMethod.POST },
-        { path: 'clients/client/profile', method: RequestMethod.POST },
-        {
-          path: 'clients/client/update-profile/:clientId',
-          method: RequestMethod.PATCH,
-        },
-      );
+    consumer.apply(FormidableMiddleware).forRoutes(
+      { path: 'clients', method: RequestMethod.POST },
+      { path: 'clients/client/profile', method: RequestMethod.POST },
+      {
+        path: 'clients/client/update-profile/:clientId',
+        method: RequestMethod.PATCH,
+      },
+    );
 
     consumer.apply(ClientProfileValidationMiddleware).forRoutes(
       // POST /clients

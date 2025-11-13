@@ -1,7 +1,18 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { PaymentModeType } from '../enums/wallet.enum';
 
-export type TransactionStatus = 'pending' | 'successful' | 'failed' | 'refunded' | 'disputed';
-export type PaymentMethod = 'paypal'; // ✅ Only PayPal now
+export type TransactionStatus =
+  | 'pending'
+  | 'successful'
+  | 'failed'
+  | 'refunded'
+  | 'disputed';
 
 @Entity()
 export class Payment {
@@ -12,13 +23,16 @@ export class Payment {
   client: string; // customer name
 
   @Column()
+  businessId: string;
+
+  @Column()
   business: string;
 
   @Column('decimal', { precision: 10, scale: 2 })
   amount: number;
 
-  @Column()
-  method: PaymentMethod;
+  @Column({ type: 'enum', enum: PaymentModeType, nullable: true })
+  method: PaymentModeType;
 
   @Column({ default: 'pending' })
   status: TransactionStatus;
@@ -30,7 +44,7 @@ export class Payment {
   refundType?: string;
 
   @Column({ nullable: true })
-  reason?: string ;
+  reason?: string;
 
   @Column({ nullable: true })
   gatewayTransactionId: string;

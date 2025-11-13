@@ -70,6 +70,9 @@ async function bootstrap() {
     '/api/auth/reset-password/finish',
     '/api/auth/business/login',
     '/api/auth/business/otp/request',
+    '/api/webhook/paystack',
+    '/api/webhook/paypal',
+    '/api/payments/verify',
     // Add other public routes here
   ];
 

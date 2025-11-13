@@ -8,6 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { ClientSchema } from './client.entity';
+import { Staff } from './staff.entity';
 
 @Entity('emergency_contacts')
 export class EmergencyContactSchema {
@@ -44,4 +45,10 @@ export class EmergencyContactSchema {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @ManyToOne(() => Staff, (staff) => staff.emergencyContacts, {
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'staff_id' })
+  staff: Staff;
 }
