@@ -13,9 +13,10 @@ import { User } from 'src/all_user_entities/user.entity';
 import { BookingPolicies } from './booking-policies.entity';
 import { BookingDay } from './booking-day.entity';
 import { CompanySize } from '../types/constants';
-
-import { Appointment } from './appointment.entity';
-import { Staff } from './staff.entity';
+import {Appointment} from "./appointment.entity";
+import {Staff} from "./staff.entity";
+import {BlockedTimeSlot} from "./blocked-time-slot.entity";
+import {Service} from "./Service.entity";
 
 export enum BusinessStatus {
   PENDING = 'pending',
@@ -66,6 +67,12 @@ export class Business {
 
   @Column('text', { array: true, default: [] })
   services: string[];
+
+  @OneToMany(() => Service, (service) => service.business, {
+    cascade: true,
+    eager: true,
+  })
+  service: Service[];
 
   @Column({ nullable: true })
   category?: string;
@@ -130,6 +137,9 @@ export class Business {
     completionRate: number;
     avgResponseMins: number;
   };
+
+  @OneToMany(() => BlockedTimeSlot, slot => slot.business, { cascade: true })
+  blockedSlots: BlockedTimeSlot[];
 
   @CreateDateColumn()
   createdAt: Date;

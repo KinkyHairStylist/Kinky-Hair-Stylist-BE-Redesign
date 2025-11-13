@@ -14,17 +14,18 @@ import { Business } from './entities/business.entity';
 import { RefreshToken } from './entities/refresh.token.entity';
 import { EmailVerification } from './entities/email-verification.entity';
 import { EmailModule } from '../email/email.module';
-import { Appointment } from './entities/appointment.entity';
+import {Appointment} from "./entities/appointment.entity";
+import {Staff} from "./entities/staff.entity";
+import {BlockedTimeSlot} from "./entities/blocked-time-slot.entity";
+import {BookingDay} from "./entities/booking-day.entity";
+import {Service} from "./entities/Service.entity";
+import {AdvertisementPlan} from "./entities/advertisement-plan.entity";
+// import {EmergencyContact} from "./entities/emergency-contact.entity";
+import {Address} from "./entities/address.entity";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      User,
-      Business,
-      RefreshToken,
-      EmailVerification,
-      Appointment,
-    ]),
+    TypeOrmModule.forFeature([User,Address,AdvertisementPlan, Business, RefreshToken, EmailVerification,Appointment,Staff,BlockedTimeSlot,BookingDay,Service]),
     JwtModule.register({}),
     EmailModule,
   ],

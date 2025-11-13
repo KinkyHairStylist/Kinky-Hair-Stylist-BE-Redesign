@@ -3,20 +3,56 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { Express } from 'express';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from 'src/all_user_entities/user.entity';
-import { UpdateUserProfileDto } from '../dtos/update-profile.dto';
+import { UpdateUserProfileDto, ChangePasswordDto } from '../dtos/update-profile.dto';
 import { CloudinaryService } from './cloudinary.service';
+import { PasswordHashingHelper } from '../../helpers/password-hashing.helper';
+import sgMail from '@sendgrid/mail';
 
 @Injectable()
 export class UserProfileService {
+  private fromEmail: string;
   constructor(
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly cloudinaryService: CloudinaryService,
-  ) {}
+  ) {
+      const apiKey = process.env.SENDGRID_API_KEY;
+      const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+
+      if (!apiKey || !fromEmail) {
+        throw new Error('SENDGRID_API_KEY and SENDGRID_FROM_EMAIL must be set');
+      }
+          
+      sgMail.setApiKey(apiKey);
+      this.fromEmail = fromEmail;
+    }
+
+  private generateCode(): string {
+    return Math.floor(10000 + Math.random() * 90000).toString();
+  }
+
+  private async sendPasswordChangedEmail(email: string): Promise<void> {
+    const msg = {
+      to: email,
+      from: this.fromEmail,
+      subject: 'Your Password Was Changed',
+      text: `Your password was successfully changed. If this wasn't you, please contact support immediately.`,
+    };
+    await sgMail.send(msg);
+  }
+
+  private async sendAccountDeletedEmail(email: string): Promise<void> {
+    const msg = {
+      to: email,
+      from: this.fromEmail,
+      subject: 'Account Deleted Confirmation',
+      text: `Your account has been deleted successfully. If this action was not initiated by you, please contact support immediately.`,
+    };
+    await sgMail.send(msg);
+  }
 
   async getProfile(user: User): Promise<User> {
     const foundUser = await this.userRepo.findOne({ where: { id: user.id } });
@@ -58,4 +94,59 @@ export class UserProfileService {
 
     return { message: 'Avatar deleted successfully' };
   }
+  async changePassword(user: User, dto: ChangePasswordDto) {
+    const { currentPassword, newPassword } = dto;
+  
+    // Fetch full user using ID from JWT payload
+    const existingUser = await this.userRepo.findOne({
+      where: { id: user.id },
+    });
+  
+    if (!existingUser) {
+      throw new BadRequestException('User not found');
+    }
+  
+    if (!existingUser.password) {
+      throw new BadRequestException(
+        'Password change not allowed for this account',
+      );
+    }
+  
+    // Compare current password
+    const isValid = await PasswordHashingHelper.comparePassword(
+      currentPassword,
+      existingUser.password,
+    );
+  
+    if (!isValid) {
+      throw new BadRequestException('Current password is incorrect');
+    }
+  
+    // Hash and save new password
+    existingUser.password = await PasswordHashingHelper.hashPassword(newPassword);
+    await this.userRepo.save(existingUser);
+  
+    // Ensure email exists before sending notification
+    if (!existingUser.email) {
+      throw new BadRequestException('Email is required to send password update notification');
+    }
+  
+    // Send email notification
+    await this.sendPasswordChangedEmail(existingUser.email);
+  
+    return { message: 'Password changed successfully' };
+  }
+  
+    async permanentlyDeleteAccount(user: User) {
+      const fullUser = await this.userRepo.findOne({
+        where: { id: user.id },
+      });
+      if (!fullUser) {
+        throw new NotFoundException('User not found');
+      }
+      await this.sendAccountDeletedEmail(fullUser.email);
+      await this.userRepo.remove(fullUser);
+      return { message: 'Account permanently removed' };
+    }
+  
 }

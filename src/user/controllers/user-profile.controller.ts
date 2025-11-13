@@ -19,7 +19,7 @@ import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
 import { GetUser } from 'src/middleware/get-user.decorator';
 import { User } from 'src/all_user_entities/user.entity';
 import { UserProfileService } from '../services/user-profile.service';
-import { UpdateUserProfileDto } from '../dtos/update-profile.dto';
+import { UpdateUserProfileDto, ChangePasswordDto } from '../dtos/update-profile.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { fileUploadOptions } from 'src/middleware/file-upload.middleware';
 
@@ -69,5 +69,21 @@ export class UserProfileController {
   @ApiOperation({ summary: 'Delete user avatar from Cloudinary' })
   async deleteAvatar(@GetUser() user: User) {
     return this.userProfileService.deleteAvatar(user);
+  }
+
+  @Put('/change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Change account password' })
+  async changePassword(@GetUser() user: User, @Body() dto: ChangePasswordDto) {
+    return this.userProfileService.changePassword(user, dto);
+  }
+
+  @Delete('/delete-account-permanently')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Delete user account (permanently)' })
+  async deleteAccountPermanently(@GetUser() user: User) {
+    return this.userProfileService.permanentlyDeleteAccount(user);
   }
 }
