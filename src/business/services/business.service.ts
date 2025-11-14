@@ -27,10 +27,60 @@ export class BusinessService {
    * @param owner The user entity of the business owner.
    * @returns The created business entity.
    */
+  // async create(
+  //   createBusinessDto: CreateBusinessDto,
+  //   owner: User,
+  // ): Promise<Business> {
+  //   const business = this.businessRepo.create({
+  //     ...createBusinessDto,
+  //     owner,
+  //   });
+
+  //   business.ownerName = owner?.firstName + ' ' + owner?.surname || '';
+  //   business.ownerEmail = owner?.email || '';
+  //   business.ownerPhone = owner?.phoneNumber || '';
+
+  //   await this.businessRepo.save(business);
+
+  //   // Automatically create wallet
+  //   await this.walletService.createWalletForBusiness({
+  //     businessId: business.id,
+  //     ownerId: owner.id,
+  //     currency: WalletCurrency.AUD,
+  //   });
+
+  //   return business;
+  // }
+
   async create(
     createBusinessDto: CreateBusinessDto,
     owner: User,
   ): Promise<Business> {
+    // Check if a business already exists for this owner
+    const existingBusiness = await this.businessRepo.findOne({
+      where: { owner: { id: owner.id } },
+    });
+
+    if (existingBusiness) {
+      console.log(
+        `⚠️ Business already exists for owner ${owner.id}. Skipping creation.`,
+      );
+
+      // Just create wallet if missing
+      // const existingWallet = await this.walletService.getWalletByBusinessId(
+      //   existingBusiness.id,
+      // );
+
+      await this.walletService.createWalletForBusiness({
+        businessId: existingBusiness.id,
+        ownerId: owner.id,
+        currency: WalletCurrency.AUD,
+      });
+
+      return existingBusiness;
+    }
+
+    // If no existing business, create a new one
     const business = this.businessRepo.create({
       ...createBusinessDto,
       owner,
@@ -48,6 +98,8 @@ export class BusinessService {
       ownerId: owner.id,
       currency: WalletCurrency.AUD,
     });
+
+    console.log(`✅ Created new business and wallet.`);
 
     return business;
   }

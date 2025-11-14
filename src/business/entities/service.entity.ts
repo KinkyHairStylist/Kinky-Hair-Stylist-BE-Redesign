@@ -38,11 +38,15 @@ export class Service {
   @ManyToOne(() => Business, (business) => business.service)
   business: Business;
 
+  @Column({ type: 'uuid', nullable: true })
+  assignedStaffId: string;
+
   @ManyToOne(() => Staff, (staff) => staff.services, {
     onDelete: 'SET NULL',
     nullable: true,
     eager: true,
   })
+  @JoinColumn({ name: 'assignedStaffId' })
   assignedStaff: Staff;
 
   @CreateDateColumn()

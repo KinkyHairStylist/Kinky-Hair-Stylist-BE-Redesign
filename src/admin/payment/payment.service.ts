@@ -260,7 +260,15 @@ export class PaymentService {
   async createPaystackPayment(
     dto: CreatePaymentDto,
   ): Promise<PayStackPaymentResponse> {
-    const { client, businessId, customerEmail, business, amount, method } = dto;
+    const {
+      client,
+      businessId,
+      customerEmail,
+      description,
+      business,
+      amount,
+      method,
+    } = dto;
 
     // Validation
     if (!customerEmail) {
@@ -319,6 +327,7 @@ export class PaymentService {
         method,
         status: 'pending', // ✅ Starts as pending
         fee: 0,
+        reason: description,
         gatewayTransactionId: reference,
       } as Partial<Payment>);
 
@@ -353,11 +362,19 @@ export class PaymentService {
     }
 
     if (existingPayment.status === 'successful') {
-      return { payment: existingPayment, message: 'Payment already verified' };
+      return {
+        success: true,
+        payment: existingPayment,
+        message: 'Payment already verified',
+      };
     }
 
     if (existingPayment.status === 'failed') {
-      return { payment: existingPayment, message: 'Payment already failed' };
+      return {
+        uccess: false,
+        payment: existingPayment,
+        message: 'Payment already failed',
+      };
     }
 
     let savedPayment;
@@ -382,15 +399,19 @@ export class PaymentService {
 
         savedPayment = await this.paymentRepo.save(existingPayment);
 
-        const { amount } = verifyResponse.data.data;
+        const { amount, channel, currency } = verifyResponse.data.data;
 
         await this.businessWalletService.addFunds({
           amount,
           businessId: existingPayment.businessId,
-          description: `Payment from Customer: ${existingPayment.client}`,
+          description:
+            existingPayment.reason ||
+            `Payment from Customer: ${existingPayment.client}`,
           type: 'credit',
           referenceId: reference,
           customerName: existingPayment.client,
+          mode: channel,
+          currency,
         });
 
         this.logger.log(`Payment mark as Success: ${reference}`);

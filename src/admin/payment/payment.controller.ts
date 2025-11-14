@@ -66,10 +66,12 @@ export class PaymentController {
 
         return {
           success: true,
-          authorizationUrl: result.authorizationUrl,
-          reference: result.reference,
-          payment: result.payment,
-          message: 'Redirect user to authorization URL to complete payment',
+          data: {
+            authorizationUrl: result.authorizationUrl,
+            reference: result.reference,
+            payment: result.payment,
+          },
+          message: 'Proceeding to Checkout to complete payment',
         };
       }
     } catch (error) {

@@ -8,6 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Wallet } from './wallet.entity';
+import { WalletCurrency } from 'src/admin/payment/enums/wallet.enum';
 
 // Transaction Entity (referenced by Wallet)
 @Entity('transactions')
@@ -29,6 +30,9 @@ export class Transaction {
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   customerName: string;
+
+  @Column({ type: 'enum', enum: WalletCurrency, nullable: true })
+  currency: WalletCurrency;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   service: string;

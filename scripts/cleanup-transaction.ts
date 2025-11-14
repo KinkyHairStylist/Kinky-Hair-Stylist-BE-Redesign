@@ -29,12 +29,14 @@ const cleanup = async () => {
     console.log('✅ Connected!');
 
     // Check count
-    const countRes = await client.query('SELECT COUNT(*) FROM payment_methods');
-    console.log(`📊 Found ${countRes.rows[0].count} payment_methods`);
+    const countRes = await client.query(
+      'SELECT COUNT(*) FROM business_wallets',
+    );
+    console.log(`📊 Found ${countRes.rows[0].count} business_wallets`);
 
     // Delete
     console.log('🗑  Deleting...');
-    await client.query('DELETE FROM payment_methods');
+    await client.query('DELETE FROM business_wallets');
     console.log('✅ Deleted!');
 
     await client.end();

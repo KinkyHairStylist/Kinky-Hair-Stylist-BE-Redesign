@@ -20,6 +20,10 @@ export class CreatePaymentDto {
   @IsEmail()
   customerEmail: string;
 
+  @IsOptional()
+  @IsString()
+  description: string;
+
   @IsString()
   @MinLength(1)
   business: string;

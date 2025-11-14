@@ -37,13 +37,18 @@ export class AddTransactionDto {
   @IsNumber()
   amount: number;
 
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  currency?: WalletCurrency;
+
   @IsString()
   @MinLength(1)
   type: 'credit' | 'debit';
 
   @IsString()
   @MinLength(1)
-  description: string;
+  description?: string;
 
   @IsString()
   @MinLength(1)

@@ -10,6 +10,7 @@ export enum WalletCurrency {
   EUR = 'EUR',
   AUD = 'AUD',
   GBP = 'GBP',
+  NGN = 'NGN',
 }
 
 export enum PaymentMethodType {

@@ -5,12 +5,14 @@ import {
   HttpException,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Put,
   Request,
 } from '@nestjs/common';
 import {
   AddPaymentMethodDto,
+  AddTransactionDto,
   CreateWalletDto,
 } from '../dtos/requests/WalletDto';
 import { BusinessWalletService } from '../services/wallet.service';
@@ -146,5 +148,37 @@ export class BusinessWalletController {
     }
 
     return result;
+  }
+
+  @Patch('/debit')
+  async debitWallet(
+    @Request() req,
+    @Body() debitWalletData: AddTransactionDto,
+  ) {
+    const ownerId = req.user.sub || req.user.userId;
+
+    if (!ownerId) {
+      throw new HttpException(
+        'User not authenticated',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    try {
+      const result = await this.walletService.deductFunds(debitWalletData);
+
+      return {
+        success: true,
+        data: result,
+        message: 'Business Wallet debited successfully',
+      };
+    } catch (error) {
+      console.log('Failed to debit business wallet error:', error);
+      return {
+        success: false,
+        error: error.message,
+        message: `Failed to debit business wallet: ${error.message}`,
+      };
+    }
   }
 }
