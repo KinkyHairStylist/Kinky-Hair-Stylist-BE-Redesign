@@ -1,16 +1,55 @@
-import { IsEnum, IsNotEmpty, IsNumber, IsString } from 'class-validator';
-import type { PaymentMethod } from '../entities/payment.entity';
+import {
+  IsEmail,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MinLength,
+} from 'class-validator';
 
 export class CreatePaymentDto {
   @IsString()
+  @MinLength(1)
   client: string;
 
+  @IsUUID()
+  businessId: string;
+
+  @IsOptional()
+  @IsEmail()
+  customerEmail: string;
+
+  @IsOptional()
   @IsString()
+  description: string;
+
+  @IsString()
+  @MinLength(1)
   business: string;
 
   @IsNumber()
   amount: number;
 
-  @IsEnum(['paypal'])
-  method: PaymentMethod;
+  @IsString()
+  method: string;
+}
+
+export interface PaymentResponse {
+  payment: any;
+  approvalUrl: string;
+  orderId: string;
+}
+
+export interface PayStackPaymentResponse {
+  payment: any;
+  authorizationUrl: string;
+  reference: string;
+}
+
+export interface CaptureResponse {
+  captureId: string;
+  status: string;
+  amount: number;
+  businessId: string;
 }

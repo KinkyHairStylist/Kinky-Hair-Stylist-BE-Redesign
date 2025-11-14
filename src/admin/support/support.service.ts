@@ -28,7 +28,10 @@ export class SupportService {
     return ticket;
   }
 
-  async replyToTicket(id: string, body: { sender: 'user' | 'admin'; text: string }) {
+  async replyToTicket(
+    id: string,
+    body: { sender: 'user' | 'admin'; text: string },
+  ) {
     const ticket = await this.getTicketDetails(id);
     const message = this.msgRepo.create({
       sender: body.sender,
@@ -105,10 +108,7 @@ export class SupportService {
           '';
 
         const sender =
-          payload.message?.sender ||
-          payload.sender ||
-          payload.from ||
-          'user';
+          payload.message?.sender || payload.sender || payload.from || 'user';
 
         // Save message
         const msg = this.msgRepo.create({
