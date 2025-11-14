@@ -13,7 +13,6 @@ import { User } from 'src/all_user_entities/user.entity';
 import { BookingPolicies } from './booking-policies.entity';
 import { BookingDay } from './booking-day.entity';
 import { CompanySize } from '../types/constants';
-
 import { Appointment } from './appointment.entity';
 import { Staff } from './staff.entity';
 import { BlockedTimeSlot } from './blocked-time-slot.entity';
@@ -73,6 +72,12 @@ export class Business {
   @Column('text', { array: true, default: [] })
   services: string[];
 
+  @OneToMany(() => Service, (service) => service.business, {
+    cascade: true,
+    eager: true,
+  })
+  service: Service[];
+
   @Column({ nullable: true })
   category?: string;
 
@@ -102,12 +107,6 @@ export class Business {
 
   @Column('text', { array: true, default: [] })
   howDidYouHear: string[];
-
-  @OneToMany(() => Service, (service) => service.business, {
-    cascade: true,
-    eager: true,
-  })
-  service: Service[];
 
   @Column({
     type: 'enum',

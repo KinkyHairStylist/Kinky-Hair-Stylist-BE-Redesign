@@ -24,13 +24,13 @@ export class AdvertisementPlan {
   features: string[];
 
   @Column({ nullable: true })
-  payable: string; // e.g. "30 days", "90 days"
+  payable: string;
 
   @Column({ default: false })
   isRecommended: boolean;
 
   @Column({ nullable: true })
-  boost: string; // e.g. "4x boost"
+  boost: string;
 
   @CreateDateColumn()
   createdAt: Date;

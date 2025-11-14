@@ -27,6 +27,8 @@ import { CardModule } from './user/modules/card.module';
 import { ModerationModule } from './admin/moderation/moderation.module';
 import { SupportModule } from './admin/support/support.module';
 import { PlatformSettingsModule } from './admin/platform-settings/platform-settings.module';
+import { NotificationSettingsModule } from './user/modules/notification-settings.module';
+
 import { ClientModule } from './business/client.module';
 import { UserModule } from './user/modules/user.module';
 import { ReminderModule } from './business/reminder.module';
@@ -81,6 +83,7 @@ import { WebhookModule } from './webhook/webhook.module';
     ModerationModule,
     SupportModule,
     PlatformSettingsModule,
+    NotificationSettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService, AuthMiddleware],

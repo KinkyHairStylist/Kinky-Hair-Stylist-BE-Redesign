@@ -17,7 +17,10 @@ import { BusinessService } from '../services/business.service';
 import { CreateBusinessDto } from '../dtos/requests/CreateBusinessDto';
 import { BookingPoliciesData, BusinessServiceData } from '../types/constants';
 import { Public } from '../middlewares/public.decorator';
-import { GetAvailableSlotsDto } from '../dtos/requests/GetAvailableSlotsDto';
+import {GetAvailableSlotsDto} from "../dtos/requests/GetAvailableSlotsDto";
+import {CreateBlockedTimeDto} from "../dtos/requests/CreateBlockedTimeDto";
+import {CreateServiceDto} from "../dtos/requests/CreateServiceDto";
+import {CreateStaffDto} from "../dtos/requests/AddStaffDto";
 
 interface RequestWithUser extends Request {
   user: User;
@@ -36,19 +39,39 @@ export class BusinessController {
 
   // @Post('createBooking')
 
-  // @Post('available-slots/:businessId')
-  // async getAvailableSlots(
-  //     @Param('businessId') businessId: string,
-  //     @Body() body: GetAvailableSlotsDto,
-  // ) {
-  //   if (!body?.date) throw new BadRequestException('date is required in body (YYYY-MM-DD)');
-  //   const slots = await this.businessService.getAvailableSlots(businessId, body.date);
-  //   return { date: body.date, slots };
-  // }
+  @Post('available-slots/:businessId')
+  async getAvailableSlots(
+      @Param('businessId') businessId: string,
+      @Body() body: GetAvailableSlotsDto,
+  ) {
+    if (!body?.date) throw new BadRequestException('date is required in body (YYYY-MM-DD)');
+    // const slots = await this.businessService.getAvailableSlots(businessId, body.date);
+    // return { date: body.date, slots };
+  }
 
   @Get('getBooking/:id')
   async getBooking(@Param('id') id: string) {
     return this.businessService.getBooking(id);
+  }
+
+  @Post('deleteBlockedSlot/:id')
+  async deleteBlockedSlot(
+      @Param('id') id: string,
+  ) {
+
+    return this.businessService.deleteBlockedSlot( id);
+  }
+
+  @Post('addStaff')
+  async addStaff(@Req() req:RequestWithUser, @Body() body: CreateStaffDto) {
+    const userMail = req.user.email;
+    return this.businessService.addStaff(userMail,body)
+  }
+
+  @Get('getBlockedSlots')
+  async getBlockedSlots(@Req() req:RequestWithUser) {
+    const user = req.user.email;
+    return this.businessService.getBlockedSlots(user);
   }
 
   @Post('acceptBooking/:id')
@@ -62,9 +85,7 @@ export class BusinessController {
   }
 
   @Post('rescheduleBooking')
-  async rescheduleBooking(
-    @Body() body: { id: string; reason: string; date: string; time: string },
-  ) {
+  async rescheduleBooking(@Body() body:{id:string,reason:string,date:string,time:string}) {
     return this.businessService.rescheduleBooking(body);
   }
 

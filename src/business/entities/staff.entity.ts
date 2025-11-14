@@ -11,16 +11,22 @@ import { Service } from './service.entity';
 import { Address } from './address.entity';
 import { EmergencyContactSchema } from './emergency-contact.entity';
 
+// import { Service } from "./Service.entity";
+// import { Address } from "./address.entity";
+// import { EmergencyContact } from "./emergency-contact.entity";
+
 @Entity()
 export class Staff {
   @PrimaryGeneratedColumn('uuid')
   id: string;
-
   @Column({ nullable: true })
   firstName: string;
 
   @Column({ nullable: true })
   lastName: string;
+
+  @Column()
+  name: string;
 
   @Column({ nullable: true })
   email: string;
@@ -59,6 +65,9 @@ export class Staff {
 
   @Column({ nullable: true })
   experienceYears: number;
+
+  @Column('text', { array: true, nullable: true })
+  times: string[];
 
   @Column({ default: true })
   isActive: boolean;

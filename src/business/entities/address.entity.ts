@@ -1,10 +1,8 @@
 import {
   Entity,
-  Column,
   PrimaryGeneratedColumn,
+  Column,
   ManyToOne,
-  CreateDateColumn,
-  UpdateDateColumn,
   JoinColumn,
 } from 'typeorm';
 import { Staff } from './staff.entity';

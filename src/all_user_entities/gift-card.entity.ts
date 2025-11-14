@@ -23,7 +23,11 @@ export class GiftCard {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => User, { eager: true })
+  @ManyToOne(() => User, {
+    eager: true,
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   sender: User;
 
   @Column()
