@@ -131,4 +131,17 @@ export class User {
 
   @OneToOne(() => UserNotificationSettings, (settings) => settings.user)
   notificationSettings: UserNotificationSettings;
+
+  @Column({ default: false })
+  isSuperAdmin: boolean;
+
+  @Column({ default: false })
+  isAdmin: boolean;
+
+  @Column({ default: false })
+  isBusiness: boolean;
+
+  @Column({ default: true })
+  isClient: boolean;
+
 }
