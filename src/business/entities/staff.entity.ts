@@ -7,13 +7,10 @@ import {
   OneToMany,
 } from 'typeorm';
 import { Business } from './business.entity';
-import { Service } from './service.entity';
 import { Address } from './address.entity';
 import { EmergencyContactSchema } from './emergency-contact.entity';
 
-// import { Service } from "./Service.entity";
-// import { Address } from "./address.entity";
-// import { EmergencyContact } from "./emergency-contact.entity";
+import { Service } from './service.entity';
 
 @Entity()
 export class Staff {

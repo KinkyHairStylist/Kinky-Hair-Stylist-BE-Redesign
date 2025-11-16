@@ -11,7 +11,7 @@ import { Business } from './business.entity';
 import { Staff } from './staff.entity';
 import { AdvertisementPlan } from './advertisement-plan.entity';
 
-@Entity('Service')
+@Entity('service')
 export class Service {
   @PrimaryGeneratedColumn('uuid')
   id: string;
