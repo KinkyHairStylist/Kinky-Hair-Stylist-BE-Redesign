@@ -3,7 +3,6 @@ import {
   NotFoundException,
   BadRequestException,
   InternalServerErrorException,
-  HttpException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -15,15 +14,12 @@ import {
   CreateWalletDto,
 } from '../dtos/requests/WalletDto';
 import { ApiResponse } from '../types/client.types';
-import { UserService } from 'src/user/services/user.service';
-import { User } from 'src/all_user_entities/user.entity';
 import { Transaction } from '../entities/transaction.entity';
 import {
   PaymentMethodType,
   WalletCurrency,
   WalletStatus,
 } from 'src/admin/payment/enums/wallet.enum';
-import { Business } from '../entities/business.entity';
 
 @Injectable()
 export class BusinessWalletService {
@@ -34,9 +30,6 @@ export class BusinessWalletService {
     private transactionRepository: Repository<Transaction>,
     @InjectRepository(PaymentMethod)
     private paymentMethodRepository: Repository<PaymentMethod>,
-    @InjectRepository(Business)
-    private businessRepository: Repository<Business>,
-    private readonly userService: UserService,
   ) {}
 
   async createWalletForBusiness(
@@ -272,7 +265,7 @@ export class BusinessWalletService {
         wallet.balance =
           Number(wallet.balance) + Number(addTransactionDto.amount / 100);
         wallet.totalIncome =
-          Number(wallet.totalIncome) + Number(addTransactionDto.amount);
+          Number(wallet.totalIncome) + Number(addTransactionDto.amount / 100);
 
         console.log(`WALLET CREDITED ${addTransactionDto.amount / 100}`);
       } else {

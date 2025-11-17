@@ -347,6 +347,67 @@ export class PaymentService {
     }
   }
 
+  async verifyPaystackWebhookPayment(
+    reference: string,
+    retryCount = 0,
+    maxRetries = 6, // 6 retries → 60 seconds max
+  ): Promise<any> {
+    if (!reference) {
+      throw new BadRequestException('Provide a valid transaction reference');
+    }
+
+    const existingPayment = await this.paymentRepo.findOne({
+      where: { gatewayTransactionId: reference },
+    });
+
+    if (!existingPayment) {
+      throw new InternalServerErrorException('No existing payment record');
+    }
+
+    // If payment already decided → return immediately
+    if (existingPayment.status === 'successful') {
+      return {
+        success: true,
+        payment: existingPayment,
+        message: 'Payment already verified',
+      };
+    }
+
+    if (existingPayment.status === 'failed') {
+      return {
+        success: false,
+        payment: existingPayment,
+        message: 'Payment already failed',
+      };
+    }
+
+    // If status is pending → retry logic
+    if (existingPayment.status === 'pending') {
+      if (retryCount >= maxRetries) {
+        return {
+          success: false,
+          payment: existingPayment,
+          message: 'Payment could not be verified after multiple attempts',
+        };
+      }
+
+      // Wait 10 seconds before retry
+      await new Promise((res) => setTimeout(res, 10000));
+
+      return this.verifyPaystackWebhookPayment(
+        reference,
+        retryCount + 1,
+        maxRetries,
+      );
+    }
+
+    return {
+      success: false,
+      payment: existingPayment,
+      message: 'Unknown payment status',
+    };
+  }
+
   async verifyPaystackPayment(reference: string): Promise<any> {
     // Validation
     if (!reference) {

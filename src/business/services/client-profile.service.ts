@@ -8,12 +8,15 @@ import {
   BusinessCloudinaryService,
   FileUpload,
 } from './business-cloudinary.service';
+import { Business } from '../entities/business.entity';
 
 @Injectable()
 export class ClientProfileService {
   constructor(
     @InjectRepository(ClientSchema)
     private readonly clientRepo: Repository<ClientSchema>,
+    @InjectRepository(Business)
+    private readonly businessRepo: Repository<Business>,
     private readonly businessCloudinaryService: BusinessCloudinaryService,
   ) {}
 
@@ -23,6 +26,17 @@ export class ClientProfileService {
     bodyProfileImage: FileUpload,
   ): Promise<ApiResponse<Client>> {
     try {
+      const business = await this.businessRepo.findOne({
+        where: { ownerId },
+      });
+      if (!business) {
+        return {
+          success: false,
+          error: 'Business not found',
+          message: 'No business found for this user',
+        };
+      }
+
       const existingClient = await this.clientRepo.findOne({
         where: { email: profileData.email },
       });
@@ -45,13 +59,12 @@ export class ClientProfileService {
 
       if (bodyProfileImage) {
         try {
-          const { profileImageUrl } =
-            await this.businessCloudinaryService.uploadClientProfileImage(
-              bodyProfileImage,
-              folderPath,
-            );
+          const { imageUrl } = await this.businessCloudinaryService.uploadImage(
+            bodyProfileImage,
+            folderPath,
+          );
 
-          profileImage = profileImageUrl;
+          profileImage = imageUrl;
         } catch (error) {
           return {
             success: false,
@@ -201,6 +214,21 @@ export class ClientProfileService {
           error: 'Profile validation failed',
           data: false,
           message: `Missing required fields: ${missingFields.join(', ')}`,
+        };
+      }
+
+      const existingClient = await this.clientRepo.findOne({
+        where: {
+          email: profileData.email,
+          isActive: true,
+        },
+      });
+      if (existingClient) {
+        return {
+          success: false,
+          error: 'Email already exists',
+          data: false,
+          message: 'You already have a client with this email',
         };
       }
 

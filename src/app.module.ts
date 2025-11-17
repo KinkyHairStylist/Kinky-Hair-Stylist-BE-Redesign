@@ -38,6 +38,8 @@ import { ReviewModule } from './business/review.module';
 import { CommunicationModule } from './business/communication.module';
 import { BusinessWalletModule } from './business/wallet.module';
 import { WebhookModule } from './webhook/webhook.module';
+import { InventoryModule } from './marketplace/inventory.module';
+import { ProductModule } from './marketplace/product.module';
 
 @Module({
   imports: [
@@ -84,6 +86,8 @@ import { WebhookModule } from './webhook/webhook.module';
     SupportModule,
     PlatformSettingsModule,
     NotificationSettingsModule,
+    ProductModule,
+    InventoryModule,
   ],
   controllers: [AppController],
   providers: [AppService, AuthMiddleware],
