@@ -65,6 +65,7 @@ async function bootstrap() {
     '/api/auth/resend-code',
     '/api/auth/signup',
     '/api/auth/login',
+    '/api/admin/auth/login',
     '/api/auth/reset-password/start',
     '/api/auth/reset-password/verify',
     '/api/auth/reset-password/finish',

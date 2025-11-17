@@ -50,17 +50,17 @@ export class PaymentService {
     const paystackAcessKey = process.env.PAYSTACK_SECRET_KEY!;
     const paystackBaseUrl = process.env.PAYSTACK_BASE_URL!;
 
-    if (!paypalBaseUrl || !clientId || !clientSecret || !frontendUrl) {
-      throw new Error('PAYMENT PAYPAL CREDENTIALS must be set');
-    }
+    // if (!paypalBaseUrl || !clientId || !clientSecret || !frontendUrl) {
+    //   throw new Error('PAYMENT PAYPAL CREDENTIALS must be set');
+    // }
 
-    if (!paystackAcessKey || !paystackBaseUrl) {
-      throw new Error('PAYMENT PAYSTACK CREDENTIALS must be set');
-    }
+    // if (!paystackAcessKey || !paystackBaseUrl) {
+    //   throw new Error('PAYMENT PAYSTACK CREDENTIALS must be set');
+    // }
 
-    this.paypalBaseUrl = paypalBaseUrl;
-    this.frontendUrl = frontendUrl;
-    this.clientId = clientId;
+    // this.paypalBaseUrl = paypalBaseUrl;
+    // this.frontendUrl = frontendUrl;
+    // this.clientId = clientId;
     this.clientSecret = clientSecret;
 
     this.paystackAcessKey = paystackAcessKey;
