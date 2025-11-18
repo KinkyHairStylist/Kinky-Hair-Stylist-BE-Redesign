@@ -18,6 +18,7 @@ import { Staff } from './staff.entity';
 import { BlockedTimeSlot } from './blocked-time-slot.entity';
 import { Service } from './service.entity';
 import { Wallet } from './wallet.entity';
+import { GiftCard } from '../../all_user_entities/gift-card.entity';
 
 export enum BusinessStatus {
   PENDING = 'pending',
@@ -152,4 +153,9 @@ export class Business {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @OneToMany(() => GiftCard, (giftCard) => giftCard.business, {
+    cascade: true,
+  })
+  giftCards: GiftCard[];
 }

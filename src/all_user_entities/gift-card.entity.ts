@@ -10,6 +10,7 @@ import { randomBytes } from 'crypto';
 
 import { User } from './user.entity';
 import { Card } from './card.entity';
+import { Business } from "../business/entities/business.entity"
 
 export enum GiftCardStatus {
   ACTIVE = 'Active',
@@ -45,6 +46,12 @@ export class GiftCard {
   @Column('decimal', { precision: 10, scale: 2 })
   amount: number;
 
+  @Column({ type: 'float', nullable: true })
+  currentBalance: number;
+
+  @Column({ type: 'date', nullable: true})
+  purchaseDate: string;
+
   @ManyToOne(() => Card, { eager: true })
   card: Card; // Selected payment method
 
@@ -64,12 +71,30 @@ export class GiftCard {
   @CreateDateColumn()
   createdAt: Date;
 
-   @Column({ unique: true })
+  @Column({ unique: true })
   code: string;
+
+  @Column({ nullable: true })
+  comment?: string;
+
+  @ManyToOne(() => Business, (business) => business.giftCards, {
+    onDelete: 'CASCADE',
+    nullable: true,
+    eager: true, // optional
+  })
+  business: Business;
 
   @BeforeInsert()
   generateDefaults() {
     // Generate a 10-character random alphanumeric code
     this.code = randomBytes(5).toString('hex').toUpperCase();
+  }
+
+  @BeforeInsert()
+  setCurrentBalance() {
+    // If currentBalance is not set, use amount
+    if (this.currentBalance === null || this.currentBalance === undefined) {
+      this.currentBalance = Number(this.amount);
+    }
   }
 }

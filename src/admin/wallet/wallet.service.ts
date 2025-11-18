@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Payment } from '../payment/entities/payment.entity';
 import { Withdrawal } from '../withdrawal/entities/withdrawal.entity';
-import { GiftCard } from '../giftcard/entities/giftcard.entity';
+import { GiftCard } from '../../all_user_entities/gift-card.entity';
 
 @Injectable()
 export class WalletService {
@@ -64,10 +64,10 @@ export class WalletService {
 
     const giftCardTx = giftCards.map((g) => ({
       id: g.id,
-      user: g.purchaser.name,
+      user: g.senderName,
       type: 'Earning',
-      amount: Number(g.originalValue),
-      description: `Gift card purchased for ${g.recipient.name}`,
+      amount: Number(g.amount),
+      description: `Gift card purchased for ${g.recipientName}`,
       status: capitalize(g.status),
       balance: Number(g.currentBalance),
       date: g.createdAt.toISOString().split('T')[0],

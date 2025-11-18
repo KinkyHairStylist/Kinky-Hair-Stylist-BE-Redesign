@@ -4,7 +4,7 @@ import { WalletService } from './wallet.service';
 import { WalletController } from './wallet.controller';
 import { Payment } from '../payment/entities/payment.entity';
 import { Withdrawal } from '../withdrawal/entities/withdrawal.entity';
-import { GiftCard } from '../giftcard/entities/giftcard.entity';
+import { GiftCard } from '../../all_user_entities/gift-card.entity';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Payment, Withdrawal, GiftCard])],

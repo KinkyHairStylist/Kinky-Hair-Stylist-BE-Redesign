@@ -10,6 +10,7 @@ import { User } from 'src/all_user_entities/user.entity';
 import { AdminInvite } from '../admin_entities/admin-invite.entity';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { getTokens } from '../../helpers/token.helper';
 import { PasswordHashingHelper } from '../../helpers/password-hashing.helper';
 import sgMail from '@sendgrid/mail';
 import { randomBytes } from 'crypto';
@@ -65,14 +66,16 @@ export class AdminAuthService {
     const valid = user.password && await PasswordHashingHelper.comparePassword(password, user.password);
     if (!valid) throw new UnauthorizedException('Invalid email or password');
 
-    const token = this.jwt.sign(
-      { id: user.id, isAdmin: true },
-      { secret: this.jwtSecret, expiresIn: '1d' },
+    const { accessToken, refreshToken } = await getTokens(
+      this.jwt,
+      user.id,
+      user.email,
     );
 
     return {
       message: 'Admin Login Successful',
-      token,
+      token: accessToken,
+      refreshToken,
     };
   }
 

@@ -1,8 +1,21 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete } from '@nestjs/common';
-import { GiftcardService } from './giftcard.service';
-import { CreateGiftCardDto } from './dto/create-giftcard.dto';
+import { UseGuards, Controller, Get, Post, Body, Param, Patch, Delete } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiTags,
+} from '@nestjs/swagger';
 
-@Controller('giftcards')
+import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
+import { GiftcardService } from './giftcard.service';
+import { CreateGiftCardDto, RefundGiftCardDto } from './dto/create-giftcard.dto';
+import { Roles } from 'src/middleware/roles.decorator';
+import { Role } from 'src/middleware/role.enum';
+import { RolesGuard } from 'src/middleware/roles.guard';
+
+@ApiTags('Admin Gift Card')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Admin, Role.SuperAdmin)
+@Controller('/admin/giftcards')
 export class GiftcardController {
   constructor(private readonly giftcardService: GiftcardService) {}
 
@@ -16,19 +29,32 @@ export class GiftcardController {
     return await this.giftcardService.findAll();
   }
 
+  @Get('summary')
+  async getSummary() {
+    return await this.giftcardService.getSummary();
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return await this.giftcardService.findOne(id);
   }
 
   @Patch(':id/deactivate')
-  async deactivate(@Param('id') id: string) {
-    return await this.giftcardService.deactivateGiftCard(id);
+  async deactivate(@Param('id') id: string, @Body() body: RefundGiftCardDto,) {
+    return await this.giftcardService.deactivateGiftCard(id, body.reason,);
   }
 
   @Patch(':id/refund/:amount')
-  async refund(@Param('id') id: string, @Param('amount') amount: string) {
-    return await this.giftcardService.refundGiftCard(id, parseFloat(amount));
+  async refund(
+    @Param('id') id: string,
+    @Param('amount') amount: string,
+    @Body() body: RefundGiftCardDto,
+  ) {
+    return await this.giftcardService.refundGiftCard(
+      id,
+      parseFloat(amount),
+      body.reason,
+    );
   }
 
   @Get(':id/usage')
@@ -37,8 +63,7 @@ export class GiftcardController {
   }
 
   @Delete('delete-all')
-async deleteAll() {
-  return this.giftcardService.deleteAllGiftCards();
-}
-
+  async deleteAll() {
+    return this.giftcardService.deleteAllGiftCards();
+  }
 }

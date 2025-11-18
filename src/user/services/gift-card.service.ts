@@ -104,8 +104,12 @@ export class GiftCardService {
       throw new BadRequestException('Gift card has expired');
     }
 
+    // Add code to know whether the card get created
+
     giftCard.status = GiftCardStatus.USED;
+    giftCard.currentBalance = 0;
     giftCard.usedAt = now;
+
     await this.giftCardRepo.save(giftCard);
 
     return {

@@ -5,7 +5,7 @@ import { Withdrawal } from './entities/withdrawal.entity';
 import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
 import { UpdateWithdrawalDto } from './dto/update-withdrawal.dto';
 import { ILike } from 'typeorm';
-import { GiftCard } from '../giftcard/entities/giftcard.entity'; // 👈 import giftcard entity
+import { GiftCard } from '../../all_user_entities/gift-card.entity';// 👈 import giftcard entity
 
 @Injectable()
 export class WithdrawalService {
@@ -35,7 +35,7 @@ export class WithdrawalService {
     const businessName = dto.businessName.trim();
 
     const giftcard = await this.giftCardRepo.findOne({
-      where: { business: businessName },
+      where: { business: { businessName: businessName } },
     });
 
     if (!giftcard) {

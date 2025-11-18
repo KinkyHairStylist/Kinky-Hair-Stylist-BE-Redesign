@@ -1,5 +1,6 @@
-import { IsString, IsEmail, IsNumber, IsDateString, ValidateNested } from 'class-validator';
+import { IsNotEmpty, IsString, IsEmail, IsNumber, IsDateString, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ApiProperty } from '@nestjs/swagger';
 
 class PurchaserDto {
   @IsString()
@@ -34,4 +35,14 @@ export class CreateGiftCardDto {
 
   @IsDateString()
   expiryDate: string; // e.g. 2026-12-31
+}
+
+export class RefundGiftCardDto {
+  @ApiProperty({
+    description: 'Reason for refunding the gift card',
+    example: 'Customer requested refund due to mistaken purchase',
+  })
+  @IsNotEmpty()
+  @IsString()
+  reason: string;
 }
