@@ -251,7 +251,7 @@ export class BusinessWalletService {
         type: addTransactionDto.type,
         description: addTransactionDto.description,
         referenceId: addTransactionDto.referenceId,
-        status: 'completed',
+        status: addTransactionDto.type === 'credit' ? 'completed' : 'pending',
         currency: addTransactionDto.currency,
         mode: addTransactionDto.mode,
         customerName: addTransactionDto.customerName,

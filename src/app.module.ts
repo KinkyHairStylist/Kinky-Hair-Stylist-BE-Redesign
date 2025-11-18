@@ -40,6 +40,8 @@ import { BusinessWalletModule } from './business/wallet.module';
 import { WebhookModule } from './webhook/webhook.module';
 import { InventoryModule } from './marketplace/inventory.module';
 import { ProductModule } from './marketplace/product.module';
+import { BusinessGiftCardsModule } from './business/business-giftcard.module';
+import { BusinessOwnerSettingsModule } from './business/business-owner-settings.module';
 
 @Module({
   imports: [
@@ -88,6 +90,8 @@ import { ProductModule } from './marketplace/product.module';
     NotificationSettingsModule,
     ProductModule,
     InventoryModule,
+    BusinessGiftCardsModule,
+    BusinessOwnerSettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService, AuthMiddleware],
