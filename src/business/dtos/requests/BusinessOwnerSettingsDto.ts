@@ -8,8 +8,10 @@ import {
   IsEmail,
   Min,
   Max,
+  IsDate,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { Gender } from 'src/business/types/constants';
 
 export class ReminderRuleDto {
   @IsString()
@@ -126,6 +128,92 @@ export class ClientManagementDto {
   reportRecipients?: string[];
 }
 
+export class OnlinePresenceDto {
+  @IsBoolean()
+  @IsOptional()
+  enableOnlineBooking?: boolean;
+
+  @IsString()
+  @IsOptional()
+  bookingPageUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  websiteEmbedCode?: string;
+
+  @IsString()
+  @IsOptional()
+  seoBusinessDescription?: string;
+
+  @IsString()
+  @IsOptional()
+  seoPrimaryColor?: string;
+
+  @IsString()
+  @IsOptional()
+  seoAccentColor?: string;
+}
+
+export class PricingPoliciesDto {
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  cancellationWindow?: number;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  cancellationFee?: number;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  noShowFee?: number;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  depositPercentageRequired?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  depositRequired?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  acceptCardPayment?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  acceptCashPayment?: boolean;
+
+  @IsString()
+  @IsOptional()
+  cancellationPolicyText?: string;
+
+  @IsString()
+  @IsOptional()
+  noShowFeeType?: string;
+
+  @IsString()
+  @IsOptional()
+  cancellationFeeType?: string;
+}
+
+export class IntegrationsDto {
+  @IsBoolean()
+  @IsOptional()
+  googleCalendar?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  mailChimp?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  quickBooks?: boolean;
+}
+
 export class CreateBusinessOwnerSettingsDto {
   @IsString()
   businessId: string;
@@ -161,4 +249,80 @@ export class UpdateBusinessOwnerSettingsDto {
   @Type(() => ClientManagementDto)
   @IsOptional()
   clientManagement?: ClientManagementDto;
+
+  @ValidateNested()
+  @Type(() => OnlinePresenceDto)
+  @IsOptional()
+  onlinePresence?: OnlinePresenceDto;
+
+  @ValidateNested()
+  @Type(() => PricingPoliciesDto)
+  @IsOptional()
+  pricingPolicies?: PricingPoliciesDto;
+
+  @ValidateNested()
+  @Type(() => IntegrationsDto)
+  @IsOptional()
+  integrations?: IntegrationsDto;
+
+  @IsString()
+  @IsOptional()
+  apiKey?: string;
+}
+
+export class UpdateOwnerProfileDto {
+  @IsString()
+  firstName: string;
+
+  @IsString()
+  surname: string;
+
+  @IsString()
+  phoneNumber: string;
+
+  @IsDate()
+  dateOfBirth: Date;
+
+  @IsString()
+  gender: Gender;
+
+  @IsString()
+  @IsOptional()
+  profilePicture?: string;
+}
+
+class AddressDto {
+  @IsString()
+  id: string;
+
+  @IsOptional()
+  @IsString()
+  type?: string;
+
+  @IsOptional()
+  @IsString()
+  fullAddress?: string;
+}
+
+export class UpdateUserAddressDto {
+  @Type(() => AddressDto)
+  address: AddressDto;
+}
+
+class CreateAddressDto {
+  @IsString()
+  id: string;
+
+  @IsString()
+  type: string;
+
+  @IsString()
+  fullAddress: string;
+}
+
+export class CreateUserAddressDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateAddressDto)
+  addresses: CreateAddressDto[];
 }

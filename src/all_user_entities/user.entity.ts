@@ -144,4 +144,10 @@ export class User {
   @Column({ default: true })
   isClient: boolean;
 
+  @Column({ type: 'jsonb', nullable: true })
+  addresses: {
+    id?: string;
+    type?: string;
+    fullAddress?: string;
+  }[];
 }

@@ -7,7 +7,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from '../entity/product.entity';
 import { CreateProductDto, ProductFiltersDto } from '../dto/marketplace.dto';
-import { ProductCategory } from '../enum/marketplace.enum';
 import { SkuGeneratorService } from './sku-generator.service';
 import { ApiResponse } from 'src/business/types/client.types';
 import { InventoryService } from './inventory.service';

@@ -43,6 +43,7 @@ export class Service {
     nullable: true,
     eager: true,
   })
+  @JoinColumn({ name: 'assignedStaffId' })
   assignedStaff: Staff;
 
   @CreateDateColumn()

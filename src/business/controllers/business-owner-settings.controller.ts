@@ -11,10 +11,16 @@ import {
   Request,
   HttpException,
   BadRequestException,
+  Patch,
 } from '@nestjs/common';
 import { BusinessOwnerSettingsService } from '../services/business-owner-settings.service';
 import { BusinessOwnerSettings } from '../entities/business-owner-settings.entity';
-import { UpdateBusinessOwnerSettingsDto } from '../dtos/requests/BusinessOwnerSettingsDto';
+import {
+  CreateUserAddressDto,
+  UpdateBusinessOwnerSettingsDto,
+  UpdateOwnerProfileDto,
+  UpdateUserAddressDto,
+} from '../dtos/requests/BusinessOwnerSettingsDto';
 import { UserService } from 'src/user/services/user.service';
 import { Business } from '../entities/business.entity';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -66,6 +72,178 @@ export class BusinessOwnerSettingsController {
         success: false,
         error: error.message,
         message: error.message || 'Failed to fetch owner',
+      };
+    }
+  }
+
+  @Patch('owner/update-profile')
+  async updateOwnerProfile(@Request() req) {
+    const { body, files } = req;
+    try {
+      const ownerId = req.user.sub || req.user.userId;
+
+      if (!ownerId) {
+        throw new HttpException(
+          'User not authenticated',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      const owner = await this.userService.findById(ownerId);
+
+      if (!owner) {
+        throw new BadRequestException(`Owner not found for this business`);
+      }
+
+      const bodyProfileImage = files.profileImage;
+
+      const dto: UpdateOwnerProfileDto = {
+        dateOfBirth: body.dateOfBirth,
+        firstName: body.firstName,
+        gender: body.gender,
+        phoneNumber: body.phoneNumber,
+        surname: body.surname,
+        profilePicture: body.profilePicture,
+      };
+
+      const result = await this.businessOwnerSettingsService.updateOwnerProfile(
+        dto,
+        owner,
+        bodyProfileImage,
+      );
+
+      return {
+        success: true,
+        data: result,
+        message: 'Profile Updated',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        message: error.message || 'Failed to update profile',
+      };
+    }
+  }
+
+  @Post('owner/address')
+  async addOwnerAddress(
+    @Request() req,
+    @Body() addresses: CreateUserAddressDto,
+  ) {
+    try {
+      const ownerId = req.user.sub || req.user.userId;
+
+      if (!ownerId) {
+        throw new HttpException(
+          'User not authenticated',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      const owner = await this.userService.findById(ownerId);
+
+      if (!owner) {
+        throw new BadRequestException(`Owner not found for this business`);
+      }
+
+      const result = await this.businessOwnerSettingsService.addUserAddresses(
+        owner,
+        addresses,
+      );
+
+      return {
+        success: true,
+        data: result,
+        message: 'Profile Address added',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        message: error.message || 'Failed to add profile address',
+      };
+    }
+  }
+
+  @Patch('owner/:addressId/address')
+  async updateOwnerAddress(
+    @Request() req,
+    @Param('addressId') addressId: string,
+    @Body() body: any,
+  ) {
+    try {
+      const ownerId = req.user.sub || req.user.userId;
+
+      if (!ownerId) {
+        throw new HttpException(
+          'User not authenticated',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      const owner = await this.userService.findById(ownerId);
+
+      if (!owner) {
+        throw new BadRequestException(`Owner not found for this business`);
+      }
+
+      const result = await this.businessOwnerSettingsService.updateUserAddress(
+        owner,
+        addressId,
+        body,
+      );
+
+      return {
+        success: true,
+        data: result,
+        message: 'Profile Address updated',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        message: error.message || 'Failed to update profile address',
+      };
+    }
+  }
+
+  @Delete('owner/:addressId/address')
+  async deleteOwnerAddress(
+    @Request() req,
+    @Param('addressId') addressId: string,
+  ) {
+    try {
+      const ownerId = req.user.sub || req.user.userId;
+
+      if (!ownerId) {
+        throw new HttpException(
+          'User not authenticated',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      const owner = await this.userService.findById(ownerId);
+
+      if (!owner) {
+        throw new BadRequestException(`Owner not found for this business`);
+      }
+
+      const result = await this.businessOwnerSettingsService.deleteUserAddress(
+        owner,
+        addressId,
+      );
+
+      return {
+        success: true,
+        data: result,
+        message: 'Profile Address updated',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        message: error.message || 'Failed to update profile address',
       };
     }
   }
