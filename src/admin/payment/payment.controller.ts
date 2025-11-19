@@ -128,7 +128,7 @@ export class PaymentController {
   async verifyPaystackPayment(@Param('txReference') txReference: string) {
     try {
       const result =
-        await this.paymentService.verifyPaystackPayment(txReference);
+        await this.paymentService.verifyPaystackWebhookPayment(txReference);
 
       return {
         success: true,

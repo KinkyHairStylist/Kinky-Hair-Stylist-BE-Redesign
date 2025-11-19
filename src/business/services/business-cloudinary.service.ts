@@ -5,8 +5,8 @@ import {
 } from '@nestjs/common';
 
 export interface UploadResult {
-  profileImageId: string;
-  profileImageUrl: string;
+  imageId: string;
+  imageUrl: string;
 }
 
 export interface FileUpload {
@@ -19,10 +19,7 @@ export interface FileUpload {
 export class BusinessCloudinaryService {
   constructor(@Inject('BUSINESS_CLOUDINARY') private cloudinary: any) {}
 
-  async uploadClientProfileImage(
-    file: any,
-    folderPath: string,
-  ): Promise<UploadResult> {
+  async uploadImage(file: any, folderPath: string): Promise<UploadResult> {
     try {
       await this.cloudinary.api.delete_resources_by_prefix(folderPath);
 
@@ -34,10 +31,10 @@ export class BusinessCloudinaryService {
       });
 
       const publicId = result?.public_id;
-      const profileImageId = publicId?.split('/').pop();
-      const profileImageUrl = result?.secure_url;
+      const imageId = publicId?.split('/').pop();
+      const imageUrl = result?.secure_url;
 
-      return { profileImageId, profileImageUrl };
+      return { imageId, imageUrl };
     } catch (error) {
       console.error('Cloudinary upload error:', error);
       throw new InternalServerErrorException('Failed to upload profileImage');

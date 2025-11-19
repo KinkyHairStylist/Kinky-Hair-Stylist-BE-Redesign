@@ -19,6 +19,7 @@ import { BlockedTimeSlot } from './blocked-time-slot.entity';
 import { Service } from './service.entity';
 import { Wallet } from './wallet.entity';
 import { GiftCard } from '../../all_user_entities/gift-card.entity';
+import { Product } from '../../marketplace/entity/product.entity';
 
 export enum BusinessStatus {
   PENDING = 'pending',
@@ -147,6 +148,9 @@ export class Business {
     cascade: true,
   })
   wallet: Wallet;
+
+  @OneToMany(() => Product, (product) => product.business)
+  products: Product[];
 
   @CreateDateColumn()
   createdAt: Date;

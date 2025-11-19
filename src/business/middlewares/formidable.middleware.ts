@@ -39,9 +39,6 @@ export class FormidableMiddleware implements NestMiddleware {
         }
       }
 
-      // console.log('Formidable parsed body:', req.body);
-      // console.log('Formidable parsed files:', req.files);
-
       next();
     });
   }

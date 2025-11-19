@@ -67,16 +67,16 @@ export class ClientService {
     bodyProfileImage: FileUpload,
   ): Promise<ApiResponse<any>> {
     try {
-      // const business = await this.businessRepo.findOne({
-      //   where: { ownerId },
-      // });
-      // if (!business) {
-      //   return {
-      //     success: false,
-      //     error: 'Business not found',
-      //     message: 'No business found for this user',
-      //   };
-      // }
+      const business = await this.businessRepo.findOne({
+        where: { ownerId },
+      });
+      if (!business) {
+        return {
+          success: false,
+          error: 'Business not found',
+          message: 'No business found for this user',
+        };
+      }
 
       const existingClient = await this.clientRepo.findOne({
         where: {
@@ -101,17 +101,16 @@ export class ClientService {
           .trim()
           .replace(/\s+/g, '_'); // replace spaces with underscores
 
-      const folderPath = `KHS/business/${ownerId}/clients/${clientName}`;
+      const folderPath = `KHS/business/${business.businessName}/clients/${clientName}`;
 
       if (bodyProfileImage) {
         try {
-          const { profileImageUrl } =
-            await this.businessCloudinaryService.uploadClientProfileImage(
-              bodyProfileImage,
-              folderPath,
-            );
+          const { imageUrl } = await this.businessCloudinaryService.uploadImage(
+            bodyProfileImage,
+            folderPath,
+          );
 
-          profileImage = profileImageUrl;
+          profileImage = imageUrl;
         } catch (error) {
           return {
             success: false,
@@ -477,13 +476,13 @@ export class ClientService {
 
         if (bodyProfileImage) {
           try {
-            const { profileImageUrl } =
-              await this.businessCloudinaryService.uploadClientProfileImage(
+            const { imageUrl } =
+              await this.businessCloudinaryService.uploadImage(
                 bodyProfileImage,
                 folderPath,
               );
 
-            profileImage = profileImageUrl;
+            profileImage = imageUrl;
           } catch (error) {
             return {
               success: false,
