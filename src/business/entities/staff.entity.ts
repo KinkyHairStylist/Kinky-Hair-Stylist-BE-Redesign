@@ -10,8 +10,6 @@ import { Business } from './business.entity';
 import { Address } from './address.entity';
 import { EmergencyContactSchema } from './emergency-contact.entity';
 
-import { Service } from './service.entity';
-
 @Entity()
 export class Staff {
   @PrimaryGeneratedColumn('uuid')
