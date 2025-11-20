@@ -15,6 +15,8 @@ import {
   UpdateBusinessProfileDto,
 } from '../dtos/requests/BusinessSettingsDto';
 import { BookingDay } from '../entities/booking-day.entity';
+import { BusinessCloudinaryService } from './business-cloudinary.service';
+import { ApiResponse } from '../types/client.types';
 
 @Injectable()
 export class BusinessSettingsService {
@@ -23,6 +25,7 @@ export class BusinessSettingsService {
     private readonly businessRepository: Repository<Business>,
     @InjectRepository(BookingDay)
     private readonly bookingDayRepository: Repository<BookingDay>,
+    private readonly businessCloudinaryService: BusinessCloudinaryService,
   ) {}
 
   /**
@@ -49,6 +52,174 @@ export class BusinessSettingsService {
     }
 
     return business;
+  }
+
+  /**
+   * Create business Image
+   */
+  async addBusinessImage(
+    ownerId: string,
+    businessId: string,
+    images: any[], // now always array
+  ): Promise<Business> {
+    const business = await this.findBusinessByIdAndOwner(businessId, ownerId);
+
+    const existingImages: string[] = business.businessImage || [];
+    const MAX_IMAGES = 4;
+
+    // Check max before upload
+    if (existingImages.length + images.length > MAX_IMAGES) {
+      throw new BadRequestException(
+        `You can only upload ${MAX_IMAGES} business images in total`,
+      );
+    }
+
+    const folderPath = `KHS/business/${business.businessName}/businessImage`;
+
+    const uploadedUrls: string[] = [];
+
+    try {
+      for (const file of images) {
+        const { imageUrl } =
+          await this.businessCloudinaryService.uploadBusinessImage(
+            file,
+            folderPath,
+          );
+        uploadedUrls.push(imageUrl);
+      }
+    } catch (error) {
+      // ❗ Optional: rollback already uploaded Cloudinary images
+      // for (const url of uploadedUrls) {
+      //   await this.businessCloudinaryService.deleteImage(url);
+      // }
+      throw new BadRequestException(
+        error.message || 'Failed to upload some images',
+      );
+    }
+
+    // Append to existing
+    business.businessImage = [...existingImages, ...uploadedUrls];
+
+    return await this.businessRepository.save(business);
+  }
+
+  async deleteBusinessImage(
+    ownerId: string,
+    businessId: string,
+    imageUrl: string,
+  ): Promise<Business> {
+    const business = await this.findBusinessByIdAndOwner(businessId, ownerId);
+
+    if (!business.businessImage || !business.businessImage.length) {
+      throw new BadRequestException('No images found');
+    }
+
+    const imageIndex = business.businessImage.indexOf(imageUrl);
+
+    if (imageIndex === -1) {
+      throw new NotFoundException('Image not found in business');
+    }
+
+    // Extract publicId from Cloudinary URL
+    const urlParts = imageUrl.split('/');
+    const filename = urlParts[urlParts.length - 1];
+    const publicId = filename.split('.')[0]; // remove extension
+
+    try {
+      await this.businessCloudinaryService.deleteBusinessImage(
+        `KHS/business/${business.businessName}/businessImage/${publicId}`,
+      );
+    } catch (error) {
+      console.error('Cloudinary deletion failed:', error);
+    }
+
+    // Remove from array
+    business.businessImage.splice(imageIndex, 1);
+
+    return await this.businessRepository.save(business);
+  }
+
+  async validateBusinesImageUpload(
+    businessData: any,
+    files: any,
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      const uploadedImages = files?.businessImage;
+
+      // Always ensure existingImages is an array
+      const existingImagesRaw = businessData?.businessImageExisting;
+
+      // Normalize to array even if single string
+      const existingImages: string[] = Array.isArray(existingImagesRaw)
+        ? existingImagesRaw
+        : existingImagesRaw
+          ? [existingImagesRaw]
+          : [];
+
+      if (uploadedImages) {
+        // Normalize into array (your middleware sends either object or array)
+        const imagesArr = Array.isArray(uploadedImages)
+          ? uploadedImages
+          : [uploadedImages];
+
+        // Validate count max = 4 including existing images
+        if (existingImages.length + imagesArr.length > 4) {
+          return {
+            success: false,
+            error: 'Image validation failed',
+            data: false,
+            message: `Maximum 4 images allowed`,
+          };
+        }
+
+        const MAX_SIZE_BYTES = 6 * 1024 * 1024; // 6 MB
+
+        for (const img of imagesArr) {
+          const mimetype = img.mimetype || img.type;
+
+          if (
+            mimetype?.startsWith('image/svg') ||
+            !mimetype?.startsWith('image')
+          ) {
+            return {
+              success: false,
+              error: 'Image validation failed',
+              data: false,
+              message: `Invalid image format. Only .jpg, .png, .jpeg allowed`,
+            };
+          }
+
+          if (img.size > MAX_SIZE_BYTES) {
+            return {
+              success: false,
+              error: 'Image validation failed',
+              data: false,
+              message: `Image is too large. Max 6MB allowed`,
+            };
+          }
+        }
+      } else {
+        return {
+          success: false,
+          error: 'No changes made to business image',
+          data: false,
+          message: 'No changes made to business images',
+        };
+      }
+
+      return {
+        success: true,
+        data: true,
+        message: 'Business Image validation successful',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+        data: false,
+        error: 'Business Image validation failed',
+      };
+    }
   }
 
   /**
@@ -226,34 +397,6 @@ export class BusinessSettingsService {
     }
 
     return await this.businessRepository.save(business);
-  }
-
-  /**
-   * Get all booking days for a business
-   */
-  async getBookingDaysByBusinessId(businessId: string): Promise<BookingDay[]> {
-    const business = await this.businessRepository.findOne({
-      where: { id: businessId },
-      relations: ['bookingHours'],
-    });
-
-    if (!business) {
-      throw new NotFoundException(`Business with ID ${businessId} not found`);
-    }
-
-    // Sort by day of week
-    const dayOrder = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
-    ];
-    return business.bookingHours.sort(
-      (a, b) => dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day),
-    );
   }
 
   /**

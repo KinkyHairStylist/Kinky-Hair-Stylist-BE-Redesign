@@ -1,3 +1,5 @@
+// business-owner-settings.entity.ts
+
 import {
   Entity,
   PrimaryGeneratedColumn,

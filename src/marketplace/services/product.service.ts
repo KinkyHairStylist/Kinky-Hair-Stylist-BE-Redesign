@@ -91,7 +91,7 @@ export class ProductService {
       productImage = imageUrl;
     } catch (error) {
       throw new BadRequestException(
-        error.message || 'Failed to create client profile image',
+        error.message || 'Failed to create product image',
       );
     }
 

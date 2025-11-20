@@ -8,6 +8,8 @@ import {
   Patch,
   Param,
   Body,
+  Post,
+  Delete,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -15,6 +17,7 @@ import { Repository } from 'typeorm';
 import { Business } from '../entities/business.entity';
 import { BusinessSettingsService } from '../services/business-settings.service';
 import {
+  UpdateBookingDaysDto,
   UpdateBusinessContactDto,
   UpdateBusinessLocationDto,
   UpdateBusinessNameDto,
@@ -97,6 +100,129 @@ export class BusinessSettingsController {
         success: false,
         error: error.message,
         message: error.message || 'Failed to update business',
+      };
+    }
+  }
+
+  @Patch(':businessId/booking-hours')
+  @ApiOperation({ summary: 'Update business booking hours' })
+  @ApiResponse({
+    status: 200,
+    description: 'Business booking hours updated successfully',
+    type: Business,
+  })
+  @ApiResponse({ status: 404, description: 'Business not found' })
+  @ApiResponse({ status: 400, description: 'Bad request or unauthorized' })
+  async updateBusinessBookingHours(
+    @Param('businessId') businessId: string,
+    @Request() req,
+    @Body() updateDto: UpdateBookingDaysDto,
+  ) {
+    try {
+      const ownerId = req.user.sub || req.user.userId;
+
+      const business = await this.businessService.updateBookingDays(
+        businessId,
+        ownerId,
+        updateDto,
+      );
+
+      return {
+        success: true,
+        data: business,
+        message: 'Business booking hours updated successfully',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        message: error.message || 'Failed to update business booking hours',
+      };
+    }
+  }
+
+  /**
+   * Create a business Image
+   * POST /products
+   */
+  @Post(':businessId/add-images')
+  async addBusinessImages(
+    @Request() req,
+    @Param('businessId') businessId: string,
+  ) {
+    try {
+      const ownerId = req.user.sub || req.user.userId;
+
+      if (!ownerId) {
+        throw new HttpException(
+          'User not authenticated',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      let images = req.files?.businessImage;
+
+      // Normalize for service: always array
+      const imagesArr = Array.isArray(images)
+        ? images
+        : [images].filter(Boolean);
+
+      const result = await this.businessService.addBusinessImage(
+        ownerId,
+        businessId,
+        imagesArr,
+      );
+
+      return {
+        success: true,
+        data: result,
+        message: 'Image(s) uploaded successfully',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        message: error.message || 'Failed to upload image',
+      };
+    }
+  }
+
+  @Delete(':businessId/delete-image')
+  async deleteBusinessImage(
+    @Request() req,
+    @Param('businessId') businessId: string,
+    @Body('imageUrl') imageUrl: string,
+  ) {
+    try {
+      const ownerId = req.user.sub || req.user.userId;
+
+      if (!ownerId) {
+        throw new HttpException(
+          'User not authenticated',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      if (!imageUrl) {
+        throw new BadRequestException('imageUrl is required');
+      }
+
+      const result = await this.businessService.deleteBusinessImage(
+        ownerId,
+        businessId,
+        imageUrl,
+      );
+
+      return {
+        success: true,
+        message: 'Image deleted successfully',
+        data: result,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Failed to delete image',
+        error: error.message,
       };
     }
   }
