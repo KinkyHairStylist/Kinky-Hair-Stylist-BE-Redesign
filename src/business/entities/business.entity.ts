@@ -16,7 +16,7 @@ import { CompanySize } from '../types/constants';
 import { Appointment } from './appointment.entity';
 import { Staff } from './staff.entity';
 import { BlockedTimeSlot } from './blocked-time-slot.entity';
-import { Service } from './service.entity';
+// import { Service } from './service.entity';
 import { Wallet } from './wallet.entity';
 import { Product } from '../../marketplace/entity/product.entity';
 import { BusinessGiftCard } from './business-giftcard.entity';
@@ -75,11 +75,11 @@ export class Business {
   @Column('text', { array: true, default: [] })
   services: string[];
 
-  @OneToMany(() => Service, (service) => service.business, {
-    cascade: true,
-    eager: true,
-  })
-  service: Service[];
+  // @OneToMany(() => Service, (service) => service.business, {
+  //   cascade: true,
+  //   eager: true,
+  // })
+  // service: Service[];
 
   @Column({ nullable: true })
   category?: string;

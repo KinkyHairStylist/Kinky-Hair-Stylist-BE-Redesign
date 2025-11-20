@@ -457,7 +457,7 @@ export class BusinessService {
     if (!Business) {
       throw new NotFoundException('Business not found');
     }
-    return Business.service;
+    // return Business.service;
   }
 
   async getTeamMembers(userMail: string) {
