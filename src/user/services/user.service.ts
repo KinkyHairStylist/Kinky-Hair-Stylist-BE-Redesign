@@ -22,6 +22,7 @@ import {
   AuthResponseDto,
 } from '../dtos/user.dto';
 import { PasswordHashingHelper } from '../../helpers/password-hashing.helper';
+import { getTokens } from '../../helpers/token.helper';
 import { Referral } from '../user_entities/referrals.entity';
 import { Gender } from 'src/business/types/constants';
 import { ReferralService } from './referral.service';
@@ -230,7 +231,8 @@ export class UserService {
       await this.referralService.completeReferral(email, user.id);
     }
 
-    const { accessToken, refreshToken } = await this.getTokens(
+    const { accessToken, refreshToken } = await getTokens(
+      this.jwtService,
       user.id,
       user.email,
     );
@@ -270,7 +272,8 @@ export class UserService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const { accessToken, refreshToken } = await this.getTokens(
+    const { accessToken, refreshToken } = await getTokens(
+      this.jwtService,
       user.id,
       user.email,
     );
@@ -380,27 +383,6 @@ export class UserService {
     return result;
   }
 
-  async getTokens(
-    userId: string,
-    email: string,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
-    const payload = { sub: userId, email };
-
-    const [accessToken, refreshToken] = await Promise.all([
-      this.jwtService.signAsync(payload, {
-        secret: process.env.JWT_ACCESS_SECRET,
-        expiresIn: '5d',
-        // expiresIn: '15m',
-      }),
-      this.jwtService.signAsync(payload, {
-        secret: process.env.JWT_REFRESH_SECRET,
-        expiresIn: '7d',
-      }),
-    ]);
-
-    return { accessToken, refreshToken };
-  }
-
   async refreshTokens(refreshToken: string): Promise<AuthResponseDto> {
     try {
       const payload = await this.jwtService.verifyAsync(refreshToken, {
@@ -414,8 +396,11 @@ export class UserService {
         throw new UnauthorizedException('User not found');
       }
 
-      const { accessToken, refreshToken: newRefreshToken } =
-        await this.getTokens(user.id, user.email);
+      const { accessToken, refreshToken: newRefreshToken } = await getTokens(
+        this.jwtService,
+        user.id,
+        user.email,
+      );
 
       return {
         success: true,

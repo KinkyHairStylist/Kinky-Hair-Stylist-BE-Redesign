@@ -67,3 +67,20 @@ export class AdminRegisterDto {
     @IsEnum(Gender)
     gender?: Gender;
 }
+
+export class AdminForgotPasswordDto {
+  @ApiProperty({ example: 'admin@example.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+}
+
+export class AdminResetPasswordDto {
+  @ApiProperty({ example: 'StrongP@ss123!' })
+  @IsString()
+  @IsNotEmpty()
+  @Matches(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+  )
+  password: string;
+}

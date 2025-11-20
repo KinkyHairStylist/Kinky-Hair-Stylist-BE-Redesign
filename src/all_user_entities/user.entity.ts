@@ -15,6 +15,7 @@ import { RefreshToken } from 'src/business/entities/refresh.token.entity';
 import { Business } from 'src/business/entities/business.entity';
 import { Gender } from 'src/business/types/constants';
 import { Booking } from 'src/user/user_entities/booking.entity';
+import { Transaction } from 'src/business/entities/transaction.entity';
 import { UserPreferences } from 'src/user/user_entities/preferences.entity';
 import { UserNotificationSettings } from 'src/user/user_entities/user_notification_settings.entity';
 
@@ -122,6 +123,12 @@ export class User {
 
   @OneToMany(() => GiftCard, (giftCard) => giftCard.sender)
   giftCards: GiftCard[];
+
+  @OneToMany(() => Transaction, (t) => t.sender)
+  sentTransactions: Transaction[];
+
+  @OneToMany(() => Transaction, (t) => t.recipient)
+  receivedTransactions: Transaction[];
 
   @OneToOne(() => UserPreferences, (preferences) => preferences.user, {
     cascade: true,

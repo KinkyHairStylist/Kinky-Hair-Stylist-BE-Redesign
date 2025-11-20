@@ -78,8 +78,8 @@ export class Staff {
   @Column('simple-array', { nullable: true })
   servicesAssigned: string[];
 
-  @OneToMany(() => Service, (service) => service.assignedStaff)
-  services: Service[];
+  // @OneToMany(() => Service, (service) => service.assignedStaff)
+  // services: Service[];
 
   @OneToMany(() => Address, (address) => address.staff, { cascade: true })
   addresses: Address[];

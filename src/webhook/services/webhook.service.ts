@@ -348,13 +348,13 @@ export class WebhookService {
       const wallet = await this.walletService.getWalletByBusinessId(businessId);
 
       // Add funds to wallet using the wallet service
-      await this.walletService.addFunds({
-        businessId: wallet.businessId,
-        amount: amount,
-        type: 'credit',
-        description: `PayPal payment received - ${resource.status}`,
-        referenceId: paypalTransactionId,
-      });
+      // await this.walletService.addFunds({
+      //   businessId: wallet.businessId,
+      //   amount: amount,
+      //   type: 'credit',
+      //   description: `PayPal payment received - ${resource.status}`,
+      //   referenceId: paypalTransactionId,
+      // });
 
       this.logger.log(
         `Payment completed: ${amount} ${currency} added to business ${businessId}`,
@@ -392,13 +392,13 @@ export class WebhookService {
 
       const wallet = await this.walletService.getWalletByBusinessId(businessId);
 
-      await this.walletService.addFunds({
-        businessId: wallet.businessId,
-        amount: amount,
-        type: 'credit',
-        description: `PayPal order completed - Order ID: ${orderId}`,
-        referenceId: orderId,
-      });
+      // await this.walletService.addFunds({
+      //   businessId: wallet.businessId,
+      //   amount: amount,
+      //   type: 'credit',
+      //   description: `PayPal order completed - Order ID: ${orderId}`,
+      //   referenceId: orderId,
+      // });
 
       this.logger.log(
         `Order completed: ${amount} ${currency} added to business ${businessId}`,
@@ -431,13 +431,13 @@ export class WebhookService {
       const wallet = await this.walletService.getWalletByBusinessId(businessId);
 
       // Deduct refunded amount from wallet
-      await this.walletService.deductFunds({
-        businessId: wallet.businessId,
-        amount: amount,
-        type: 'debit',
-        description: `PayPal refund processed - Refund ID: ${refundId}`,
-        referenceId: refundId,
-      });
+      // await this.walletService.deductFunds({
+      //   businessId: wallet.businessId,
+      //   amount: amount,
+      //   type: 'debit',
+      //   description: `PayPal refund processed - Refund ID: ${refundId}`,
+      //   referenceId: refundId,
+      // });
 
       this.logger.log(
         `Refund processed: ${amount} deducted from business ${businessId}`,
