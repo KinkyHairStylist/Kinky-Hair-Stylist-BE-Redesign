@@ -5,7 +5,7 @@ import {
     PrimaryGeneratedColumn,
     ManyToOne, CreateDateColumn, UpdateDateColumn, JoinColumn,
 } from 'typeorm';
-import {Business} from "./business.entity";
+// import {Business} from "./business.entity";
 import {AdvertisementPlan} from "./advertisement-plan.entity";
 
 @Entity('service')
@@ -33,8 +33,8 @@ export class Service {
     advertisementPlan: AdvertisementPlan;
 
 
-    @ManyToOne(() => Business, (business) => business.service,{nullable: true})
-    business: Business;
+    // @ManyToOne(() => Business, (business) => business.service,{nullable: true})
+    // business: Business;
 
     // @ManyToOne(() => Staff, (staff) => staff.services, {
     //     onDelete: "SET NULL",
