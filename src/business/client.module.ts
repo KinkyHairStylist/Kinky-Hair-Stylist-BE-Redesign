@@ -7,7 +7,7 @@ import { ClientAddressService } from './services/client-address.service';
 import { EmergencyContactService } from './services/emergency-contact.service';
 import { ClientSchema } from './entities/client.entity';
 import { ClientAddressSchema } from './entities/client-address.entity';
-import { EmergencyContactSchema } from './entities/emergency-contact.entity';
+import { EmergencyContactSchema } from './entities/emergency-contact-schema.entity';
 import { ClientSettingsSchema } from './entities/client-settings.entity';
 import { Business } from './entities/business.entity';
 import { ClientSettingsService } from './services/client-settings.service';

@@ -1,54 +1,27 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  ManyToOne,
-  CreateDateColumn,
-  UpdateDateColumn,
-  JoinColumn,
-} from 'typeorm';
-import { ClientSchema } from './client.entity';
-import { Staff } from './staff.entity';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from "typeorm";
+import { Staff } from "./staff.entity";
 
-@Entity('emergency_contacts')
-export class EmergencyContactSchema {
+@Entity()
+export class EmergencyContact {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'client_id' })
-  clientId: string;
-
-  @ManyToOne(() => ClientSchema, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'client_id' })
-  client: ClientSchema;
-
-  @Column({ nullable: true, default: 'No Name' })
+  @Column()
   firstName: string;
 
-  @Column({ nullable: true, default: 'No Name' })
+  @Column({ nullable: true })
   lastName: string;
 
-  @Column({ nullable: true, default: 'No Email' })
-  email: string;
-
-  @Column({ nullable: true, default: 'None' })
+  @Column()
   relationship: string;
 
-  @Column({ nullable: true, default: 'None' })
-  phone: string;
+  @Column()
+  email: string;
 
-  @Column({ nullable: true, default: 'None' })
-  emergencyPhoneCode: string;
+  @Column()
+  phoneNumber: string;
 
-  @CreateDateColumn()
-  createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
-
-  @ManyToOne(() => Staff, (staff) => staff.emergencyContacts, {
-    onDelete: 'CASCADE',
-  })
-  @JoinColumn({ name: 'staff_id' })
+  @ManyToOne(() => Staff, (staff) => staff.emergencyContacts, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: "staff_id" })
   staff: Staff;
 }

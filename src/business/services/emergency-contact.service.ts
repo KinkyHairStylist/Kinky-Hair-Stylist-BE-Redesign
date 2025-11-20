@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EmergencyContact, ApiResponse } from '../types/client.types';
 import { ClientSchema } from '../entities/client.entity';
-import { EmergencyContactSchema } from '../entities/emergency-contact.entity';
+import { EmergencyContactSchema } from '../entities/emergency-contact-schema.entity';
 import { UpdateEmergencyContactDto } from '../dtos/requests/ClientDto';
 
 @Injectable()

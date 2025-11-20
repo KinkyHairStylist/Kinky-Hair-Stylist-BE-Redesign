@@ -5,10 +5,11 @@ import {
     PrimaryGeneratedColumn,
     ManyToOne, CreateDateColumn, UpdateDateColumn, JoinColumn,
 } from 'typeorm';
-// import {Business} from "./business.entity";
+import {Business} from "./business.entity";
+import {Staff} from "./staff.entity";
 import {AdvertisementPlan} from "./advertisement-plan.entity";
 
-@Entity('service')
+@Entity('Service')
 export class Service {
     @PrimaryGeneratedColumn('uuid')
     id: string;
@@ -28,20 +29,23 @@ export class Service {
     @Column({nullable: true})
     duration: string;
 
+    @Column("text", { array: true, nullable: true })
+    images: string[];
+
     @ManyToOne(() => AdvertisementPlan, { eager: true,nullable: true })
     @JoinColumn({ name: 'advertisementPlanId' })
     advertisementPlan: AdvertisementPlan;
 
 
-    // @ManyToOne(() => Business, (business) => business.service,{nullable: true})
-    // business: Business;
+    @ManyToOne(() => Business, (business) => business.service,{nullable: true})
+    business: Business;
 
-    // @ManyToOne(() => Staff, (staff) => staff.services, {
-    //     onDelete: "SET NULL",
-    //     nullable: true,
-    //     eager: true
-    // })
-    // assignedStaff: Staff;
+    @ManyToOne(() => Staff, (staff) => staff.services, {
+        onDelete: "SET NULL",
+        nullable: true,
+        eager: true
+    })
+    assignedStaff: Staff;
 
     @CreateDateColumn()
     createdAt: Date;

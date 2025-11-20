@@ -5,23 +5,22 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
-} from 'typeorm';
-import { Business } from './business.entity';
-import { Address } from './address.entity';
-import { EmergencyContactSchema } from './emergency-contact.entity';
+} from "typeorm";
+import { Business } from "./business.entity";
+import { Service } from "./service.entity";
+import { Address } from "./address.entity";
+import { EmergencyContact } from "./emergency-contact.entity";
 
 @Entity()
 export class Staff {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
+
   @Column({ nullable: true })
   firstName: string;
 
   @Column({ nullable: true })
   lastName: string;
-
-  @Column({ nullable: true })
-  name: string;
 
   @Column({ nullable: true })
   email: string;
@@ -39,30 +38,21 @@ export class Staff {
   jobTitle: string;
 
   @Column({
-    type: 'enum',
-    enum: [
-      'HAIRSTYLIST',
-      'BARBER',
-      'NAIL_TECH',
-      'SPA_THERAPIST',
-      'MANAGER',
-      'RECEPTIONIST',
-    ],
-    default: 'HAIRSTYLIST',
+    type: "enum",
+    enum: ["HAIRSTYLIST", "BARBER", "NAIL_TECH", "SPA_THERAPIST", "MANAGER", "RECEPTIONIST"],
+    default: "HAIRSTYLIST",
   })
   role: string;
 
   @Column({ nullable: true })
   specialization: string;
 
+
   @Column({ nullable: true })
   avatar: string;
 
   @Column({ nullable: true })
   experienceYears: number;
-
-  @Column('text', { array: true, nullable: true })
-  times: string[];
 
   @Column({ default: true })
   isActive: boolean;
@@ -73,23 +63,19 @@ export class Staff {
   @Column({ nullable: true })
   startDate: Date;
 
-  @Column('simple-array', { nullable: true })
+  @Column("simple-array", { nullable: true })
   servicesAssigned: string[];
 
-  // @OneToMany(() => Service, (service) => service.assignedStaff)
-  // services: Service[];
+  @OneToMany(() => Service, (service) => service.assignedStaff)
+  services: Service[];
 
-  @OneToMany(() => Address, (address) => address.staff, { cascade: true })
+  @OneToMany(() => Address, (address) => address.staff, { cascade: true, eager: true })
   addresses: Address[];
 
-  @OneToMany(() => EmergencyContactSchema, (contact) => contact.staff, {
-    cascade: true,
-  })
-  emergencyContacts: EmergencyContactSchema[];
+  @OneToMany(() => EmergencyContact, (contact) => contact.staff, { cascade: true, eager: true })
+  emergencyContacts: EmergencyContact[];
 
-  @ManyToOne(() => Business, (business) => business.staff, {
-    onDelete: 'CASCADE',
-  })
-  @JoinColumn({ name: 'business_id' })
+  @ManyToOne(() => Business, (business) => business.staff, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "business_id" })
   business: Business;
 }

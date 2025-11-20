@@ -9,6 +9,9 @@ export class CreateServiceDto {
     userMail: string;
 
     @IsOptional()
+    images: string[];
+
+    @IsOptional()
     @IsString()
     category?: string;
 
