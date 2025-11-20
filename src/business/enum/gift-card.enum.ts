@@ -1,9 +1,14 @@
 export enum BusinessGiftCardStatus {
-  AVAILABLE = 'available',
-  REDEEMED = 'redeemed',
-  EXPIRED = 'expired',
-  CANCELLED = 'cancelled',
+  ACTIVE = 'Active',
+  INACTIVE = 'Inactive',
+  USED = 'Used',
+  EXPIRED = 'Expired',
   DELETED = 'deleted',
+}
+
+export enum BusinessGiftCardSoldStatus {
+  AVAILABLE = 'available', 
+  PURCHASED = 'purchased'
 }
 
 export enum BusinessSentStatus {

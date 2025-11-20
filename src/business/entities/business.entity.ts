@@ -60,9 +60,6 @@ export class Business {
   @Column({ nullable: true })
   ownerPhone: string;
 
-  @OneToMany(() => BlockedTimeSlot, (slot) => slot.business, { cascade: true })
-  blockedSlots: BlockedTimeSlot[];
-
   @Column()
   primaryAudience: string;
 
@@ -72,6 +69,7 @@ export class Business {
   })
   appointments: Appointment[];
 
+  // Keep both service array and Service entity relation as-is
   @Column('text', { array: true, default: [] })
   services: string[];
 
@@ -127,9 +125,7 @@ export class Business {
   @Column({ type: 'int', default: 0 })
   bookings: number;
 
-  @OneToMany(() => Staff, (staff) => staff.business, {
-    cascade: true,
-  })
+  @OneToMany(() => Staff, (staff) => staff.business, { cascade: true })
   staff: Staff[];
 
   @Column({ type: 'varchar', default: 'Free' })
@@ -139,7 +135,7 @@ export class Business {
     type: 'jsonb',
     nullable: true,
     default: () =>
-      `'{"rating":0,"reviews":0,"completionRate":0,"avgResponseMins":0}'`,
+        `'{"rating":0,"reviews":0,"completionRate":0,"avgResponseMins":0}'`,
   })
   performance: {
     rating: number;
@@ -148,18 +144,15 @@ export class Business {
     avgResponseMins: number;
   };
 
-  @OneToOne(() => Wallet, (wallet) => wallet.business, {
-    cascade: true,
-  })
+  @OneToMany(() => BlockedTimeSlot, (slot) => slot.business, { cascade: true })
+  blockedSlots: BlockedTimeSlot[];
+
+  @OneToOne(() => Wallet, (wallet) => wallet.business, { cascade: true })
   wallet: Wallet;
 
-  @OneToOne(
-    () => BusinessOwnerSettings,
-    (businessOwnerSettings) => businessOwnerSettings.business,
-    {
-      cascade: true,
-    },
-  )
+  @OneToOne(() => BusinessOwnerSettings, (ownerSettings) => ownerSettings.business, {
+    cascade: true,
+  })
   ownerSettings: BusinessOwnerSettings;
 
   @OneToMany(() => Product, (product) => product.business)

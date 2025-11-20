@@ -170,13 +170,14 @@ export class BusinessSettingsController {
       const result = await this.businessService.addBusinessImage(
         ownerId,
         businessId,
+
         imagesArr,
       );
 
       return {
         success: true,
-        data: result,
-        message: 'Image(s) uploaded successfully',
+        data: result.business,
+        message: `${result.newUploads} Image(s) uploaded successfully`,
       };
     } catch (error) {
       return {

@@ -6,7 +6,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { EmailModule } from './email/email.module';
 import { BusinessModule } from './business/business.module';
 import { AdminModule } from './admin/admin.module';
-import { GiftcardModule } from './admin/giftcard/giftcard.module';
+import { GiftcardModule } from './admin/giftcard/admin_giftcard.module';
 import { PaymentModule } from './admin/payment/payment.module';
 import { TransactionFeeModule } from './admin/transaction-fee/transaction-fee.module';
 import { WithdrawalModule } from './admin/withdrawal/withdrawal.module';

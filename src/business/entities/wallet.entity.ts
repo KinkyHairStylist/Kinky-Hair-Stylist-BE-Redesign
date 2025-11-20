@@ -10,7 +10,7 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
-import { Transaction } from './transaction.entity';
+
 import { PaymentMethod } from './payment-method.entity';
 import {
   WalletCurrency,
@@ -88,12 +88,6 @@ export class Wallet {
 
   @UpdateDateColumn()
   updatedAt: Date;
-
-  // Relations
-  @OneToMany(() => Transaction, (transaction) => transaction.wallet, {
-    cascade: true,
-  })
-  transactions: Transaction[];
 
   @OneToMany(() => PaymentMethod, (paymentMethod) => paymentMethod.wallet, {
     cascade: true,

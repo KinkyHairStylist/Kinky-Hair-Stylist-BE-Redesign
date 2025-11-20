@@ -7,23 +7,57 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { Wallet } from './wallet.entity';
+import { User } from "src/all_user_entities/user.entity";
 import { WalletCurrency } from 'src/admin/payment/enums/wallet.enum';
 
-// Transaction Entity (referenced by Wallet)
+export enum TransactionType {
+  EARNING = 'Earning',
+  WITHDRAWAL = 'Withdrawal',
+  DEBIT = 'Debit',
+  FEE = 'Fee',
+  REFUND = 'Refund',
+}
+
+export enum PaymentMethod {
+  CARD = 'Card',
+  PAYSTACK = 'Paystack',
+  PAYPAL = 'PayPal',
+  GIFTCARD = 'GiftCard',
+}
+
 @Entity('transactions')
 export class Transaction {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid' })
-  walletId: string;
+  // --------------------------
+  // Sender
+  // --------------------------
+  @Column({ type: 'uuid', nullable: true })
+  senderId: string;
+
+  @ManyToOne(() => User, (user) => user.sentTransactions, { nullable: true })
+  @JoinColumn({ name: 'senderId' })
+  sender: User;
+
+  // --------------------------
+  // Recipient
+  // --------------------------
+  @Column({ type: 'uuid', nullable: true })
+  recipientId: string;
+
+  @ManyToOne(() => User, (user) => user.receivedTransactions, { nullable: true })
+  @JoinColumn({ name: 'recipientId' })
+  recipient: User;
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   amount: number;
 
-  @Column({ type: 'enum', enum: ['credit', 'debit'] })
-  type: 'credit' | 'debit';
+  @Column({
+    type: 'enum',
+    enum: TransactionType,
+  })
+  type: TransactionType;
 
   @Column({ type: 'varchar', length: 255 })
   description: string;
@@ -49,13 +83,16 @@ export class Transaction {
   })
   status: string;
 
+  @Column({
+    type: 'enum',
+    enum: PaymentMethod,
+    nullable: true,
+  })
+  method: PaymentMethod;
+
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
-
-  @ManyToOne(() => Wallet, (wallet) => wallet.transactions)
-  @JoinColumn({ name: 'walletId' })
-  wallet: Wallet;
 }

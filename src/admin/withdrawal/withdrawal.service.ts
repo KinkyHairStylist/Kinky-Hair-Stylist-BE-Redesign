@@ -5,7 +5,7 @@ import { Withdrawal } from './entities/withdrawal.entity';
 import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
 import { UpdateWithdrawalDto } from './dto/update-withdrawal.dto';
 import { ILike } from 'typeorm';
-import { GiftCard } from '../giftcard/entities/giftcard.entity'; // 👈 import giftcard entity
+import { BusinessGiftCard } from 'src/business/entities/business-giftcard.entity';
 
 @Injectable()
 export class WithdrawalService {
@@ -13,8 +13,8 @@ export class WithdrawalService {
     @InjectRepository(Withdrawal)
     private readonly withdrawalRepo: Repository<Withdrawal>,
 
-    @InjectRepository(GiftCard)
-    private readonly giftCardRepo: Repository<GiftCard>, // 👈 inject giftcard repo
+    @InjectRepository(BusinessGiftCard)
+    private readonly giftCardRepo: Repository<BusinessGiftCard>, // 👈 inject giftcard repo
   ) {}
 
   // ✅ Get all withdrawals
@@ -35,24 +35,24 @@ export class WithdrawalService {
     const businessName = dto.businessName.trim();
 
     const giftcard = await this.giftCardRepo.findOne({
-      where: { business: businessName },
+      where: { business: { businessName: businessName } },
     });
 
     if (!giftcard) {
       throw new NotFoundException(`Gift card not found for business: ${dto.businessName}`);
     }
 
-    if (giftcard.currentBalance < dto.amount) {
+    if (giftcard.amount < dto.amount) {
       throw new BadRequestException('Insufficient balance');
     }
 
-    giftcard.currentBalance -= dto.amount;
+    giftcard.remainingAmount -= dto.amount;
     await this.giftCardRepo.save(giftcard);
 
     const withdrawal = this.withdrawalRepo.create({
       ...dto,
       status: 'Pending',
-      currentBalance: giftcard.currentBalance,
+      currentBalance: giftcard.remainingAmount,
       requestDate: new Date().toISOString(),
     });
 

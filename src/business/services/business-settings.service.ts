@@ -61,7 +61,7 @@ export class BusinessSettingsService {
     ownerId: string,
     businessId: string,
     images: any[], // now always array
-  ): Promise<Business> {
+  ) {
     const business = await this.findBusinessByIdAndOwner(businessId, ownerId);
 
     const existingImages: string[] = business.businessImage || [];
@@ -100,7 +100,12 @@ export class BusinessSettingsService {
     // Append to existing
     business.businessImage = [...existingImages, ...uploadedUrls];
 
-    return await this.businessRepository.save(business);
+    const newBusiness = await this.businessRepository.save(business);
+
+    return {
+      business: newBusiness,
+      newUploads: uploadedUrls.length,
+    };
   }
 
   async deleteBusinessImage(
@@ -162,7 +167,7 @@ export class BusinessSettingsService {
           ? uploadedImages
           : [uploadedImages];
 
-        // Validate count max = 4 including existing images
+        // Validate count max - 4 including existing images
         if (existingImages.length + imagesArr.length > 4) {
           return {
             success: false,
@@ -172,10 +177,12 @@ export class BusinessSettingsService {
           };
         }
 
-        const MAX_SIZE_BYTES = 6 * 1024 * 1024; // 6 MB
+        const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MBs
 
         for (const img of imagesArr) {
           const mimetype = img.mimetype || img.type;
+
+          console.log('IMAGE SIZE: ', img.size);
 
           if (
             mimetype?.startsWith('image/svg') ||
@@ -194,7 +201,7 @@ export class BusinessSettingsService {
               success: false,
               error: 'Image validation failed',
               data: false,
-              message: `Image is too large. Max 6MB allowed`,
+              message: `Image is too large. Max. 24MB allowed`,
             };
           }
         }

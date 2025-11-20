@@ -7,21 +7,41 @@ import {
   Index,
   ManyToOne,
   JoinColumn,
+  BeforeInsert,
 } from 'typeorm';
 import {
   BusinessGiftCardStatus,
   BusinessGiftCardTemplate,
   BusinessSentStatus,
+  BusinessGiftCardSoldStatus,
 } from '../enum/gift-card.enum';
 import { Business } from './business.entity';
+import { User } from 'src/all_user_entities/user.entity'
+import { Card } from 'src/all_user_entities/card.entity'
 
 @Entity('business_gift_cards')
 export class BusinessGiftCard {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid' })
-  ownerId: string;
+  @ManyToOne(() => User, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'ownerId' }) 
+  owner?: User; 
+
+  @Column({ type: 'uuid', name: 'ownerId', nullable: true })
+  @Index()
+  ownerId?: string;
+
+  // denormalized owner info for quick access / queries which is gotten from owners ID
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Index()
+  ownerEmail?: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  ownerFullName?: string;
 
   @Column({ type: 'uuid' })
   @Index()
@@ -51,6 +71,14 @@ export class BusinessGiftCard {
   @Column({ type: 'varchar', length: 50, unique: true })
   code: string;
 
+  @ManyToOne(() => Card, { eager: true })
+  @JoinColumn({ name: 'cardId' })
+  card: Card;
+  
+  @Column({ type: 'uuid', name: 'cardId', nullable: true })
+  @Index()
+  cardId?: string; // Selected payment method
+
   @Column({ type: 'enum', enum: BusinessGiftCardTemplate })
   template: BusinessGiftCardTemplate;
 
@@ -66,9 +94,16 @@ export class BusinessGiftCard {
   @Column({
     type: 'enum',
     enum: BusinessGiftCardStatus,
-    default: BusinessGiftCardStatus.AVAILABLE,
+    default: BusinessGiftCardStatus.ACTIVE,
   })
   status: BusinessGiftCardStatus;
+
+  @Column({
+    type: 'enum',
+    enum: BusinessGiftCardSoldStatus,
+    default: BusinessGiftCardSoldStatus.AVAILABLE,
+  })
+  soldStatus: BusinessGiftCardSoldStatus;
 
   @Column({
     type: 'enum',
@@ -92,9 +127,23 @@ export class BusinessGiftCard {
   @Column({ type: 'varchar', length: 255, nullable: true })
   senderName: string;
 
+  @Column({ nullable: true })
+  comment?: string;
+  
+  @Column({ nullable: true })
+  clientPersonalMessage?: string;
+
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @BeforeInsert()
+  setCurrentBalance() {
+    // If currentBalance is not set, use amount
+    if (this.remainingAmount === null || this.remainingAmount === undefined) {
+      this.remainingAmount = Number(this.amount);
+    }
+  }
 }

@@ -171,121 +171,121 @@ export class BusinessWalletService {
   /**
    * Get wallet by ID with all relations
    */
-  async getTransactionHistoryByWalletId(
-    walletId: string,
-  ): Promise<Transaction[]> {
-    const transactionList = await this.transactionRepository.find({
-      where: { walletId },
-    });
+  // async getTransactionHistoryByWalletId(
+  //   walletId: string,
+  // ): Promise<Transaction[]> {
+  //   const transactionList = await this.transactionRepository.find({
+  //     where: { walletId },
+  //   });
 
-    if (!transactionList) {
-      throw new NotFoundException(`Transaction history not found`);
-    }
+  //   if (!transactionList) {
+  //     throw new NotFoundException(`Transaction history not found`);
+  //   }
 
-    return transactionList;
-  }
+  //   return transactionList;
+  // }
 
   /**
    * Add funds to wallet (credit transaction)
    */
-  async addFunds(addTransactionDto: AddTransactionDto): Promise<Transaction> {
-    if (addTransactionDto.type !== 'credit') {
-      throw new BadRequestException(
-        'Use addFunds for credit transactions only',
-      );
-    }
+  // async addFunds(addTransactionDto: AddTransactionDto): Promise<Transaction> {
+  //   if (addTransactionDto.type !== 'credit') {
+  //     throw new BadRequestException(
+  //       'Use addFunds for credit transactions only',
+  //     );
+  //   }
 
-    return this.processTransaction(addTransactionDto);
-  }
+  //   return this.processTransaction(addTransactionDto);
+  // }
 
   /**
    * Deduct funds from wallet (debit transaction)
    */
-  async deductFunds(
-    addTransactionDto: AddTransactionDto,
-  ): Promise<Transaction> {
-    if (addTransactionDto.type !== 'debit') {
-      throw new BadRequestException(
-        'Use deductFunds for debit transactions only',
-      );
-    }
+  // async deductFunds(
+  //   addTransactionDto: AddTransactionDto,
+  // ): Promise<Transaction> {
+  //   if (addTransactionDto.type !== 'debit') {
+  //     throw new BadRequestException(
+  //       'Use deductFunds for debit transactions only',
+  //     );
+  //   }
 
-    const wallet = await this.getWalletByBusinessId(
-      addTransactionDto.businessId,
-    );
+  //   const wallet = await this.getWalletByBusinessId(
+  //     addTransactionDto.businessId,
+  //   );
 
-    // Check if sufficient balance
-    if (wallet.balance < addTransactionDto.amount) {
-      throw new BadRequestException('Insufficient wallet balance');
-    }
+  //   // Check if sufficient balance
+  //   if (wallet.balance < addTransactionDto.amount) {
+  //     throw new BadRequestException('Insufficient wallet balance');
+  //   }
 
-    return this.processTransaction(addTransactionDto);
-  }
+  //   return this.processTransaction(addTransactionDto);
+  // }
 
   /**
    * Process a transaction (credit or debit)
    */
-  private async processTransaction(
-    addTransactionDto: AddTransactionDto,
-  ): Promise<Transaction> {
-    try {
-      const wallet = await this.walletRepository.findOne({
-        where: { businessId: addTransactionDto.businessId },
-      });
+  // private async processTransaction(
+  //   addTransactionDto: AddTransactionDto,
+  // ): Promise<Transaction> {
+  //   try {
+  //     const wallet = await this.walletRepository.findOne({
+  //       where: { businessId: addTransactionDto.businessId },
+  //     });
 
-      if (!wallet) {
-        throw new NotFoundException('Wallet not found');
-      }
+  //     if (!wallet) {
+  //       throw new NotFoundException('Wallet not found');
+  //     }
 
-      if (wallet.status !== WalletStatus.ACTIVE) {
-        throw new BadRequestException('Wallet is not active');
-      }
+  //     if (wallet.status !== WalletStatus.ACTIVE) {
+  //       throw new BadRequestException('Wallet is not active');
+  //     }
 
-      // Create transaction
-      const transaction = this.transactionRepository.create({
-        walletId: wallet.id,
-        amount:
-          addTransactionDto.type === 'credit'
-            ? addTransactionDto.amount / 100
-            : addTransactionDto.amount,
-        type: addTransactionDto.type,
-        description: addTransactionDto.description,
-        referenceId: addTransactionDto.referenceId,
-        status: addTransactionDto.type === 'credit' ? 'completed' : 'pending',
-        currency: addTransactionDto.currency,
-        mode: addTransactionDto.mode,
-        customerName: addTransactionDto.customerName,
-      });
+  //     // Create transaction
+  //     const transaction = this.transactionRepository.create({
+  //       walletId: wallet.id,
+  //       amount:
+  //         addTransactionDto.type === 'credit'
+  //           ? addTransactionDto.amount / 100
+  //           : addTransactionDto.amount,
+  //       type: addTransactionDto.type,
+  //       description: addTransactionDto.description,
+  //       referenceId: addTransactionDto.referenceId,
+  //       status: addTransactionDto.type === 'credit' ? 'completed' : 'pending',
+  //       currency: addTransactionDto.currency,
+  //       mode: addTransactionDto.mode,
+  //       customerName: addTransactionDto.customerName,
+  //     });
 
-      const savedTransaction =
-        await this.transactionRepository.save(transaction);
+  //     const savedTransaction =
+  //       await this.transactionRepository.save(transaction);
 
-      // Update wallet balance
-      if (addTransactionDto.type === 'credit') {
-        wallet.balance =
-          Number(wallet.balance) + Number(addTransactionDto.amount / 100);
-        wallet.totalIncome =
-          Number(wallet.totalIncome) + Number(addTransactionDto.amount / 100);
+  //     // Update wallet balance
+  //     if (addTransactionDto.type === 'credit') {
+  //       wallet.balance =
+  //         Number(wallet.balance) + Number(addTransactionDto.amount / 100);
+  //       wallet.totalIncome =
+  //         Number(wallet.totalIncome) + Number(addTransactionDto.amount / 100);
 
-        console.log(`WALLET CREDITED ${addTransactionDto.amount / 100}`);
-      } else {
-        wallet.balance =
-          Number(wallet.balance) - Number(addTransactionDto.amount);
-        wallet.totalExpenses =
-          Number(wallet.totalExpenses) + Number(addTransactionDto.amount);
+  //       console.log(`WALLET CREDITED ${addTransactionDto.amount / 100}`);
+  //     } else {
+  //       wallet.balance =
+  //         Number(wallet.balance) - Number(addTransactionDto.amount);
+  //       wallet.totalExpenses =
+  //         Number(wallet.totalExpenses) + Number(addTransactionDto.amount);
 
-        console.log(`WALLET DEBITED ${addTransactionDto.amount}`);
-      }
+  //       console.log(`WALLET DEBITED ${addTransactionDto.amount}`);
+  //     }
 
-      await this.walletRepository.save(wallet);
+  //     await this.walletRepository.save(wallet);
 
-      return savedTransaction;
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Transaction failed: ${error.message}`,
-      );
-    }
-  }
+  //     return savedTransaction;
+  //   } catch (error) {
+  //     throw new InternalServerErrorException(
+  //       `Transaction failed: ${error.message}`,
+  //     );
+  //   }
+  // }
 
   async addPayPalPaymentMethod(
     walletId: string,
@@ -496,29 +496,29 @@ export class BusinessWalletService {
   /**
    * Get transaction history for a wallet
    */
-  async getTransactionHistory(
-    walletId: string,
-    limit: number = 50,
-  ): Promise<ApiResponse<Transaction[]>> {
-    try {
-      const transactionList = await this.transactionRepository.find({
-        where: { walletId },
-        order: { createdAt: 'DESC' },
-        take: limit,
-      });
+  // async getTransactionHistory(
+  //   walletId: string,
+  //   limit: number = 50,
+  // ): Promise<ApiResponse<Transaction[]>> {
+  //   try {
+  //     const transactionList = await this.transactionRepository.find({
+  //       where: { walletId },
+  //       order: { createdAt: 'DESC' },
+  //       take: limit,
+  //     });
 
-      return {
-        success: true,
-        data: transactionList,
-        message: 'Transaction history fetched',
-      };
-    } catch (error) {
-      console.log('Failed to fetch Transaction history error:', error);
-      return {
-        success: false,
-        error: error.message,
-        message: 'Failed to fetch Transaction history',
-      };
-    }
-  }
+  //     return {
+  //       success: true,
+  //       data: transactionList,
+  //       message: 'Transaction history fetched',
+  //     };
+  //   } catch (error) {
+  //     console.log('Failed to fetch Transaction history error:', error);
+  //     return {
+  //       success: false,
+  //       error: error.message,
+  //       message: 'Failed to fetch Transaction history',
+  //     };
+  //   }
+  // }
 }

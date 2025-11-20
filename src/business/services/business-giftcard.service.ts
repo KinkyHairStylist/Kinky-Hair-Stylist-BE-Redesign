@@ -101,7 +101,7 @@ export class BusinessGiftCardsService {
 
     // Count redeemed cards
     const totalRedeemedCards = allCards.filter(
-      (card) => card.status === BusinessGiftCardStatus.REDEEMED,
+      (card) => card.status === BusinessGiftCardStatus.USED,
     ).length;
 
     // Count pending cards (sent status is pending)
@@ -112,7 +112,7 @@ export class BusinessGiftCardsService {
     // Count available cards (not redeemed, not expired)
     const totalAvailableCards = allCards.filter(
       (card) =>
-        card.status === BusinessGiftCardStatus.AVAILABLE &&
+        card.status === BusinessGiftCardStatus.ACTIVE &&
         card.expiresAt > now,
     ).length;
 
@@ -260,7 +260,7 @@ export class BusinessGiftCardsService {
     const giftCard = await this.findByCode(redeemDto.code);
 
     // Validate gift card can be redeemed
-    if (giftCard.status === BusinessGiftCardStatus.REDEEMED) {
+    if (giftCard.status === BusinessGiftCardStatus.USED) {
       throw new BadRequestException(
         'Gift card has already been fully redeemed',
       );
@@ -270,7 +270,7 @@ export class BusinessGiftCardsService {
       throw new BadRequestException('Gift card has expired');
     }
 
-    if (giftCard.status === BusinessGiftCardStatus.CANCELLED) {
+    if (giftCard.status === BusinessGiftCardStatus.INACTIVE) {
       throw new BadRequestException('Gift card has been cancelled');
     }
 
@@ -291,7 +291,7 @@ export class BusinessGiftCardsService {
     giftCard.remainingAmount -= amountToRedeem;
 
     if (giftCard.remainingAmount === 0) {
-      giftCard.status = BusinessGiftCardStatus.REDEEMED;
+      giftCard.status = BusinessGiftCardStatus.USED;
       giftCard.redeemedAt = new Date();
     }
 
@@ -325,11 +325,11 @@ export class BusinessGiftCardsService {
   async cancel(id: string): Promise<BusinessGiftCard> {
     const giftCard = await this.findOne(id);
 
-    if (giftCard.status === BusinessGiftCardStatus.REDEEMED) {
+    if (giftCard.status === BusinessGiftCardStatus.USED) {
       throw new BadRequestException('Cannot cancel a redeemed gift card');
     }
 
-    giftCard.status = BusinessGiftCardStatus.CANCELLED;
+    giftCard.status = BusinessGiftCardStatus.INACTIVE;
     return await this.giftCardRepository.save(giftCard);
   }
 
@@ -348,7 +348,7 @@ export class BusinessGiftCardsService {
       .set({ status: BusinessGiftCardStatus.EXPIRED })
       .where('expiresAt < :now', { now })
       .andWhere('status = :status', {
-        status: BusinessGiftCardStatus.AVAILABLE,
+        status: BusinessGiftCardStatus.ACTIVE,
       })
       .execute();
 

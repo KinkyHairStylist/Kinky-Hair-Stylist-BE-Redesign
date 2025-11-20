@@ -1,150 +1,172 @@
 import {
   Injectable,
   NotFoundException,
-  ForbiddenException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+
+import { BusinessGiftCard } from 'src/business/entities/business-giftcard.entity';
 import {
-  GiftCard,
-  GiftCardStatus,
-} from '../../all_user_entities/gift-card.entity';
+  BusinessGiftCardSoldStatus,
+  BusinessGiftCardStatus,
+} from 'src/business/enum/gift-card.enum';
+
 import {
-  CustomerCreateGiftCardDto,
-  ValidateGiftCardDto,
+  PurchaseBusinessGiftCardDto,
   RedeemGiftCardDto,
+  ValidateGiftCardDto,
 } from './../dtos/create-gift-card.dto';
+
+import { Card } from '../../all_user_entities/card.entity';
 import { User } from '../../all_user_entities/user.entity';
-import { Card } from './../../all_user_entities/card.entity';
 
 @Injectable()
 export class GiftCardService {
   constructor(
-    @InjectRepository(GiftCard)
-    private readonly giftCardRepo: Repository<GiftCard>,
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
+    @InjectRepository(BusinessGiftCard)
+    private readonly businessGiftCardRepo: Repository<BusinessGiftCard>,
+
     @InjectRepository(Card)
     private readonly cardRepo: Repository<Card>,
   ) {}
 
-  /** 🪙 Purchase a new gift card */
-  async createGiftCard(
-    dto: CustomerCreateGiftCardDto,
-    sender: User,
-  ): Promise<GiftCard> {
+  /** 🎁 Purchase a business gift card */
+  async purchaseGiftCard(dto: PurchaseBusinessGiftCardDto, purchaser: User) {
+    const giftCard = await this.businessGiftCardRepo.findOne({
+      where: { id: dto.businessGiftCardId },
+    });
+
+    if (!giftCard)
+      throw new NotFoundException('Gift card not found');
+
+    if (giftCard.soldStatus !== BusinessGiftCardSoldStatus.AVAILABLE)
+      throw new BadRequestException('Gift card already purchased');
+
+    // Verify payment card belongs to purchaser
     const card = await this.cardRepo.findOne({
       where: { id: dto.cardId },
       relations: ['user'],
     });
-    if (!card) throw new NotFoundException('Selected payment method not found');
 
-    if (card.user.id !== sender.id) {
-      throw new ForbiddenException(
-        'You are not authorized to use this payment method.',
-      );
-    }
+    if (!card) throw new NotFoundException('Payment card not found');
 
-    const giftCard = this.giftCardRepo.create({
-      recipientName: dto.recipientName,
-      recipientEmail: dto.recipientEmail,
-      senderName: dto.senderName,
-      personalMessage: dto.personalMessage,
-      amount: dto.amount,
-      sender,
-      card,
-      status: GiftCardStatus.ACTIVE,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // expires in 7 days
-    });
+    if (card.user.id !== purchaser.id)
+      throw new ForbiddenException('You cannot use this payment method');
 
-    return await this.giftCardRepo.save(giftCard);
+    // Calculate expiry date
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + giftCard.expiryInDays);
+
+    // Update gift card ownership
+    giftCard.ownerId = purchaser.id;
+    giftCard.ownerEmail = purchaser.email;
+    giftCard.ownerFullName = `${purchaser.firstName} ${purchaser.surname}`;
+
+    giftCard.cardId = dto.cardId;
+
+    giftCard.recipientName = dto.recipientName;
+    giftCard.recipientEmail = dto.recipientEmail;
+    giftCard.message = dto.message || 'No message';
+    giftCard.ownerFullName = dto.fullName;
+
+    giftCard.expiresAt = expiryDate;
+    giftCard.soldStatus = BusinessGiftCardSoldStatus.PURCHASED;
+
+    await this.businessGiftCardRepo.save(giftCard);
+
+    return {
+      message: 'Gift card purchased successfully',
+      giftCard,
+    };
   }
 
-  /** ✅ Validate a gift card by code only */
+  /** 🔎 Validate gift card by code */
   async validateGiftCard(dto: ValidateGiftCardDto) {
-    const giftCard = await this.giftCardRepo.findOne({
+    const giftCard = await this.businessGiftCardRepo.findOne({
       where: { code: dto.code },
     });
 
-    if (!giftCard) throw new NotFoundException('Gift card not found');
+    if (!giftCard)
+      throw new NotFoundException('Gift card not found');
 
     const now = new Date();
 
-    if (giftCard.status !== GiftCardStatus.ACTIVE)
-      return { valid: false, reason: 'Gift card already used or inactive' };
-
-    if (giftCard.expiresAt && giftCard.expiresAt < now)
+    if (giftCard.expiresAt < now)
       return { valid: false, reason: 'Gift card expired' };
+
+    if (giftCard.soldStatus !== BusinessGiftCardSoldStatus.PURCHASED)
+      return { valid: false, reason: 'Not purchased yet' };
+
+    if (giftCard.remainingAmount <= 0)
+      return { valid: false, reason: 'Gift card already fully redeemed' };
 
     return {
       valid: true,
-      message: 'Gift card is valid',
-      amount: giftCard.amount,
+      amount: giftCard.remainingAmount,
       expiresAt: giftCard.expiresAt,
       status: giftCard.status,
     };
   }
 
-  /** 🎁 Redeem a gift card using its code only */
+  /** ✔ Redeem gift card */
   async redeemGiftCard(dto: RedeemGiftCardDto, user: User) {
-    const giftCard = await this.giftCardRepo.findOne({
+    const giftCard = await this.businessGiftCardRepo.findOne({
       where: { code: dto.code },
     });
 
-    if (!giftCard) throw new NotFoundException('Gift card not found');
-    if (giftCard.status !== GiftCardStatus.ACTIVE)
-      throw new BadRequestException('Gift card already used or inactive');
+    if (!giftCard)
+      throw new NotFoundException('Gift card not found');
 
     const now = new Date();
 
-    if (giftCard.expiresAt && giftCard.expiresAt < now) {
-      giftCard.status = GiftCardStatus.EXPIRED;
-      await this.giftCardRepo.save(giftCard);
-      throw new BadRequestException('Gift card has expired');
-    }
+    if (giftCard.expiresAt < now)
+      throw new BadRequestException('Gift card expired');
 
-    giftCard.status = GiftCardStatus.USED;
-    giftCard.usedAt = now;
-    await this.giftCardRepo.save(giftCard);
+    if (giftCard.remainingAmount <= 0)
+      throw new BadRequestException('Gift card fully redeemed');
+
+    // Redeem fully
+    giftCard.remainingAmount = 0;
+    giftCard.redeemedAt = now;
+    giftCard.status = BusinessGiftCardStatus.USED;
+
+    await this.businessGiftCardRepo.save(giftCard);
 
     return {
-      message: 'Gift card successfully redeemed',
-      code: giftCard.code,
-      amount: giftCard.amount,
-      usedAt: giftCard.usedAt,
+      message: 'Gift card redeemed',
+      amountUsed: giftCard.amount,
+      redeemedAt: giftCard.redeemedAt,
     };
   }
 
-
-
-  // Get card Summery for a user
+  /** Stats for user-owned gift cards */
   async getGiftCardStatsByUser(user: User) {
-    const [activeCount, usedCount, totalAmountResult] = await Promise.all([
-      this.giftCardRepo.count({
-        where: { status: GiftCardStatus.ACTIVE, sender: { id: user.id } },
-      }),
-      this.giftCardRepo.count({
-        where: { status: GiftCardStatus.USED, sender: { id: user.id } },
-      }),
-      this.giftCardRepo
-        .createQueryBuilder('giftCard')
-        .select('SUM(giftCard.amount)', 'total')
-        .where('giftCard.senderId = :userId', { userId: user.id })
-        .getRawOne(),
-    ]);
+    const total = await this.businessGiftCardRepo.count({
+      where: { ownerId: user.id },
+    });
 
-    const totalAmountSent = parseFloat(totalAmountResult?.total || '0');
+    const active = await this.businessGiftCardRepo.count({
+      where: { ownerId: user.id, status: BusinessGiftCardStatus.ACTIVE },
+    });
+
+    const used = await this.businessGiftCardRepo.count({
+      where: { ownerId: user.id, status: BusinessGiftCardStatus.USED },
+    });
 
     return {
-      totalAmountSent,
-      activeCount,
-      usedCount,
+      totalOwned: total,
+      activeCount: active,
+      usedCount: used,
     };
   }
 
-  /** 📜 Get all gift cards (for admin/testing) */
-  async getAllGiftCards(): Promise<GiftCard[]> {
-    return await this.giftCardRepo.find();
+  /** Get all AVAILABLE gift cards */
+  async getAllAvailableBusinessGiftCards() {
+    return this.businessGiftCardRepo.find({
+      where: { soldStatus: BusinessGiftCardSoldStatus.AVAILABLE },
+      order: { createdAt: 'DESC' },
+    });
   }
 }

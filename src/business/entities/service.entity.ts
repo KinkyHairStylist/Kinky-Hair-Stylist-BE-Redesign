@@ -11,7 +11,7 @@ import { Business } from './business.entity';
 import { Staff } from './staff.entity';
 import { AdvertisementPlan } from './advertisement-plan.entity';
 
-@Entity('service')
+@Entity('Service')
 export class Service {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -31,6 +31,9 @@ export class Service {
   @Column({ nullable: true })
   duration: string;
 
+  @Column('text', { array: true, nullable: true })
+  images: string[];
+
   @ManyToOne(() => AdvertisementPlan, { eager: true, nullable: true })
   @JoinColumn({ name: 'advertisementPlanId' })
   advertisementPlan: AdvertisementPlan;
@@ -43,7 +46,6 @@ export class Service {
     nullable: true,
     eager: true,
   })
-  @JoinColumn({ name: 'assignedStaffId' })
   assignedStaff: Staff;
 
   @CreateDateColumn()
