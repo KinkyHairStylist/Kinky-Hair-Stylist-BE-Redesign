@@ -138,16 +138,16 @@ export class BusinessWalletController {
       );
     }
 
-    const result = await this.walletService.getTransactionHistory(walletId);
+    // const result = await this.walletService.getTransactionHistory(walletId);
 
-    if (!result.success) {
-      throw new HttpException(
-        { message: result.message, error: result.error },
-        HttpStatus.NOT_FOUND,
-      );
-    }
+    // if (!result.success) {
+    //   throw new HttpException(
+    //     { message: result.message, error: result.error },
+    //     HttpStatus.NOT_FOUND,
+    //   );
+    // }
 
-    return result;
+    // return result;
   }
 
   @Patch('/debit')
@@ -164,21 +164,21 @@ export class BusinessWalletController {
       );
     }
 
-    try {
-      const result = await this.walletService.deductFunds(debitWalletData);
+    // try {
+    //   const result = await this.walletService.deductFunds(debitWalletData);
 
-      return {
-        success: true,
-        data: result,
-        message: 'Business Wallet debited successfully',
-      };
-    } catch (error) {
-      console.log('Failed to debit business wallet error:', error);
-      return {
-        success: false,
-        error: error.message,
-        message: `Failed to debit business wallet: ${error.message}`,
-      };
-    }
+    //   return {
+    //     success: true,
+    //     data: result,
+    //     message: 'Business Wallet debited successfully',
+    //   };
+    // } catch (error) {
+    //   console.log('Failed to debit business wallet error:', error);
+    //   return {
+    //     success: false,
+    //     error: error.message,
+    //     message: `Failed to debit business wallet: ${error.message}`,
+    //   };
+    // }
   }
 }

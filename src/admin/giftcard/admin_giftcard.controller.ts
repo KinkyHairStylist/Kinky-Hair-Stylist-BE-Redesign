@@ -1,12 +1,12 @@
-import { UseGuards, Controller, Get, Post, Body, Param, Patch, Delete } from '@nestjs/common';
+import { UseGuards, Controller, Get, Body, Param, Patch, Delete } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiTags,
 } from '@nestjs/swagger';
 
 import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
-import { GiftcardService } from './giftcard.service';
-import { CreateGiftCardDto, RefundGiftCardDto } from './dto/create-giftcard.dto';
+import { GiftcardService } from './admin_giftcard.service';
+import { RefundGiftCardDto } from './dto/create-giftcard.dto';
 import { Roles } from 'src/middleware/roles.decorator';
 import { Role } from 'src/middleware/role.enum';
 import { RolesGuard } from 'src/middleware/roles.guard';
@@ -18,11 +18,6 @@ import { RolesGuard } from 'src/middleware/roles.guard';
 @Controller('/admin/giftcards')
 export class GiftcardController {
   constructor(private readonly giftcardService: GiftcardService) {}
-
-  @Post()
-  async create(@Body() dto: CreateGiftCardDto) {
-    return await this.giftcardService.issueGiftCard(dto);
-  }
 
   @Get()
   async findAll() {

@@ -155,7 +155,10 @@ export class ProductService {
     queryBuilder.leftJoinAndSelect('product.business', 'business');
 
     /* --------- FILTERS ---------- */
-    if (category) {
+    // if (category) {
+    //   queryBuilder.andWhere('product.category = :category', { category });
+    // }
+    if (category && category !== 'all') {
       queryBuilder.andWhere('product.category = :category', { category });
     }
 

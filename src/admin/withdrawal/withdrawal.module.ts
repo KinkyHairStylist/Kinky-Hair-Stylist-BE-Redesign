@@ -3,7 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Withdrawal } from './entities/withdrawal.entity';
 import { WithdrawalService } from './withdrawal.service';
 import { WithdrawalController } from './withdrawal.controller';
-import { GiftcardModule } from '../giftcard/giftcard.module'; 
+import { GiftcardModule } from '../giftcard/admin_giftcard.module'; 
 
 
 @Module({

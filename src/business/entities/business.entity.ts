@@ -18,8 +18,9 @@ import { Staff } from './staff.entity';
 import { BlockedTimeSlot } from './blocked-time-slot.entity';
 import { Service } from './service.entity';
 import { Wallet } from './wallet.entity';
-import { GiftCard } from '../../all_user_entities/gift-card.entity';
 import { Product } from '../../marketplace/entity/product.entity';
+import { BusinessGiftCard } from './business-giftcard.entity';
+import { BusinessOwnerSettings } from './business-owner-settings.entity';
 
 export enum BusinessStatus {
   PENDING = 'pending',
@@ -149,17 +150,24 @@ export class Business {
   })
   wallet: Wallet;
 
+  @OneToOne(
+    () => BusinessOwnerSettings,
+    (businessOwnerSettings) => businessOwnerSettings.business,
+    {
+      cascade: true,
+    },
+  )
+  ownerSettings: BusinessOwnerSettings;
+
   @OneToMany(() => Product, (product) => product.business)
   products: Product[];
+
+  @OneToMany(() => BusinessGiftCard, (giftcard) => giftcard.business)
+  giftCards: BusinessGiftCard[];
 
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
-
-  @OneToMany(() => GiftCard, (giftCard) => giftCard.business, {
-    cascade: true,
-  })
-  giftCards: GiftCard[];
 }

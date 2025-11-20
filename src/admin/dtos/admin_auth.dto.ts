@@ -68,14 +68,14 @@ export class AdminRegisterDto {
     gender?: Gender;
 }
 
-export class ForgotPasswordDto {
+export class AdminForgotPasswordDto {
   @ApiProperty({ example: 'admin@example.com' })
   @IsEmail()
   @IsNotEmpty()
   email: string;
 }
 
-export class ResetPasswordDto {
+export class AdminResetPasswordDto {
   @ApiProperty({ example: 'StrongP@ss123!' })
   @IsString()
   @IsNotEmpty()

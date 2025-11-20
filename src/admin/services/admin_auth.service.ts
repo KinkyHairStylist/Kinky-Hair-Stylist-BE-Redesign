@@ -138,7 +138,9 @@ export class AdminAuthService {
     let decoded;
 
     try {
-      decoded = this.jwt.verify(token, { secret: this.jwtSecret });
+      decoded = await this.jwt.verifyAsync(token, {
+        secret: this.jwtSecret,
+      });
     } catch {
       throw new UnauthorizedException('Invitation link invalid or expired');
     }

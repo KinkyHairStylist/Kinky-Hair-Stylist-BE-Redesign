@@ -6,7 +6,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { EmailModule } from './email/email.module';
 import { BusinessModule } from './business/business.module';
 import { AdminModule } from './admin/admin.module';
-import { GiftcardModule } from './admin/giftcard/giftcard.module';
+import { GiftcardModule } from './admin/giftcard/admin_giftcard.module';
 import { PaymentModule } from './admin/payment/payment.module';
 import { TransactionFeeModule } from './admin/transaction-fee/transaction-fee.module';
 import { WithdrawalModule } from './admin/withdrawal/withdrawal.module';
@@ -40,6 +40,8 @@ import { BusinessWalletModule } from './business/wallet.module';
 import { WebhookModule } from './webhook/webhook.module';
 import { InventoryModule } from './marketplace/inventory.module';
 import { ProductModule } from './marketplace/product.module';
+import { BusinessGiftCardsModule } from './business/business-giftcard.module';
+import { BusinessOwnerSettingsModule } from './business/business-owner-settings.module';
 
 @Module({
   imports: [
@@ -88,6 +90,8 @@ import { ProductModule } from './marketplace/product.module';
     NotificationSettingsModule,
     ProductModule,
     InventoryModule,
+    BusinessGiftCardsModule,
+    BusinessOwnerSettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService, AuthMiddleware],

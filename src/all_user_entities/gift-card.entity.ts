@@ -10,7 +10,6 @@ import { randomBytes } from 'crypto';
 
 import { User } from './user.entity';
 import { Card } from './card.entity';
-import { Business } from "../business/entities/business.entity"
 
 export enum GiftCardStatus {
   ACTIVE = 'Active',
@@ -76,13 +75,6 @@ export class GiftCard {
 
   @Column({ nullable: true })
   comment?: string;
-
-  @ManyToOne(() => Business, (business) => business.giftCards, {
-    onDelete: 'CASCADE',
-    nullable: true,
-    eager: true, // optional
-  })
-  business: Business;
 
   @BeforeInsert()
   generateDefaults() {

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { GiftcardController } from './giftcard.controller';
-import { GiftcardService } from './giftcard.service';
+import { GiftcardController } from './admin_giftcard.controller';
+import { GiftcardService } from './admin_giftcard.service';
 import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
 import { RolesGuard } from 'src/middleware/roles.guard';
 

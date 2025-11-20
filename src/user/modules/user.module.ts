@@ -3,7 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 
 import { Card } from 'src/all_user_entities/card.entity';
-import { GiftCard } from 'src/all_user_entities/gift-card.entity';
+import { BusinessGiftCard } from 'src/business/entities/business-giftcard.entity';
 import { Article } from 'src/all_user_entities/article.entity';
 import { SupportTicket } from 'src/all_user_entities/support-ticket.entity';
 import { LiveChatMessage } from 'src/all_user_entities/live-chat-message.entity';
@@ -33,7 +33,7 @@ import { PasswordUtil } from 'src/business/utils/password.util';
     TypeOrmModule.forFeature([
       User,
       Referral,
-      GiftCard,
+      BusinessGiftCard,
       Card,
       Article,
       SupportTicket,

@@ -462,18 +462,18 @@ export class PaymentService {
 
         const { amount, channel, currency } = verifyResponse.data.data;
 
-        await this.businessWalletService.addFunds({
-          amount,
-          businessId: existingPayment.businessId,
-          description:
-            existingPayment.reason ||
-            `Payment from Customer: ${existingPayment.client}`,
-          type: 'credit',
-          referenceId: reference,
-          customerName: existingPayment.client,
-          mode: channel,
-          currency,
-        });
+        // await this.businessWalletService.addFunds({
+        //   amount,
+        //   businessId: existingPayment.businessId,
+        //   description:
+        //     existingPayment.reason ||
+        //     `Payment from Customer: ${existingPayment.client}`,
+        //   type: 'credit',
+        //   referenceId: reference,
+        //   customerName: existingPayment.client,
+        //   mode: channel,
+        //   currency,
+        // });
 
         this.logger.log(`Payment mark as Success: ${reference}`);
       } else {
