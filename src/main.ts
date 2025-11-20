@@ -22,12 +22,25 @@ async function bootstrap() {
   );
 
   // CORS Configuration
+  const allowedOrigins = [
+    'http://localhost:3000', // dev
+    'https://sit.kinkyhairstylists.com', // staging
+    'https://uat.kinkyhairstylists.com', // staging
+    'https://www.kinkyhairstylists.com', // production
+  ];
+
   app.enableCors({
-    origin: 'http://localhost:3000',
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  });
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+});
 
   app.useGlobalPipes(
     new ValidationPipe({
