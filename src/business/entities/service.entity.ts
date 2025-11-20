@@ -6,7 +6,6 @@ import {
     ManyToOne, CreateDateColumn, UpdateDateColumn, JoinColumn,
 } from 'typeorm';
 import {Business} from "./business.entity";
-import {Staff} from "./staff.entity";
 import {AdvertisementPlan} from "./advertisement-plan.entity";
 
 @Entity('service')
