@@ -20,9 +20,9 @@ import { Staff } from './entities/staff.entity';
 import { BlockedTimeSlot } from './entities/blocked-time-slot.entity';
 import { BookingDay } from './entities/booking-day.entity';
 import { AdvertisementPlan } from './entities/advertisement-plan.entity';
-// import {EmergencyContact} from "./entities/emergency-contact.entity";
 import { Address } from './entities/address.entity';
 import { Service } from './entities/service.entity';
+import {EmergencyContact} from "./entities/emergency-contact.entity";
 
 @Module({
   imports: [
@@ -38,6 +38,7 @@ import { Service } from './entities/service.entity';
       BlockedTimeSlot,
       BookingDay,
       Service,
+      EmergencyContact
     ]),
     JwtModule.register({}),
     EmailModule,

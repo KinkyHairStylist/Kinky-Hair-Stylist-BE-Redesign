@@ -9,7 +9,7 @@ import {
 import { Business } from '../entities/business.entity';
 import { ClientSchema } from '../entities/client.entity';
 import { ClientAddressSchema } from '../entities/client-address.entity';
-import { EmergencyContactSchema } from '../entities/emergency-contact.entity';
+import { EmergencyContactSchema } from '../entities/emergency-contact-schema.entity';
 import {
   ClientSettingsSchema,
   ClientType,

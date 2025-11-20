@@ -30,6 +30,13 @@ export class User {
   @Column({ unique: true })
   email: string;
 
+  @Column({ type: 'jsonb', nullable: true })
+  addresses: {
+    id?: string;
+    type?: string;
+    fullAddress?: string;
+  }[];
+
   @Column({ type: 'varchar', nullable: true })
   password?: string;
 
