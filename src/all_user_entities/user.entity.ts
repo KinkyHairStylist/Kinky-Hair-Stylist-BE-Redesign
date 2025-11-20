@@ -19,7 +19,7 @@ import { Transaction } from 'src/business/entities/transaction.entity';
 import { UserPreferences } from 'src/user/user_entities/preferences.entity';
 import { UserNotificationSettings } from 'src/user/user_entities/user_notification_settings.entity';
 
-@Entity()
+@Entity({ name: 'user' })
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -157,5 +157,4 @@ export class User {
 
   @Column({ default: true })
   isClient: boolean;
-
 }

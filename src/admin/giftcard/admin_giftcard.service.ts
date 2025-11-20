@@ -5,14 +5,9 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import {
-  BusinessGiftCard
-} from 'src/business/entities/business-giftcard.entity';
-import {
-  BusinessGiftCardStatus,
-} from 'src/business/enum/gift-card.enum';
+import { BusinessGiftCard } from 'src/business/entities/business-giftcard.entity';
+import { BusinessGiftCardStatus } from 'src/business/enum/gift-card.enum';
 import { GiftCardSummaryDto } from './dto/giftcard-summary.dto';
-import { randomBytes } from 'crypto';
 import { User } from 'src/all_user_entities/user.entity';
 
 @Injectable()

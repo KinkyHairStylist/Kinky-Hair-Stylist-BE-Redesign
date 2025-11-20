@@ -263,13 +263,13 @@ export class ClientProfileService {
             };
           }
 
-          const MAX_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB
+          const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 2 MB
           if (uploadedImage.size > MAX_SIZE_BYTES) {
             return {
               success: false,
               error: 'Profile validation failed',
               data: false,
-              message: `Image is too large. Maximum allowed size is 2 MB`,
+              message: `Image is too large. Maximum allowed size is 10 MB`,
             };
           }
         }

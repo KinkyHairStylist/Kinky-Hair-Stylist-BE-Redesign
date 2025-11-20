@@ -1,8 +1,13 @@
-import { UseGuards, Controller, Get, Body, Param, Patch, Delete } from '@nestjs/common';
 import {
-  ApiBearerAuth,
-  ApiTags,
-} from '@nestjs/swagger';
+  UseGuards,
+  Controller,
+  Get,
+  Body,
+  Param,
+  Patch,
+  Delete,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
 import { GiftcardService } from './admin_giftcard.service';
@@ -35,8 +40,8 @@ export class GiftcardController {
   }
 
   @Patch(':id/deactivate')
-  async deactivate(@Param('id') id: string, @Body() body: RefundGiftCardDto,) {
-    return await this.giftcardService.deactivateGiftCard(id, body.reason,);
+  async deactivate(@Param('id') id: string, @Body() body: RefundGiftCardDto) {
+    return await this.giftcardService.deactivateGiftCard(id, body.reason);
   }
 
   @Patch(':id/refund/:amount')

@@ -1,3 +1,5 @@
+// business-owner-settings.entity.ts
+
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -93,6 +95,69 @@ export class ClientManagement {
   reportRecipients: string[];
 }
 
+export class OnlinePresence {
+  @Column({ default: false, nullable: true })
+  enableOnlineBooking: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  bookingPageUrl: string;
+
+  @Column({ type: 'text', nullable: true })
+  websiteEmbedCode: string;
+
+  @Column({ type: 'text', nullable: true })
+  seoBusinessDescription: string;
+
+  @Column({ type: 'text', nullable: true })
+  seoPrimaryColor: string;
+
+  @Column({ type: 'text', nullable: true })
+  seoAccentColor: string;
+}
+
+export class Integrations {
+  @Column({ default: false, nullable: true })
+  googleCalendar: boolean;
+
+  @Column({ default: false, nullable: true })
+  mailChimp: boolean;
+
+  @Column({ default: false, nullable: true })
+  quickBooks: boolean;
+}
+
+export class PricingPolicies {
+  @Column({ type: 'int', default: 24, nullable: true })
+  cancellationWindow: number;
+
+  @Column({ type: 'int', default: 5, nullable: true })
+  cancellationFee: number;
+
+  @Column({ type: 'text', default: '%', nullable: true })
+  cancellationFeeType: string;
+
+  @Column({ type: 'int', default: 10, nullable: true })
+  noShowFee: number;
+
+  @Column({ type: 'text', default: '%', nullable: true })
+  noShowFeeType: string;
+
+  @Column({ default: false, nullable: true })
+  depositRequired: boolean;
+
+  @Column({ type: 'int', default: 25, nullable: true })
+  depositPercentageRequired: number;
+
+  @Column({ type: 'text', nullable: true })
+  cancellationPolicyText: string;
+
+  @Column({ default: false, nullable: true })
+  acceptCardPayment: boolean;
+
+  @Column({ default: false, nullable: true })
+  acceptCashPayment: boolean;
+}
+
 @Entity('business_owner_settings')
 export class BusinessOwnerSettings {
   @PrimaryGeneratedColumn('uuid')
@@ -104,6 +169,10 @@ export class BusinessOwnerSettings {
   @Column({ type: 'uuid' })
   @Index()
   businessId: string;
+
+  @Column({ type: 'text', nullable: true })
+  @Index()
+  apiKey: string;
 
   @OneToOne(() => Business, (business) => business.giftCards, {
     onDelete: 'CASCADE',
@@ -119,6 +188,15 @@ export class BusinessOwnerSettings {
 
   @Column(() => ClientManagement)
   clientManagement: ClientManagement;
+
+  @Column(() => OnlinePresence)
+  onlinePresence: OnlinePresence;
+
+  @Column(() => PricingPolicies)
+  pricingPolicies: PricingPolicies;
+
+  @Column(() => Integrations)
+  integrations: Integrations;
 
   @CreateDateColumn()
   createdAt: Date;
