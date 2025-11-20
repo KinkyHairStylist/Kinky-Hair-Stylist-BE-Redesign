@@ -73,7 +73,7 @@ export class Business {
   appointments: Appointment[];
 
   @Column('text', { array: true, default: [] })
-  services: string[];
+  service: string[];
 
   // @OneToMany(() => Service, (service) => service.business, {
   //   cascade: true,
