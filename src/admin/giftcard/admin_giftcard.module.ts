@@ -7,10 +7,9 @@ import { User } from 'src/all_user_entities/user.entity';
 import { BusinessGiftCard } from 'src/business/entities/business-giftcard.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([BusinessGiftCard, Card, User]),],
+  imports: [TypeOrmModule.forFeature([BusinessGiftCard, Card, User])],
   controllers: [GiftcardController],
   providers: [GiftcardService],
-   exports: [GiftcardService, TypeOrmModule],
-  
+  exports: [GiftcardService, TypeOrmModule],
 })
 export class GiftcardModule {}

@@ -16,9 +16,19 @@ export class FormidableMiddleware implements NestMiddleware {
 
       // flatten array fields
       const flatFields = {};
+
       for (const key in fields) {
         const value = fields[key];
-        flatFields[key] = Array.isArray(value) ? value[0] : value;
+
+        // If value is array from Formidable and contains strings -> keep as array
+        if (Array.isArray(value)) {
+          flatFields[key] = value.length > 1 ? value : value[0];
+        } else if (typeof value === 'string' && value.includes(',')) {
+          // if comma-separated, convert to array
+          flatFields[key] = value.split(',').map((v) => v.trim());
+        } else {
+          flatFields[key] = value;
+        }
       }
 
       // attach fields
