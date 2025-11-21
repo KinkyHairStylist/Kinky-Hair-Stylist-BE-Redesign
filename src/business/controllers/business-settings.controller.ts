@@ -263,13 +263,35 @@ export class BusinessSettingsController {
     @Param('businessId') businessId: string,
     @Request() req,
     @Body() updateDto: UpdateBusinessLocationDto,
-  ): Promise<Business> {
-    const ownerId = req.user.id;
-    return this.businessService.updateBusinessLocation(
-      businessId,
-      ownerId,
-      updateDto,
-    );
+  ) {
+    try {
+      const ownerId = req.user.sub || req.user.userId;
+
+      if (!ownerId) {
+        throw new HttpException(
+          'User not authenticated',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      const result = await this.businessService.updateBusinessLocation(
+        businessId,
+        ownerId,
+        updateDto,
+      );
+
+      return {
+        success: true,
+        message: 'Location updated successfully',
+        data: result,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Failed to update location',
+        error: error.message,
+      };
+    }
   }
 
   @Patch(':businessId/profile')

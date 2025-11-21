@@ -66,21 +66,6 @@ export class BusinessWalletService {
 
       const savedWallet = await this.walletRepository.save(wallet);
 
-      console.log('WALLET CREATED');
-
-      // Create initial transaction record (wallet creation)
-      // const initialTransaction = this.transactionRepository.create({
-      //   walletId: savedWallet.id,
-      //   amount: 0,
-      //   type: 'credit',
-      //   description: 'Wallet created',
-      //   status: 'completed',
-      // });
-
-      // await this.transactionRepository.save(initialTransaction);
-
-      // console.log('TRANSACTION CREATED');
-
       return {
         success: true,
         data: savedWallet,

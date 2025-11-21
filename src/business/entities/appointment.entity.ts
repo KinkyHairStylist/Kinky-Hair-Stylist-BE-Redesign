@@ -56,6 +56,9 @@ export class Appointment {
   business: Business;
 
   // Appointment details
+  @Column({ type: 'varchar', nullable: true })
+  googleEventId: string;
+
   @Column()
   serviceName: string;
 
