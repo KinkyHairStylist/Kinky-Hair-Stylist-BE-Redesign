@@ -19,7 +19,6 @@ import {
   CreateUserAddressDto,
   UpdateBusinessOwnerSettingsDto,
   UpdateOwnerProfileDto,
-  UpdateUserAddressDto,
 } from '../dtos/requests/BusinessOwnerSettingsDto';
 import { UserService } from 'src/user/services/user.service';
 import { Business } from '../entities/business.entity';

@@ -22,7 +22,8 @@ import { BookingDay } from './entities/booking-day.entity';
 import { AdvertisementPlan } from './entities/advertisement-plan.entity';
 import { Address } from './entities/address.entity';
 import { Service } from './entities/service.entity';
-import {EmergencyContact} from "./entities/emergency-contact.entity";
+import { EmergencyContact } from './entities/emergency-contact.entity';
+import { GoogleCalendarModule } from 'src/integration/google-calendar.module';
 
 @Module({
   imports: [
@@ -38,10 +39,12 @@ import {EmergencyContact} from "./entities/emergency-contact.entity";
       BlockedTimeSlot,
       BookingDay,
       Service,
-      EmergencyContact
+      EmergencyContact,
     ]),
     JwtModule.register({}),
     EmailModule,
+    GoogleCalendarModule,
+    forwardRef(() => GoogleCalendarModule),
     forwardRef(() => BusinessWalletModule),
   ],
   controllers: [AuthController, BusinessController],

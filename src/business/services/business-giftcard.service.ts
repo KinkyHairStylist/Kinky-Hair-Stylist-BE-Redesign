@@ -112,8 +112,7 @@ export class BusinessGiftCardsService {
     // Count available cards (not redeemed, not expired)
     const totalAvailableCards = allCards.filter(
       (card) =>
-        card.status === BusinessGiftCardStatus.ACTIVE &&
-        card.expiresAt > now,
+        card.status === BusinessGiftCardStatus.ACTIVE && card.expiresAt > now,
     ).length;
 
     // Count expired cards
@@ -135,7 +134,7 @@ export class BusinessGiftCardsService {
   }
 
   private isValidCodeFormat(code: string): boolean {
-    const pattern = /^GIFTKSH-[A-Z0-9]+-\d{4}-[A-Z0-9]{5}$/;
+    const pattern = /^KSH[A-Z0-9]{5}$/;
     return pattern.test(code);
   }
 
@@ -153,6 +152,10 @@ export class BusinessGiftCardsService {
       sentStatus,
     } = filters;
 
+    console.log('DEFAULTS SEARCH:', search);
+    console.log('DEFAULTS STATUS:', status);
+    console.log('DEFAULTS SENT STATUS:', sentStatus);
+
     const queryBuilder = this.giftCardRepository.createQueryBuilder('giftCard');
 
     /* --------- ALWAYS exclude deleted ---------- */
@@ -164,13 +167,13 @@ export class BusinessGiftCardsService {
     queryBuilder.leftJoinAndSelect('giftCard.business', 'business');
 
     /* --------- FILTERS ---------- */
-    if (sentStatus && sentStatus !== 'all') {
+    if (sentStatus && sentStatus !== 'All') {
       queryBuilder.andWhere('giftCard.sentStatus = :sentStatus', {
         sentStatus,
       });
     }
 
-    if (status && status !== 'all') {
+    if (status && status !== 'All') {
       queryBuilder.andWhere('giftCard.status = :status', { status });
     }
 

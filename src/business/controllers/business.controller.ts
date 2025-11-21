@@ -4,9 +4,11 @@ import {
   Controller,
   Get,
   HttpCode,
-  HttpStatus, Param,
-  Post, Query,
-  Req, UnauthorizedException,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { Request } from 'express';
@@ -16,11 +18,10 @@ import { BusinessService } from '../services/business.service';
 import { CreateBusinessDto } from '../dtos/requests/CreateBusinessDto';
 import { BookingPoliciesData, BusinessServiceData } from '../types/constants';
 import { Public } from '../middlewares/public.decorator';
-import {GetAvailableSlotsDto} from "../dtos/requests/GetAvailableSlotsDto";
-import {CreateBlockedTimeDto} from "../dtos/requests/CreateBlockedTimeDto";
-import {CreateServiceDto} from "../dtos/requests/CreateServiceDto";
-import {CreateStaffDto} from "../dtos/requests/AddStaffDto";
-import {EditStaffDto} from "../dtos/requests/EditStaffDto";
+import { CreateBlockedTimeDto } from '../dtos/requests/CreateBlockedTimeDto';
+import { CreateServiceDto } from '../dtos/requests/CreateServiceDto';
+import { CreateStaffDto } from '../dtos/requests/AddStaffDto';
+import { EditStaffDto } from '../dtos/requests/EditStaffDto';
 
 interface RequestWithUser extends Request {
   user: User;
@@ -31,15 +32,14 @@ interface RequestWithUser extends Request {
 export class BusinessController {
   constructor(private readonly businessService: BusinessService) {}
 
-
   @Post('getBookings')
-  async getBookings(@Req() req:RequestWithUser) {
+  async getBookings(@Req() req: RequestWithUser) {
     const user = req.user.id;
     return this.businessService.getBookings(user);
   }
 
   @Post('deactivateStaff/:id')
-  async deactivateStaff(@Param('id') id: string){
+  async deactivateStaff(@Param('id') id: string) {
     return this.businessService.deactivateStaff(id);
   }
 
@@ -49,21 +49,20 @@ export class BusinessController {
   }
 
   @Post('getRescheduledBookings')
-  async getRescheduledBookings(@Req() req:RequestWithUser) {
+  async getRescheduledBookings(@Req() req: RequestWithUser) {
     const user = req.user.id;
     return this.businessService.getRescheduledBookings(user);
   }
 
   @Get('available-slots')
   async getAvailableSlots(
-      @Req() req:RequestWithUser,
-      @Query('date') date: string,
+    @Req() req: RequestWithUser,
+    @Query('date') date: string,
   ) {
-
     const userMail = req.user.email;
 
     if (!date) {
-      throw new BadRequestException("Date query parameter is required");
+      throw new BadRequestException('Date query parameter is required');
     }
 
     return await this.businessService.getAvailableSlotsForDate(userMail, date);
@@ -71,52 +70,54 @@ export class BusinessController {
 
   @Post('rescheduleBooking')
   async rescheduleBooking(
-      @Body() body: { id: string; reason: string; date: string; time: string },
+    @Body() body: { id: string; reason: string; date: string; time: string },
   ) {
     return await this.businessService.rescheduleBooking(body);
   }
 
   @Post('blockTime')
   async createBlockedTime(
-      @Body() body: CreateBlockedTimeDto,
-      @Req() req:RequestWithUser,
+    @Body() body: CreateBlockedTimeDto,
+    @Req() req: RequestWithUser,
   ) {
-    body.ownerMail = req.user.email
+    body.ownerMail = req.user.email;
     return this.businessService.createBlockedTime(body);
   }
 
   @Post('editBlockTime/:id')
   async editBlockedTime(
-      @Param('id') id: string,
-      @Body() body: CreateBlockedTimeDto,
-      @Req() req:RequestWithUser,
+    @Param('id') id: string,
+    @Body() body: CreateBlockedTimeDto,
+    @Req() req: RequestWithUser,
   ) {
-    body.ownerMail = req.user.email
-    console.log(body.date)
+    body.ownerMail = req.user.email;
+    console.log(body.date);
     return this.businessService.editBlockedTime(id, body);
   }
 
   @Get('getAdvertisementPlans')
-  async getAdvertisementPlans(){
+  async getAdvertisementPlans() {
     return this.businessService.getAdvertisementPlans();
   }
 
-
   @Get('getTeamMembers')
-  async getTeamMembers(@Req() req:RequestWithUser) {
+  async getTeamMembers(@Req() req: RequestWithUser) {
     const userMail = req.user.email;
-    return this.businessService.getTeamMembers(userMail)
+    return this.businessService.getTeamMembers(userMail);
   }
 
   @Get('getServices')
-  async getBusinessServices(@Req() req:RequestWithUser) {
+  async getBusinessServices(@Req() req: RequestWithUser) {
     const userMail = req.user.email;
-    console.log(await this.businessService.getBusinessServices(userMail))
-    return this.businessService.getBusinessServices(userMail)
+    console.log(await this.businessService.getBusinessServices(userMail));
+    return this.businessService.getBusinessServices(userMail);
   }
 
   @Post('createService')
-  async createService(@Req() req:RequestWithUser, @Body() body: CreateServiceDto) {
+  async createService(
+    @Req() req: RequestWithUser,
+    @Body() body: CreateServiceDto,
+  ) {
     body.userMail = req.user.email;
     return this.businessService.createService(body);
   }
@@ -127,33 +128,29 @@ export class BusinessController {
   }
 
   @Post('deleteBlockedSlot/:id')
-  async deleteBlockedSlot(
-      @Param('id') id: string,
-  ) {
-
-    return this.businessService.deleteBlockedSlot( id);
+  async deleteBlockedSlot(@Param('id') id: string) {
+    return this.businessService.deleteBlockedSlot(id);
   }
 
   @Post('addStaff')
-  async addStaff(@Req() req:RequestWithUser, @Body() body: CreateStaffDto) {
+  async addStaff(@Req() req: RequestWithUser, @Body() body: CreateStaffDto) {
     const userMail = req.user.email;
-    return this.businessService.addStaff(userMail,body)
+    return this.businessService.addStaff(userMail, body);
   }
 
   @Get('getBlockedSlots')
-  async getBlockedSlots(@Req() req:RequestWithUser) {
+  async getBlockedSlots(@Req() req: RequestWithUser) {
     const user = req.user.email;
     return this.businessService.getBlockedSlots(user);
   }
 
   @Post('editStaff/:staffId')
   async editStaff(
-      @Param('staffId') staffId: string,
-      @Body() body: EditStaffDto
+    @Param('staffId') staffId: string,
+    @Body() body: EditStaffDto,
   ) {
     return this.businessService.editStaff(staffId, body);
   }
-
 
   @Post('acceptBooking/:id')
   async acceptBooking(@Param('id') id: string) {
@@ -165,19 +162,17 @@ export class BusinessController {
     return this.businessService.rejectBooking(id);
   }
 
-
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
   async create(
-      @Body() createBusinessDto: CreateBusinessDto,
-      @Req() req: RequestWithUser,
+    @Body() createBusinessDto: CreateBusinessDto,
+    @Req() req: RequestWithUser,
   ) {
-
     const owner = req.user;
 
     const business = await this.businessService.create(
-        createBusinessDto,
-        owner,
+      createBusinessDto,
+      owner,
     );
 
     return {
@@ -202,8 +197,8 @@ export class BusinessController {
   }
 
   @Get('/ping')
-  ping(){
-    console.log("yo")
-    return "server is live"
+  ping() {
+    console.log('yo');
+    return 'server is live';
   }
 }

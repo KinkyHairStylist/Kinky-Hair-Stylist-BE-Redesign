@@ -21,10 +21,6 @@ import {
   RedeemBusinessGiftCardDto,
   UpdateBusinessGiftCardDto,
 } from '../dtos/requests/BusinessGiftCardDto';
-import {
-  BusinessGiftCardStatus,
-  BusinessSentStatus,
-} from '../enum/gift-card.enum';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Business } from '../entities/business.entity';
 import { Repository } from 'typeorm';

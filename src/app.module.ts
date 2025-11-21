@@ -43,6 +43,7 @@ import { ProductModule } from './marketplace/product.module';
 import { BusinessGiftCardsModule } from './business/business-giftcard.module';
 import { BusinessOwnerSettingsModule } from './business/business-owner-settings.module';
 import { BusinessSettingsModule } from './business/business-settings.module';
+import { GoogleCalendarModule } from './integration/google-calendar.module';
 
 @Module({
   imports: [
@@ -94,6 +95,7 @@ import { BusinessSettingsModule } from './business/business-settings.module';
     BusinessGiftCardsModule,
     BusinessOwnerSettingsModule,
     BusinessSettingsModule,
+    GoogleCalendarModule,
   ],
   controllers: [AppController],
   providers: [AppService, AuthMiddleware],
