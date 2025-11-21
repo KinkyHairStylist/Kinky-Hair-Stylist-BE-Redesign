@@ -30,6 +30,8 @@ import { EmergencyContact } from '../entities/emergency-contact.entity';
 import { Address } from '../entities/address.entity';
 import { EditStaffDto } from '../dtos/requests/EditStaffDto';
 import { GoogleCalendarService } from 'src/integration/services/google-calendar.service';
+import { WalletCurrency } from 'src/admin/payment/enums/wallet.enum';
+import { BusinessWalletService } from './wallet.service';
 
 @Injectable()
 export class BusinessService {
@@ -59,6 +61,7 @@ export class BusinessService {
 
     private googleCalendarService: GoogleCalendarService,
     private emailService: EmailService,
+    private readonly walletService: BusinessWalletService,
   ) {}
 
   /**
@@ -80,7 +83,16 @@ export class BusinessService {
     business.ownerEmail = owner?.email || '';
     business.ownerPhone = owner?.phoneNumber || '';
 
-    return await this.businessRepo.save(business);
+    await this.businessRepo.save(business);
+
+    // Automatically create wallet
+    await this.walletService.createWalletForBusiness({
+      businessId: business.id,
+      ownerId: owner.id,
+      currency: WalletCurrency.AUD,
+    });
+
+    return business;
   }
 
   async getBooking(id: string) {
