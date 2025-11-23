@@ -1,47 +1,58 @@
-import {BadRequestException, Injectable, NotFoundException} from '@nestjs/common';
-import {InjectRepository} from '@nestjs/typeorm';
-import {Admin, In, Not, Repository} from 'typeorm';
-import {Business} from '../entities/business.entity';
-import {User} from '../../all_user_entities/user.entity';
-import {CreateBusinessDto} from '../dtos/requests/CreateBusinessDto';
-import {getBusinessServices} from '../data/business.services';
-import {BookingPoliciesData, BusinessServiceData} from '../types/constants';
-import {getBookingPoliciesConfiguration} from '../data/booking-policies';
-import {Appointment, AppointmentStatus, PaymentStatus} from "../entities/appointment.entity";
-import {CreateBookingDto} from "../dtos/requests/CreateBookingDto";
-import {Staff} from "../entities/staff.entity";
-import {EmailService} from "../../email/email.service";
-import {BookingDay} from "../entities/booking-day.entity";
-import {BlockedTimeSlot} from "../entities/blocked-time-slot.entity";
-import {CreateBlockedTimeDto} from "../dtos/requests/CreateBlockedTimeDto";
-import {CreateServiceDto} from "../dtos/requests/CreateServiceDto";
-import {Service} from "../entities/service.entity";
-import {AdvertisementPlan} from "../entities/advertisement-plan.entity";
-import {CreateStaffDto} from "../dtos/requests/AddStaffDto";
-import {EmergencyContact} from "../entities/emergency-contact.entity";
-import {Address} from "../entities/address.entity";
-import {EditStaffDto} from "../dtos/requests/EditStaffDto";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Admin, In, Not, Repository } from 'typeorm';
+import { Business } from '../entities/business.entity';
+import { User } from '../../all_user_entities/user.entity';
+import { CreateBusinessDto } from '../dtos/requests/CreateBusinessDto';
+import { getBusinessServices } from '../data/business.services';
+import { BookingPoliciesData, BusinessServiceData } from '../types/constants';
+import { getBookingPoliciesConfiguration } from '../data/booking-policies';
+import {
+  Appointment,
+  AppointmentStatus,
+  PaymentStatus,
+} from '../entities/appointment.entity';
+import { CreateBookingDto } from '../dtos/requests/CreateBookingDto';
+import { Staff } from '../entities/staff.entity';
+import { EmailService } from '../../email/email.service';
+import { BookingDay } from '../entities/booking-day.entity';
+import { BlockedTimeSlot } from '../entities/blocked-time-slot.entity';
+import { CreateBlockedTimeDto } from '../dtos/requests/CreateBlockedTimeDto';
+import { CreateServiceDto } from '../dtos/requests/CreateServiceDto';
+import { AdvertisementPlan } from '../entities/advertisement-plan.entity';
+import { CreateStaffDto } from '../dtos/requests/AddStaffDto';
+// import {EmergencyContact} from "../entities/emergency-contact.entity";
+import { Address } from '../entities/address.entity';
+import { BusinessWalletService } from './wallet.service';
+// import { Service } from '../entities/service.entity';
+import { WalletCurrency } from 'src/admin/payment/enums/wallet.enum';
 
 @Injectable()
 export class BusinessService {
 
   constructor(
-      @InjectRepository(BookingDay)
-      private readonly bookingDayRepo: Repository<BookingDay>,
-      @InjectRepository(BlockedTimeSlot)
-      private readonly blockedSlotRepo: Repository<BlockedTimeSlot>,
-      @InjectRepository(Business)
-      private readonly businessRepo: Repository<Business>,
-      @InjectRepository(Appointment)
-      private appointmentRepo: Repository<Appointment>,
-      @InjectRepository(User)
-      private userRepo: Repository<User>,
-      @InjectRepository(Staff)
-      private staffRepo: Repository<Staff>,
-      @InjectRepository(Service)
-      private serviceRepo: Repository<Service>,
-      @InjectRepository(AdvertisementPlan)
-      private advertisementPlanRepo: Repository<AdvertisementPlan>,
+    @InjectRepository(BookingDay)
+    private readonly bookingDayRepo: Repository<BookingDay>,
+    @InjectRepository(BlockedTimeSlot)
+    private readonly blockedSlotRepo: Repository<BlockedTimeSlot>,
+    @InjectRepository(Business)
+    private readonly businessRepo: Repository<Business>,
+    @InjectRepository(Appointment)
+    private appointmentRepo: Repository<Appointment>,
+    private readonly walletService: BusinessWalletService,
+
+    @InjectRepository(User)
+    private userRepo: Repository<User>,
+    @InjectRepository(Staff)
+    private staffRepo: Repository<Staff>,
+    // @InjectRepository(Service)
+    // private serviceRepo: Repository<Service>,
+    @InjectRepository(AdvertisementPlan)
+    private advertisementPlanRepo: Repository<AdvertisementPlan>,
 
       @InjectRepository(EmergencyContact)
       private emergencyRepo: Repository<EmergencyContact>,
@@ -451,8 +462,7 @@ export class BusinessService {
     if (!business) {
       throw new NotFoundException("Business not found");
     }
-
-    return business.service;
+    // return Business.service;
   }
 
 
