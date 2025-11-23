@@ -353,4 +353,14 @@ export class BusinessGiftCardsService {
 
     return result.affected || 0;
   }
+
+  async creditWalletFromGiftCard(businessId: string, amount: number, reference: string) {
+    // await this.addFunds({
+    //   businessId,
+    //   amount,
+    //   type: 'credit',
+    //   description: `Gift card purchase via Paystack`,
+    //   referenceId: reference,
+    // });
+  }
 }

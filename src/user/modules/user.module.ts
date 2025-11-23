@@ -1,32 +1,38 @@
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { Module, MiddlewareConsumer, forwardRef, NestModule } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 
 import { Card } from 'src/all_user_entities/card.entity';
 import { BusinessGiftCard } from 'src/business/entities/business-giftcard.entity';
+import { Transaction } from 'src/business/entities/transaction.entity';
+import { User } from '../../all_user_entities/user.entity';
+import { Referral } from '../user_entities/referrals.entity';
 import { Article } from 'src/all_user_entities/article.entity';
 import { SupportTicket } from 'src/all_user_entities/support-ticket.entity';
 import { LiveChatMessage } from 'src/all_user_entities/live-chat-message.entity';
+
+import { UserController } from '../controllers/user.controller';
+import { GiftCardController } from '../controllers/gift-card.controller';
 import { ArticleController } from '../controllers/article.controller';
 import { TicketController } from '../controllers/ticket.controller';
-import { GiftCardController } from '../controllers/gift-card.controller';
+import { UserProfileController } from '../controllers/user-profile.controller';
+
+import { UserService } from '../services/user.service';
 import { GiftCardService } from '../services/gift-card.service';
 import { ArticleService } from '../services/article.service';
 import { TicketService } from '../services/ticket.service';
-import { Referral } from '../user_entities/referrals.entity';
-import { UserController } from '../controllers/user.controller';
-import { UserService } from '../services/user.service';
-import { User } from '../../all_user_entities/user.entity';
+import { UserProfileService } from '../services/user-profile.service';
+
 import { EmailValidationMiddleware } from '../../middleware/email-validation.middleware';
 import { JwtRefreshStrategy } from '../../middleware/strategy/jwt-refresh.strategy';
 import { EmailModule } from '../../email/email.module';
 import { ReferralModule } from './referral.module';
 import { PhoneVerificationModule } from './phone-verification.module';
-import { UserProfileController } from '../controllers/user-profile.controller';
-import { UserProfileService } from '../services/user-profile.service';
 import { CloudinaryModule } from './cloudinary.module';
 import { PreferencesModule } from './preferences.module';
 import { PasswordUtil } from 'src/business/utils/password.util';
+import { PaystackService } from 'src/payment/paystack.service';
+import { BusinessModule } from 'src/business/business.module'; // <-- import BusinessModule
 
 @Module({
   imports: [
@@ -38,7 +44,9 @@ import { PasswordUtil } from 'src/business/utils/password.util';
       Article,
       SupportTicket,
       LiveChatMessage,
+      Transaction,
     ]),
+    forwardRef(() => BusinessModule), 
     JwtModule.register({}),
     EmailModule,
     ReferralModule,
@@ -61,8 +69,9 @@ import { PasswordUtil } from 'src/business/utils/password.util';
     TicketService,
     UserProfileService,
     PasswordUtil,
+    PaystackService, // keep PaystackService here
   ],
-  exports: [UserService],
+  exports: [UserService, GiftCardService], // <-- export GiftCardService if needed elsewhere
 })
 export class UserModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

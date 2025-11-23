@@ -54,17 +54,17 @@ export class WebhookService {
 
     const paystackAcessKey = process.env.PAYSTACK_SECRET_KEY!;
 
-    // if (!paypalBaseUrl || !clientId || !clientSecret || !webhookId) {
-    //   throw new Error('PAYPAL CREDENTIALS must be set');
-    // }
+    if (!paypalBaseUrl || !clientId || !clientSecret || !webhookId) {
+      throw new Error('PAYPAL CREDENTIALS must be set');
+    }
 
-    // if (!paystackAcessKey) {
-    //   throw new Error('PAYMENT PAYSTACK CREDENTIALS must be set');
-    // }
+    if (!paystackAcessKey) {
+      throw new Error('PAYMENT PAYSTACK CREDENTIALS must be set');
+    }
 
-    // this.paypalBaseUrl = paypalBaseUrl;
-    // this.clientId = clientId;
-    // this.clientSecret = clientSecret;
+    this.paypalBaseUrl = paypalBaseUrl;
+    this.clientId = clientId;
+    this.clientSecret = clientSecret;
     this.webhookId = webhookId;
 
     this.paystackAcessKey = paystackAcessKey;
