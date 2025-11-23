@@ -24,6 +24,7 @@ import { Address } from './entities/address.entity';
 import { Service } from './entities/service.entity';
 import { EmergencyContact } from './entities/emergency-contact.entity';
 import { GoogleCalendarModule } from 'src/integration/google-calendar.module';
+import { MailchimpModule } from 'src/integration/mail-chimp.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { GoogleCalendarModule } from 'src/integration/google-calendar.module';
     JwtModule.register({}),
     EmailModule,
     GoogleCalendarModule,
+    MailchimpModule,
     forwardRef(() => GoogleCalendarModule),
     forwardRef(() => BusinessWalletModule),
   ],

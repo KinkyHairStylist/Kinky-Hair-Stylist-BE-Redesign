@@ -152,10 +152,6 @@ export class BusinessGiftCardsService {
       sentStatus,
     } = filters;
 
-    console.log('DEFAULTS SEARCH:', search);
-    console.log('DEFAULTS STATUS:', status);
-    console.log('DEFAULTS SENT STATUS:', sentStatus);
-
     const queryBuilder = this.giftCardRepository.createQueryBuilder('giftCard');
 
     /* --------- ALWAYS exclude deleted ---------- */

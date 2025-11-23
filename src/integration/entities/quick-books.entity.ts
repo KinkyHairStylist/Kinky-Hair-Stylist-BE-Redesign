@@ -7,8 +7,8 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
-@Entity('mailchimp_credentials')
-export class MailchimpCredentials {
+@Entity('quickbooks_credentials')
+export class QuickBooksCredentials {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -17,13 +17,16 @@ export class MailchimpCredentials {
   business: Business;
 
   @Column({ type: 'text' })
-  apiKey: string;
+  accessToken: string;
+
+  @Column({ type: 'text' })
+  refreshToken: string;
 
   @Column({ type: 'varchar' })
-  serverPrefix: string; // e.g., 'us1', 'us19'
+  realmId: string; // Company ID
 
-  @Column({ type: 'varchar', nullable: true })
-  audienceId: string; // List ID for contacts
+  @Column({ type: 'bigint' })
+  expiryDate: number;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;

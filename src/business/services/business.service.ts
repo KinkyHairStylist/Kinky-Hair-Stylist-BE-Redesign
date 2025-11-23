@@ -32,6 +32,7 @@ import { EditStaffDto } from '../dtos/requests/EditStaffDto';
 import { GoogleCalendarService } from 'src/integration/services/google-calendar.service';
 import { WalletCurrency } from 'src/admin/payment/enums/wallet.enum';
 import { BusinessWalletService } from './wallet.service';
+import { MailchimpService } from 'src/integration/services/mailchimp.service';
 
 @Injectable()
 export class BusinessService {
@@ -60,6 +61,7 @@ export class BusinessService {
     private addressRepo: Repository<Address>,
 
     private googleCalendarService: GoogleCalendarService,
+    private mailchimpService: MailchimpService,
     private emailService: EmailService,
     private readonly walletService: BusinessWalletService,
   ) {}
@@ -116,6 +118,9 @@ export class BusinessService {
     appointment.status = AppointmentStatus.COMPLETED;
 
     await this.appointmentRepo.save(appointment);
+
+    // sync client for email marketing
+    await this.mailchimpService.syncContact(appointment.id);
 
     //     // Update Google Calendar event
     if (appointment.googleEventId) {
@@ -182,6 +187,9 @@ export class BusinessService {
       console.error('Failed to sync to Google Calendar:', error);
       // Don't fail the appointment creation if calendar sync fails
     }
+
+    // integrate Mailchimp: appointment confirmation
+    await this.mailchimpService.sendAppointmentConfirmation(appointment.id);
 
     return appointment;
   }
@@ -542,6 +550,9 @@ export class BusinessService {
       }
     }
 
+    // integrate mailchimp: appointment rejection mail
+    await this.mailchimpService.sendAppointmentRejection(appointment.id);
+
     return appointment;
   }
 
@@ -564,6 +575,9 @@ export class BusinessService {
         console.error('Failed to update Google Calendar:', error);
       }
     }
+
+    // integrate Mailchimp: appointment acceptance
+    await this.mailchimpService.sendAppointmentAcceptance(appointment.id);
 
     return appointment;
   }
