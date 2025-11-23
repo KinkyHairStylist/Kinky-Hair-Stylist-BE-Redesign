@@ -5,11 +5,15 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
-} from "typeorm";
-import { Business } from "./business.entity";
-import { Service } from "./service.entity";
-import { Address } from "./address.entity";
-import { EmergencyContact } from "./emergency-contact.entity";
+} from 'typeorm';
+import { Business } from './business.entity';
+// import { Service } from './service.entity';
+import { Address } from './address.entity';
+import { EmergencyContactSchema } from './emergency-contact.entity';
+
+// import { Service } from "./Service.entity";
+// import { Address } from "./address.entity";
+// import { EmergencyContact } from "./emergency-contact.entity";
 
 @Entity()
 export class Staff {
@@ -66,8 +70,8 @@ export class Staff {
   @Column("simple-array", { nullable: true })
   servicesAssigned: string[];
 
-  @OneToMany(() => Service, (service) => service.assignedStaff)
-  services: Service[];
+  // @OneToMany(() => Service, (service) => service.assignedStaff)
+  // services: Service[];
 
   @OneToMany(() => Address, (address) => address.staff, { cascade: true, eager: true })
   addresses: Address[];

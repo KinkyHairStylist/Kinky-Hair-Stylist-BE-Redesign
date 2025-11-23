@@ -21,8 +21,7 @@ import { BlockedTimeSlot } from './entities/blocked-time-slot.entity';
 import { BookingDay } from './entities/booking-day.entity';
 import { AdvertisementPlan } from './entities/advertisement-plan.entity';
 import { Address } from './entities/address.entity';
-import { Service } from './entities/service.entity';
-import {EmergencyContact} from "./entities/emergency-contact.entity";
+// import { Service } from './entities/service.entity';
 
 @Module({
   imports: [
@@ -37,8 +36,7 @@ import {EmergencyContact} from "./entities/emergency-contact.entity";
       Staff,
       BlockedTimeSlot,
       BookingDay,
-      Service,
-      EmergencyContact
+      // Service,
     ]),
     JwtModule.register({}),
     EmailModule,

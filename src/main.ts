@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import cookieParser from 'cookie-parser';
 import session from 'express-session';
 import { AuthMiddleware } from './middleware/anth.middleware';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -9,10 +10,29 @@ import { InputSanitizationMiddleware } from './middleware/input-sanitization.mid
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Global Prefix
+  // ---------------------------------------------------
+  // 🔹 GLOBAL PREFIX
+  // ---------------------------------------------------
   app.setGlobalPrefix('api');
 
-  // Validation Pipe
+  // ---------------------------------------------------
+  // 🔹 CORS (REQUIRED for cookies to work with Next.js)
+  // ---------------------------------------------------
+  app.enableCors({
+    origin: 'http://localhost:3000',  // Next.js domain
+    credentials: true,                // MUST BE TRUE for cookies
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+
+  // ---------------------------------------------------
+  // 🔹 Cookie Parser (MUST come BEFORE sessions & auth)
+  // ---------------------------------------------------
+  app.use(cookieParser());
+
+  // ---------------------------------------------------
+  // 🔹 Validation
+  // ---------------------------------------------------
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -54,26 +74,28 @@ async function bootstrap() {
   const sanitizer = new InputSanitizationMiddleware();
   app.use((req, res, next) => sanitizer.use(req, res, next));
 
-  // Session Configuration
+  // ---------------------------------------------------
+  // 🔹 Session (MUST come AFTER cookieParser)
+  // ---------------------------------------------------
   app.use(
     session({
-      secret: process.env.SESSION_SECRET || 'a-very-secret-key',
+      secret: process.env.SESSION_SECRET || 'super_secret_key',
       resave: false,
       saveUninitialized: false,
       cookie: {
-        maxAge: 3600000 * 24 * 7, // 1 week
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
         httpOnly: true,
-        sameSite: 'lax',
+        secure: false, // true in production (HTTPS)
+        sameSite: 'lax', // REQUIRED for localhost cookies
       },
     }),
   );
 
-  // Global Authentication Middleware
-  // Define public routes that should bypass authentication
+  // ---------------------------------------------------
+  // 🔹 PUBLIC ROUTES (skip authentication here)
+  // ---------------------------------------------------
   const publicRoutes = [
     '/api/docs',
-    // '/api',
-    '/api/get-started',
     '/api/auth/get-started',
     '/api/auth/verify-code',
     '/api/auth/resend-code',
@@ -85,62 +107,44 @@ async function bootstrap() {
     '/api/auth/reset-password/finish',
     '/api/auth/business/login',
     '/api/auth/business/otp/request',
+    '/api/payments/verify',
     '/api/webhook/paystack',
     '/api/webhook/paypal',
-    '/api/payments/verify',
-    // Add other public routes here
   ];
 
-  // Ensure AuthMiddleware protects routes globally, except for public ones
+  // ---------------------------------------------------
+  // 🔹 GLOBAL AUTH MIDDLEWARE (AFTER cookies, BEFORE routes)
+  // ---------------------------------------------------
   app.use((req, res, next) => {
-    // Check if the request path starts with any of the public routes
     const isPublic = publicRoutes.some((route) => req.path.startsWith(route));
 
-    if (isPublic) {
-      // Skip authentication for public routes
-      return next();
-    }
+    if (isPublic) return next(); // Skip auth for public routes
 
-    // For all other routes, apply the AuthMiddleware
-    try {
-      const authMiddleware = app.get(AuthMiddleware);
-      authMiddleware.use(req, res, next);
-    } catch (error) {
-      // Handle cases where middleware fails (e.g., token issues)
-      next(error);
-    }
+    const authMiddleware = app.get(AuthMiddleware);
+    return authMiddleware.use(req, res, next); // Protect all other routes
   });
 
-  // Swagger Setup
+  // ---------------------------------------------------
+  // 🔹 SWAGGER
+  // ---------------------------------------------------
   const config = new DocumentBuilder()
     .setTitle('KHS API')
     .setDescription('API documentation for KHS backend')
     .setVersion('1.0')
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        name: 'Authorization',
-        in: 'header',
-      },
-      'access-token', // key for Swagger UI
-    )
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-    },
-    customSiteTitle: 'KHS API Docs',
-  });
+  SwaggerModule.setup('api/docs', app, document);
 
+  // ---------------------------------------------------
+  // 🔹 START SERVER
+  // ---------------------------------------------------
   const port = process.env.PORT || 8080;
-
   await app.listen(port, '0.0.0.0');
-  console.log(`Server running on http://localhost:${port}`);
-  console.log(`Swagger Docs available at http://localhost:${port}/api/docs`);
+
+  console.log(`🚀 Server running at http://localhost:${port}`);
+  console.log(`📘 Swagger Docs: http://localhost:${port}/api/docs`);
 }
 
 bootstrap();
