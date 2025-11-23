@@ -122,7 +122,7 @@ export class AdminAuthService {
       { secret: this.jwtSecret, expiresIn: `${this.inviteExpireMinutes}m` },
     );
 
-    const link = `${this.frontendUrl}/admin/register?token=${token}&email=${email}&role=${role}`;
+    const link = `${this.frontendUrl}?token=${token}&email=${email}&role=${role}`;
 
     await this.sendAdminInviteEmail(email, link);
 
