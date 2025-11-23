@@ -13,7 +13,7 @@ export class ModerationService {
     private readonly settingsRepo: Repository<ModerationSettings>,
   ) {}
 
-  // 1️⃣ Get all flagged content
+  // Get all flagged content
   async getFlaggedContent() {
     return this.flaggedRepo.find({ order: { createdAt: 'DESC' } });
   }

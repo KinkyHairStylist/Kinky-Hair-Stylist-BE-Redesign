@@ -9,12 +9,26 @@ import {
   HttpStatus,
   Logger,
   Patch,
+  UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiTags,
+} from '@nestjs/swagger';
+
+import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
 import { PaymentService } from './payment.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { RefundPaymentDto } from './dto/refund-payment.dto';
+import { Roles } from 'src/middleware/roles.decorator';
+import { Role } from 'src/middleware/role.enum';
+import { RolesGuard } from 'src/middleware/roles.guard';
 
-@Controller('payments')
+@ApiTags('Admin All Transactions')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Admin, Role.SuperAdmin)
+@Controller('admin/payments')
 export class PaymentController {
   private readonly logger = new Logger(PaymentController.name);
 

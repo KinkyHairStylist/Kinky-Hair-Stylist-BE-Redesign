@@ -6,10 +6,16 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
+
 import { User } from "src/all_user_entities/user.entity";
+import { Wallet } from './wallet.entity'
 import { WalletCurrency } from 'src/admin/payment/enums/wallet.enum';
 
+// --------------------------
+// Transaction Enums
+// --------------------------
 export enum TransactionType {
   EARNING = 'Earning',
   WITHDRAWAL = 'Withdrawal',
@@ -25,34 +31,65 @@ export enum PaymentMethod {
   GIFTCARD = 'GiftCard',
 }
 
+export enum TransactionStatus {
+  PENDING = 'pending',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  CANCELLED = 'cancelled',
+}
+
+// --------------------------
+// Transaction Entity
+// --------------------------
 @Entity('transactions')
 export class Transaction {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   // --------------------------
-  // Sender
+  // Sender (optional)
   // --------------------------
+  @Index()
   @Column({ type: 'uuid', nullable: true })
   senderId: string;
 
-  @ManyToOne(() => User, (user) => user.sentTransactions, { nullable: true })
+  @ManyToOne(() => User, (user) => user.sentTransactions, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({ name: 'senderId' })
   sender: User;
 
   // --------------------------
-  // Recipient
+  // Recipient (optional)
   // --------------------------
+  @Index()
   @Column({ type: 'uuid', nullable: true })
   recipientId: string;
 
-  @ManyToOne(() => User, (user) => user.receivedTransactions, { nullable: true })
+  @ManyToOne(() => User, (user) => user.receivedTransactions, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({ name: 'recipientId' })
   recipient: User;
 
+  // --------------------------
+  // Amount & Currency
+  // --------------------------
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   amount: number;
 
+  @Column({
+    type: 'enum',
+    enum: WalletCurrency,
+    nullable: true,
+  })
+  currency: WalletCurrency;
+
+  // --------------------------
+  // Metadata
+  // --------------------------
   @Column({
     type: 'enum',
     enum: TransactionType,
@@ -65,23 +102,22 @@ export class Transaction {
   @Column({ type: 'varchar', length: 255, nullable: true })
   customerName: string;
 
-  @Column({ type: 'enum', enum: WalletCurrency, nullable: true })
-  currency: WalletCurrency;
-
   @Column({ type: 'varchar', length: 255, nullable: true })
   service: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  mode: string;
+  mode: string; // e.g. "API", "Web", "Mobile", "Webhook"
 
+  @Index()
   @Column({ type: 'varchar', length: 100, nullable: true })
-  referenceId: string;
+  referenceId: string; // Paystack ref, PayPal orderId, etc.
 
   @Column({
     type: 'enum',
-    enum: ['pending', 'completed', 'failed', 'cancelled'],
+    enum: TransactionStatus,
+    default: TransactionStatus.PENDING,
   })
-  status: string;
+  status: TransactionStatus;
 
   @Column({
     type: 'enum',
@@ -90,9 +126,26 @@ export class Transaction {
   })
   method: PaymentMethod;
 
+  // --------------------------
+  // Timestamps
+  // --------------------------
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
-}
+
+  // --------------------------
+  // Wallet Relationship
+  // --------------------------
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  walletId: string;
+
+  @ManyToOne(() => Wallet, (wallet) => wallet.transactions, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'walletId' })
+  wallet: Wallet;
+  }
