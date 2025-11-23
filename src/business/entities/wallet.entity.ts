@@ -17,6 +17,7 @@ import {
   WalletStatus,
 } from 'src/admin/payment/enums/wallet.enum';
 import { Business } from './business.entity';
+import { Transaction } from './transaction.entity'
 
 @Entity('business_wallets')
 export class Wallet {
@@ -93,6 +94,9 @@ export class Wallet {
     cascade: true,
   })
   paymentMethods: PaymentMethod[];
+
+  @OneToMany(() => Transaction, (transaction) => transaction.wallet)
+  transactions:Transaction[]
 
   // You would typically have relations to Business and User entities
   // @ManyToOne(() => Business, (business) => business.wallets)

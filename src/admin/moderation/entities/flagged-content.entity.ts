@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, BeforeInsert, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
 export type ReportType = 'Review' | 'Profile' | 'Business';
 export type ReportSeverity = 'Medium' | 'Low' | 'High';
@@ -8,6 +8,10 @@ export type ReportStatus = 'Pending' | 'Approved' | 'Rejected' | 'Under review';
 export class FlaggedContent {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  // Custom reference column
+  @Column({ unique: true })
+  ref: string;
 
   @Column({ type: 'varchar' })
   type: ReportType;
@@ -32,4 +36,10 @@ export class FlaggedContent {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @BeforeInsert()
+  generateRef() {
+    const randomNumber = Math.floor(1000 + Math.random() * 9000); // 4-digit random number
+    this.ref = `PRT-${randomNumber}`;
+  }
 }
