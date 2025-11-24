@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Transaction } from 'src/business/entities/transaction.entity';
-
+import { TopEarningsQueryDto, TopEarningsResponseDto  } from './dto/top-earnings-query.dto';
+import { TransactionType, TransactionStatus } from 'src/business/entities/transaction.entity'
 @Injectable()
 export class WalletService {
   constructor(
@@ -55,5 +56,164 @@ export class WalletService {
         hour12: true,
       }),
     }));
+  }
+
+  async getTopEarningBusinesses(
+    query: TopEarningsQueryDto,
+  ): Promise<TopEarningsResponseDto[]> {
+    const days = query.days ?? 7;
+    const limit = query.limit ?? 10;
+
+    const now = new Date();
+    const currentStart = new Date(now);
+    currentStart.setDate(now.getDate() - days);
+
+    const previousStart = new Date(currentStart);
+    previousStart.setDate(currentStart.getDate() - days);
+
+    const raw = await this.transactionRepo
+      .createQueryBuilder('txn')
+      .innerJoin('txn.wallet', 'wallet')
+      .innerJoin('wallet.business', 'business')
+      .select('wallet.businessId', 'businessid') 
+      .addSelect('business.businessName', 'businessname') 
+      .addSelect(
+        `SUM(CASE 
+            WHEN txn.type = :earning 
+            AND txn.status = :completed
+            AND txn.createdAt BETWEEN :currentStart AND :now 
+            THEN txn.amount ELSE 0 END)`,
+        'currenttotal', 
+      )
+      .addSelect(
+        `SUM(CASE 
+            WHEN txn.type = :earning 
+            AND txn.status = :completed
+            AND txn.createdAt BETWEEN :previousStart AND :currentStart 
+            THEN txn.amount ELSE 0 END)`,
+        'previoustotal', 
+      )
+      .setParameters({
+        earning: TransactionType.EARNING,
+        completed: TransactionStatus.COMPLETED,
+        currentStart,
+        previousStart,
+        now,
+      })
+      .groupBy('wallet.businessId')
+      .addGroupBy('business.businessName')
+      .orderBy('currenttotal', 'DESC') 
+      .limit(limit)
+      .getRawMany();
+
+    return raw.map((r) => {
+      const current = Number(r.currentTotal);
+      const previous = Number(r.previousTotal);
+
+      const percentage =
+        previous > 0 ? ((current - previous) / previous) * 100 : 100;
+
+      return {
+        businessName: r.businessName,
+        total: current.toFixed(2),
+        percentage: `${percentage.toFixed(1)}%`,
+      };
+    });
+  }
+
+  async getDashboardSummary() {
+    const now = new Date();
+
+    // ----------------------------
+    // Total Wallet Balance
+    // ----------------------------
+    const totalIncomeRaw = await this.transactionRepo
+      .createQueryBuilder('txn')
+      .select('SUM(txn.amount)', 'totalIncome')
+      .where('txn.type = :earning', { earning: TransactionType.EARNING })
+      .andWhere('txn.status = :completed', { completed: TransactionStatus.COMPLETED })
+      .getRawOne();
+
+    const totalExpensesRaw = await this.transactionRepo
+      .createQueryBuilder('txn')
+      .select('SUM(txn.amount)', 'totalExpenses')
+      .where('txn.type IN (:...types)', { types: [TransactionType.WITHDRAWAL, TransactionType.DEBIT, TransactionType.FEE] })
+      .andWhere('txn.status = :completed', { completed: TransactionStatus.COMPLETED })
+      .getRawOne();
+
+    const totalBalance = Number(totalIncomeRaw.totalIncome ?? 0) - Number(totalExpensesRaw.totalExpenses ?? 0);
+
+    // ----------------------------
+    // Pending Withdrawals
+    // ----------------------------
+    const pendingWithdrawalsRaw = await this.transactionRepo
+      .createQueryBuilder('txn')
+      .select('SUM(txn.amount)', 'totalPending')
+      .addSelect('COUNT(txn.id)', 'requests')
+      .where('txn.type = :withdrawal', { withdrawal: TransactionType.WITHDRAWAL })
+      .andWhere('txn.status = :pending', { pending: TransactionStatus.PENDING })
+      .getRawOne();
+
+    // ----------------------------
+    // Today's Earnings
+    // ----------------------------
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const startOfYesterday = new Date(startOfToday);
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+
+    const earningsTodayRaw = await this.transactionRepo
+      .createQueryBuilder('txn')
+      .select('SUM(txn.amount)', 'todayTotal')
+      .where('txn.type = :earning', { earning: TransactionType.EARNING })
+      .andWhere('txn.status = :completed', { completed: TransactionStatus.COMPLETED })
+      .andWhere('txn.createdAt BETWEEN :start AND :end', { start: startOfToday, end: now })
+      .getRawOne();
+
+    const earningsYesterdayRaw = await this.transactionRepo
+      .createQueryBuilder('txn')
+      .select('SUM(txn.amount)', 'yesterdayTotal')
+      .where('txn.type = :earning', { earning: TransactionType.EARNING })
+      .andWhere('txn.status = :completed', { completed: TransactionStatus.COMPLETED })
+      .andWhere('txn.createdAt BETWEEN :start AND :end', { start: startOfYesterday, end: startOfToday })
+      .getRawOne();
+
+    const todayEarnings = Number(earningsTodayRaw.todayTotal ?? 0);
+    const yesterdayEarnings = Number(earningsYesterdayRaw.yesterdayTotal ?? 0);
+    const todayPercentage = yesterdayEarnings > 0
+      ? ((todayEarnings - yesterdayEarnings) / yesterdayEarnings) * 100
+      : 100;
+
+    // ----------------------------
+    // Platform Fees
+    // ----------------------------
+    const feesRaw = await this.transactionRepo
+      .createQueryBuilder('txn')
+      .select('SUM(txn.amount)', 'totalFees')
+      .where('txn.type = :fee', { fee: TransactionType.FEE })
+      .andWhere('txn.status = :completed', { completed: TransactionStatus.COMPLETED })
+      .getRawOne();
+
+    const totalFees = Number(feesRaw.totalFees ?? 0);
+    const avgFeeRate = totalBalance > 0 ? (totalFees / totalBalance) * 100 : 0;
+
+    return {
+      totalWalletBalance: {
+        amount: totalBalance.toFixed(2),
+        growthPercent: null, // Optionally calculate vs last month if you want
+      },
+      pendingWithdrawals: {
+        amount: Number(pendingWithdrawalsRaw.totalPending ?? 0).toFixed(2),
+        requests: Number(pendingWithdrawalsRaw.requests ?? 0),
+      },
+      todaysEarnings: {
+        amount: todayEarnings.toFixed(2),
+        growthPercent: todayPercentage.toFixed(1),
+      },
+      platformFees: {
+        amount: totalFees.toFixed(2),
+        avgRate: avgFeeRate.toFixed(1),
+      },
+    };
   }
 }

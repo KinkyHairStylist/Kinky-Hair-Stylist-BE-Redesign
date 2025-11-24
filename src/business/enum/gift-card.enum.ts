@@ -7,8 +7,10 @@ export enum BusinessGiftCardStatus {
 }
 
 export enum BusinessGiftCardSoldStatus {
-  AVAILABLE = 'available', 
-  PURCHASED = 'purchased'
+  AVAILABLE = 'available',
+  PENDING = 'pending', 
+  PURCHASED = 'purchased',
+  FAILED = 'failed',
 }
 
 export enum BusinessSentStatus {

@@ -1,5 +1,4 @@
 import { IsNotEmpty, IsString, IsEmail, IsNumber, IsDateString, ValidateNested } from 'class-validator';
-import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class RefundGiftCardDto {

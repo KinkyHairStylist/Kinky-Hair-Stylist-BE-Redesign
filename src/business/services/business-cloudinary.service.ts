@@ -40,4 +40,41 @@ export class BusinessCloudinaryService {
       throw new InternalServerErrorException('Failed to upload profileImage');
     }
   }
+
+  async uploadBusinessImage(
+    file: any,
+    folderPath: string,
+  ): Promise<UploadResult> {
+    try {
+      const result = await this.cloudinary.uploader.upload(file.filepath, {
+        folder: folderPath,
+        use_filename: true,
+        unique_filename: false,
+      });
+
+      const publicId = result?.public_id;
+      const imageId = publicId?.split('/').pop(); // store this in DB for deletion later
+      const imageUrl = result?.secure_url;
+
+      return { imageId, imageUrl };
+    } catch (error) {
+      console.error('Cloudinary upload error:', error);
+      throw new InternalServerErrorException('Failed to upload business image');
+    }
+  }
+
+  async deleteBusinessImage(publicId: string): Promise<boolean> {
+    try {
+      const result = await this.cloudinary.uploader.destroy(publicId);
+
+      if (result.result !== 'ok' && result.result !== 'not_found') {
+        throw new Error(`Cloudinary deletion failed for ${publicId}`);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Cloudinary delete error:', error);
+      throw new InternalServerErrorException('Failed to delete business image');
+    }
+  }
 }

@@ -15,14 +15,14 @@ export class PurchaseBusinessGiftCardDto {
     example: 'b5a4b2a0-1a9c-4c2f-b3a4-73a1b5ad5f87',
   })
   @IsUUID()
-  @IsNotEmpty()
+  @IsOptional()
   cardId: string;
 
   @ApiProperty({
     description: 'Name of the gift card recipient',
     example: 'John Doe',
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
   recipientName: string;
 
@@ -30,6 +30,7 @@ export class PurchaseBusinessGiftCardDto {
     description: 'Email of the gift card recipient',
     example: 'john@example.com',
   })
+  @IsOptional()
   @IsEmail()
   recipientEmail: string;
 

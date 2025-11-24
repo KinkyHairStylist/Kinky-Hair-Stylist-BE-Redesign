@@ -17,3 +17,19 @@ export const typeOrmConfig: TypeOrmModuleOptions = {
   synchronize: false,
   autoLoadEntities: true,
 };
+
+// export const typeOrmConfig: TypeOrmModuleOptions = {
+//   type: 'postgres',
+//   host: process.env.DB_HOST ?? 'localhost',
+//   port: parseInt(process.env.DB_PORT ?? '5432', 10),
+//   username: process.env.DB_USERNAME ?? 'postgres',
+//   password: process.env.DB_PASSWORD ?? 'password',
+//   database: process.env.DB_DATABASE ?? 'khs',
+//   entities: [__dirname + '/../**/*.entity.{ts,js}'], // fixed
+//   migrations: [__dirname + '/../migrations/*.{ts,js}'], // fixed
+//   ssl: {
+//     rejectUnauthorized: false,
+//   },
+//   synchronize: false, // must be false for migrations
+//   logging: false,
+// };
