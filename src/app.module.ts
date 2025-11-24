@@ -25,7 +25,7 @@ import { MembershipModule } from './user/modules/membership-tier.module';
 import { CardModule } from './user/modules/card.module';
 // import { ModerationModule } from './admin/moderation/moderation.module';
 import { ModerationModule } from './admin/moderation/moderation.module';
-import { SupportModule } from './admin/support/support.module';
+import { ChatModule  } from './admin/live-chat/chat.module';
 import { PlatformSettingsModule } from './admin/platform-settings/platform-settings.module';
 import { NotificationSettingsModule } from './user/modules/notification-settings.module';
 
@@ -89,7 +89,7 @@ import { QuickBooksModule } from './integration/quick-books.module';
     MembershipModule,
     CardModule,
     ModerationModule,
-    SupportModule,
+    ChatModule,
     PlatformSettingsModule,
     NotificationSettingsModule,
     ProductModule,
