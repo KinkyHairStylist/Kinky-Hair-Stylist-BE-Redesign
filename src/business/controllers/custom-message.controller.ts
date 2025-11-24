@@ -5,12 +5,21 @@ import {
   HttpStatus,
   Post,
   Request,
+  UseGuards,
 } from '@nestjs/common';
 import { CustomMessageService } from '../services/custom-message.service';
 import { SendCustomMessageDto } from '../dtos/requests/CustomMesssageDto';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
+import { RolesGuard } from 'src/middleware/roles.guard';
+import { Role } from 'src/middleware/role.enum';
+import { Roles } from 'src/middleware/roles.decorator';
 
+@ApiTags('Business Custom Message')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Business, Role.SuperAdmin)
 @Controller('custom-messages')
-// @UseGuards(JwtAuthGuard)
 export class CustomMessageController {
   constructor(private readonly customMessageService: CustomMessageService) {}
 

@@ -4,8 +4,12 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  JoinColumn,
+  ManyToOne,
+  Index,
 } from 'typeorm';
-import { PaymentModeType } from '../enums/wallet.enum';
+import { PaymentModeType, WalletCurrency } from '../enums/wallet.enum';
+import { User } from 'src/all_user_entities/user.entity';
 
 export type TransactionStatus =
   | 'pending'
@@ -20,13 +24,35 @@ export class Payment {
   id: string;
 
   @Column()
-  client: string; // customer name
-
-  @Column()
   businessId: string;
 
-  @Column()
-  business: string;
+  // --------------------------
+  // Sender (optional)
+  // --------------------------
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  senderId: string;
+
+  @ManyToOne(() => User, (user) => user.sentTransactions, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'senderId' })
+  sender: User;
+
+  // --------------------------
+  // Recipient (optional)
+  // --------------------------
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  recipientId: string;
+
+  @ManyToOne(() => User, (user) => user.receivedTransactions, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'recipientId' })
+  recipient: User;
 
   @Column('decimal', { precision: 10, scale: 2 })
   amount: number;
@@ -42,6 +68,16 @@ export class Payment {
 
   @Column({ nullable: true })
   refundType?: string;
+
+  @Column({ nullable: true })
+  mode?: string;
+
+  @Column({
+    type: 'enum',
+    enum: WalletCurrency,
+    nullable: true,
+  })
+  currency: WalletCurrency;
 
   @Column({ nullable: true })
   reason?: string;

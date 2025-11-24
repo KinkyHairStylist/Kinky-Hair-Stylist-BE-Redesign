@@ -12,8 +12,15 @@ import {
   Request,
   HttpException,
   BadRequestException,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiQuery,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { BusinessGiftCardsService } from '../services/business-giftcard.service';
 import {
   BusinessGiftCardFiltersDto,
@@ -21,15 +28,18 @@ import {
   RedeemBusinessGiftCardDto,
   UpdateBusinessGiftCardDto,
 } from '../dtos/requests/BusinessGiftCardDto';
-import {
-  BusinessGiftCardStatus,
-  BusinessSentStatus,
-} from '../enum/gift-card.enum';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Business } from '../entities/business.entity';
 import { Repository } from 'typeorm';
+import { RolesGuard } from 'src/middleware/roles.guard';
+import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
+import { Roles } from 'src/middleware/roles.decorator';
+import { Role } from 'src/middleware/role.enum';
 
-@ApiTags('business-gift-cards')
+@ApiTags('Business Gift Cards')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Business, Role.SuperAdmin)
 @Controller('business-gift-cards')
 export class BusinessGiftCardsController {
   constructor(
@@ -47,7 +57,7 @@ export class BusinessGiftCardsController {
     @Body() createGiftCardDto: CreateBusinessGiftCardDto,
   ) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(
@@ -78,7 +88,7 @@ export class BusinessGiftCardsController {
   @Get('business')
   async getBusiness(@Request() req) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(
@@ -114,7 +124,7 @@ export class BusinessGiftCardsController {
   @ApiResponse({ status: 200, description: 'Gift cards summary fetched' })
   async getBusinessGiftCardSummary(@Request() req) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(
@@ -149,7 +159,7 @@ export class BusinessGiftCardsController {
     @Query() filters: BusinessGiftCardFiltersDto,
   ) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(
@@ -178,7 +188,7 @@ export class BusinessGiftCardsController {
   @ApiOperation({ summary: 'Mark gift card as expired' })
   async markAsExpired(@Request() req, @Param('id') id: string) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(
@@ -207,7 +217,7 @@ export class BusinessGiftCardsController {
   @ApiOperation({ summary: 'Mark gift card as deleted' })
   async markAsDeleted(@Request() req, @Param('id') id: string) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(

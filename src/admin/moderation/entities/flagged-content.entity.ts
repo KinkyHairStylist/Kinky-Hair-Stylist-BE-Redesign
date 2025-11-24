@@ -67,10 +67,10 @@ export class FlaggedContent {
   @Column({ type: 'varchar', default: 'Admin System' })
   reporterType: ReporterType;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'text', nullable: true })
   reason: string;
 
-  @Column({ type: 'varchar' })
+  @Column({ type: 'varchar', nullable: true })
   severity: ReportSeverity;
 
   @Column({ type: 'varchar', default: 'Pending' })

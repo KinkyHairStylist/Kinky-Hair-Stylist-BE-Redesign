@@ -60,11 +60,6 @@ export class WebhookController {
   ): Promise<any> {
     try {
       this.logger.log('Paystack webhook received');
-      // 👇 Log the entire body in a readable JSON format
-      // console.log(
-      //   '📦 Paystack webhook body:',
-      //   JSON.stringify(req.body, null, 2),
-      // );
 
       // Process the webhook
       const result = await this.webhookService.handlePayStackWebhook(
@@ -79,9 +74,10 @@ export class WebhookController {
         message: result.message,
       };
     } catch (error) {
+      console.log('WEBHOOK ERROR:', error);
       this.logger.error('Error processing PayStack webhook', error);
 
-      // Still return 200 to prevent PayPal from retrying
+      // Still return 200 to prevent PayStack from retrying
       return {
         success: false,
         error: error.message,

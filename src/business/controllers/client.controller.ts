@@ -36,10 +36,16 @@ import {
   PreferredContactMethod,
 } from '../entities/client-settings.entity';
 import { ClientSettingsService } from '../services/client-settings.service';
-import { UserService } from 'src/user/services/user.service';
+import { Roles } from 'src/middleware/roles.decorator';
+import { RolesGuard } from 'src/middleware/roles.guard';
+import { Role } from 'src/middleware/role.enum';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Business Clients')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Business, Role.SuperAdmin)
 @Controller('clients')
-// @UseGuards(JwtAuthGuard)
 @UsePipes(new ValidationPipe({ transform: true }))
 export class ClientController {
   constructor(
@@ -75,7 +81,7 @@ export class ClientController {
     }
     const bodyProfileImage = body.profileImage;
 
-    const ownerId = req.user.sub || req.user.userId;
+    const ownerId = req.user.id || req.user.sub;
 
     if (!ownerId) {
       throw new HttpException(
@@ -132,7 +138,7 @@ export class ClientController {
 
   @Get()
   async getClients(@Request() req, @Query() filters: ClientFiltersDto) {
-    const ownerId = req.user.sub || req.user.userId;
+    const ownerId = req.user.id || req.user.sub;
 
     if (!ownerId) {
       throw new HttpException(
@@ -155,7 +161,7 @@ export class ClientController {
 
   @Get('/list')
   async getClientsListMessaging(@Request() req) {
-    const ownerId = req.user.sub || req.user.userId;
+    const ownerId = req.user.id || req.user.sub;
 
     if (!ownerId) {
       throw new HttpException(
@@ -182,7 +188,7 @@ export class ClientController {
     @Query('q') query: string,
     @Query() filters: ClientFiltersDto,
   ) {
-    const ownerId = req.user.sub || req.user.userId;
+    const ownerId = req.user.id || req.user.sub;
     if (!ownerId) {
       throw new HttpException(
         'User not authenticated',
@@ -223,7 +229,7 @@ export class ClientController {
 
   @Get('/client/:clientId')
   async getClientDetails(@Request() req, @Param('clientId') clientId: string) {
-    const ownerId = req.user.sub || req.user.userId;
+    const ownerId = req.user.id || req.user.sub;
     if (!ownerId) {
       throw new HttpException(
         'User not authenticated',
@@ -277,7 +283,7 @@ export class ClientController {
     }
     const bodyProfileImage = body.profileImage;
 
-    const ownerId = req.user.sub || req.user.userId;
+    const ownerId = req.user.id || req.user.sub;
 
     if (!ownerId) {
       throw new HttpException(
@@ -347,7 +353,7 @@ export class ClientController {
     @Request() req,
     @Body() body: { addresses: CreateClientAddressDto[] },
   ) {
-    const ownerId = req.user.sub || req.user.userId;
+    const ownerId = req.user.id || req.user.sub;
 
     if (!ownerId) {
       throw new HttpException(
@@ -449,7 +455,7 @@ export class ClientController {
     @Param('clientId') clientId: string,
     @Body() body: { addresses: UpdateClientAddressDto[] },
   ) {
-    const ownerId = req.user.sub || req.user.userId;
+    const ownerId = req.user.id || req.user.sub;
     if (!ownerId) {
       throw new HttpException(
         'User not authenticated',
@@ -576,7 +582,7 @@ export class ClientController {
     @Request() req,
     @Body() body: { contactsData: CreateEmergencyContactDto[] },
   ) {
-    const ownerId = req.user.sub || req.user.userId;
+    const ownerId = req.user.id || req.user.sub;
     if (!ownerId) {
       throw new HttpException(
         'User not authenticated',
@@ -691,7 +697,7 @@ export class ClientController {
     @Param('clientId') clientId: string,
     @Body() body: { contactsData: UpdateEmergencyContactDto[] },
   ) {
-    const ownerId = req.user.sub || req.user.userId;
+    const ownerId = req.user.id || req.user.sub;
     if (!ownerId) {
       throw new HttpException(
         'User not authenticated',
@@ -827,7 +833,7 @@ export class ClientController {
     @Request() req,
     @Body() clientSettingsData: CreateClientSettingsDto,
   ) {
-    const ownerId = req.user.sub || req.user.userId;
+    const ownerId = req.user.id || req.user.sub;
     if (!ownerId) {
       throw new HttpException(
         'User not authenticated',
@@ -856,7 +862,7 @@ export class ClientController {
     @Param('clientId') clientId: string,
     @Body() updateClientSettingsDto: UpdateClientSettingsDto,
   ) {
-    const ownerId = req.user.sub || req.user.userId;
+    const ownerId = req.user.id || req.user.sub;
     if (!ownerId) {
       throw new HttpException(
         'User not authenticated',
@@ -894,7 +900,7 @@ export class ClientController {
     }
     const bodyProfileImage = body.profileImage;
 
-    const ownerId = req.user.sub || req.user.userId;
+    const ownerId = req.user.id || req.user.sub;
     if (!ownerId) {
       throw new HttpException(
         'User not authenticated',

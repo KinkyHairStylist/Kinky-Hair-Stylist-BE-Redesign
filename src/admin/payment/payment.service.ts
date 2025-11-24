@@ -18,6 +18,12 @@ import { RefundPaymentDto } from './dto/refund-payment.dto';
 import axios from 'axios';
 import { Business } from 'src/business/entities/business.entity';
 import { BusinessWalletService } from 'src/business/services/wallet.service';
+import {
+  PaymentMethod,
+  Transaction,
+  TransactionType,
+} from 'src/business/entities/transaction.entity';
+import { WalletCurrency } from './enums/wallet.enum';
 
 interface PayPalAuthResponse {
   access_token: string;
@@ -40,6 +46,8 @@ export class PaymentService {
     private readonly paymentRepo: Repository<Payment>,
     @InjectRepository(Business)
     private readonly businessRepo: Repository<Business>,
+    @InjectRepository(Transaction)
+    private readonly transactionRepo: Repository<Transaction>,
     private readonly businessWalletService: BusinessWalletService,
   ) {
     const paypalBaseUrl = process.env.PAYPAL_SANDBOX_URL;
@@ -50,16 +58,16 @@ export class PaymentService {
     const paystackAcessKey = process.env.PAYSTACK_SECRET_KEY!;
     const paystackBaseUrl = process.env.PAYSTACK_BASE_URL!;
 
-    // if (!paypalBaseUrl || !clientId || !clientSecret || !frontendUrl) {
-    //   throw new Error('PAYMENT PAYPAL CREDENTIALS must be set');
-    // }
+    if (!paypalBaseUrl || !clientId || !clientSecret || !frontendUrl) {
+      throw new Error('PAYMENT PAYPAL CREDENTIALS must be set');
+    }
 
     // if (!paystackAcessKey || !paystackBaseUrl) {
     //   throw new Error('PAYMENT PAYSTACK CREDENTIALS must be set');
     // }
 
     // this.paypalBaseUrl = paypalBaseUrl;
-    // this.frontendUrl = frontendUrl;
+    this.frontendUrl = frontendUrl;
     // this.clientId = clientId;
     this.clientSecret = clientSecret;
 
@@ -73,7 +81,7 @@ export class PaymentService {
    * User must visit this URL to approve the payment
    */
   async createPayPalPayment(dto: CreatePaymentDto): Promise<PaymentResponse> {
-    const { client, businessId, business, amount, method } = dto;
+    const { businessId, senderId, business, amount, method, senderEmail } = dto;
 
     const businessExists = await this.businessRepo.findOne({
       where: { id: businessId },
@@ -98,7 +106,7 @@ export class PaymentService {
 
       // Create PayPal Order using Orders API v2
       this.logger.log(
-        `Creating PayPal order for business: ${businessId}, amount: ${amount}`,
+        `Creating PayPal order for business: ${businessExists.businessName}, amount: ${amount}`,
       );
 
       const orderResponse = await axios.post(
@@ -111,7 +119,7 @@ export class PaymentService {
                 currency_code: 'USD',
                 value: amount.toFixed(2),
               },
-              description: `Payment from ${client} to ${business}`,
+              description: `Payment from ${senderEmail} to ${business}`,
               custom_id: businessId, // ✅ Critical: This will be sent in webhook
               reference_id: businessId, // ✅ Backup reference
               invoice_id: `INV-${Date.now()}`, // Optional: unique invoice ID
@@ -150,9 +158,10 @@ export class PaymentService {
 
       // Save payment in database with pending status
       const payment = this.paymentRepo.create({
-        client,
         business,
+        senderId,
         businessId,
+        recipientId: businessExists.ownerId,
         amount,
         method,
         status: 'pending', // ✅ Starts as pending
@@ -261,9 +270,9 @@ export class PaymentService {
     dto: CreatePaymentDto,
   ): Promise<PayStackPaymentResponse> {
     const {
-      client,
+      senderId,
       businessId,
-      customerEmail,
+      senderEmail,
       description,
       business,
       amount,
@@ -271,7 +280,7 @@ export class PaymentService {
     } = dto;
 
     // Validation
-    if (!customerEmail) {
+    if (!senderEmail) {
       throw new BadRequestException('Provide your email');
     }
 
@@ -295,13 +304,13 @@ export class PaymentService {
     try {
       // Create PayStack Order using Orders API v2
       this.logger.log(
-        `Creating PayStack order for business: ${businessId}, amount: ${amount}`,
+        `Creating PayStack order for business: ${businessExists.businessName}, amount: ${amount}`,
       );
 
       const response = await axios.post(
         `${this.paystackBaseUrl}/transaction/initialize`,
         {
-          email: customerEmail,
+          email: senderEmail,
           amount: amount * 100, // NGN in kobo
           callback_url: `${this.frontendUrl}/clients/complete-payment`,
         },
@@ -320,9 +329,10 @@ export class PaymentService {
 
       // Save payment in database with pending status
       const payment = this.paymentRepo.create({
-        client,
         business,
+        senderId,
         businessId,
+        recipientId: businessExists.ownerId,
         amount,
         method,
         status: 'pending', // ✅ Starts as pending
@@ -364,8 +374,12 @@ export class PaymentService {
       throw new InternalServerErrorException('No existing payment record');
     }
 
+    const transaction = await this.transactionRepo.findOne({
+      where: { referenceId: existingPayment.gatewayTransactionId },
+    });
+
     // If payment already decided → return immediately
-    if (existingPayment.status === 'successful') {
+    if (existingPayment.status === 'successful' && transaction) {
       return {
         success: true,
         payment: existingPayment,
@@ -373,7 +387,7 @@ export class PaymentService {
       };
     }
 
-    if (existingPayment.status === 'failed') {
+    if (existingPayment.status === 'failed' && transaction) {
       return {
         success: false,
         payment: existingPayment,
@@ -382,7 +396,7 @@ export class PaymentService {
     }
 
     // If status is pending → retry logic
-    if (existingPayment.status === 'pending') {
+    if (existingPayment.status === 'pending' && transaction) {
       if (retryCount >= maxRetries) {
         return {
           success: false,
@@ -399,6 +413,31 @@ export class PaymentService {
         retryCount + 1,
         maxRetries,
       );
+    }
+
+    if (!transaction) {
+      await this.businessWalletService.addFunds({
+        amount: existingPayment.amount * 100,
+        businessId: existingPayment.businessId,
+        description:
+          existingPayment.reason ||
+          `Payment from Customer: ${existingPayment.sender.email}`,
+        type: TransactionType.EARNING,
+        referenceId: reference,
+        mode: existingPayment.mode ?? 'card',
+        currency: existingPayment.currency ?? WalletCurrency.NGN,
+        method: PaymentMethod.PAYSTACK,
+        recipientId: existingPayment.recipientId,
+        senderId: existingPayment.senderId,
+      });
+
+      this.logger.log(`Payment mark as Success: ${reference}`);
+
+      return {
+        success: false,
+        payment: existingPayment,
+        message: 'Payment transaction recorded successfully',
+      };
     }
 
     return {
@@ -438,8 +477,6 @@ export class PaymentService {
       };
     }
 
-    let savedPayment;
-
     try {
       // Verify PayStack reference
       this.logger.log(
@@ -454,26 +491,30 @@ export class PaymentService {
       );
 
       if (verifyResponse.data.status) {
+        const { amount, channel, currency } = verifyResponse.data.data;
+
         // Mark payment as successful in your database
 
         existingPayment.status = 'successful';
+        existingPayment.mode = channel;
+        existingPayment.currency = currency;
 
-        savedPayment = await this.paymentRepo.save(existingPayment);
+        await this.paymentRepo.save(existingPayment);
 
-        const { amount, channel, currency } = verifyResponse.data.data;
-
-        // await this.businessWalletService.addFunds({
-        //   amount,
-        //   businessId: existingPayment.businessId,
-        //   description:
-        //     existingPayment.reason ||
-        //     `Payment from Customer: ${existingPayment.client}`,
-        //   type: 'credit',
-        //   referenceId: reference,
-        //   customerName: existingPayment.client,
-        //   mode: channel,
-        //   currency,
-        // });
+        await this.businessWalletService.addFunds({
+          amount,
+          businessId: existingPayment.businessId,
+          description:
+            existingPayment.reason ||
+            `Payment from Customer: ${existingPayment.sender.email}`,
+          type: TransactionType.EARNING,
+          referenceId: reference,
+          mode: channel,
+          currency,
+          method: PaymentMethod.PAYSTACK,
+          recipientId: existingPayment.recipientId,
+          senderId: existingPayment.senderId,
+        });
 
         this.logger.log(`Payment mark as Success: ${reference}`);
       } else {
@@ -481,14 +522,14 @@ export class PaymentService {
 
         existingPayment.status = 'failed';
 
-        savedPayment = await this.paymentRepo.save(existingPayment);
+        await this.paymentRepo.save(existingPayment);
 
         this.logger.log(`Payment mark as failed: ${reference}`);
       }
 
       return {
         success: true,
-        data: savedPayment,
+        data: existingPayment,
         message: 'Payment Completed',
       };
     } catch (error) {

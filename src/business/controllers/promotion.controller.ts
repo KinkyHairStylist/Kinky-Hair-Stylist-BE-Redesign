@@ -5,12 +5,21 @@ import {
   HttpStatus,
   Post,
   Request,
+  UseGuards,
 } from '@nestjs/common';
 import { PromotionService } from '../services/promotion.service';
 import { SendPromotionDto } from '../dtos/requests/PromotionDto';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
+import { RolesGuard } from 'src/middleware/roles.guard';
+import { Role } from 'src/middleware/role.enum';
+import { Roles } from 'src/middleware/roles.decorator';
 
+@ApiTags('Business Promotion')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Business, Role.SuperAdmin)
 @Controller('promotions')
-// @UseGuards(JwtAuthGuard)
 export class PromotionController {
   constructor(private readonly promotionService: PromotionService) {}
 

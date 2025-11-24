@@ -10,14 +10,13 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
-
-import { PaymentMethod } from './payment-method.entity';
 import {
   WalletCurrency,
   WalletStatus,
 } from 'src/admin/payment/enums/wallet.enum';
 import { Business } from './business.entity';
-import { Transaction } from './transaction.entity'
+import { Transaction } from './transaction.entity';
+import { WalletPaymentMethod } from './payment-method.entity';
 
 @Entity('business_wallets')
 export class Wallet {
@@ -90,13 +89,17 @@ export class Wallet {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @OneToMany(() => PaymentMethod, (paymentMethod) => paymentMethod.wallet, {
-    cascade: true,
-  })
-  paymentMethods: PaymentMethod[];
+  @OneToMany(
+    () => WalletPaymentMethod,
+    (WalletPaymentMethod) => WalletPaymentMethod.wallet,
+    {
+      cascade: true,
+    },
+  )
+  paymentMethods: WalletPaymentMethod[];
 
   @OneToMany(() => Transaction, (transaction) => transaction.wallet)
-  transactions:Transaction[]
+  transactions: Transaction[];
 
   // You would typically have relations to Business and User entities
   // @ManyToOne(() => Business, (business) => business.wallets)

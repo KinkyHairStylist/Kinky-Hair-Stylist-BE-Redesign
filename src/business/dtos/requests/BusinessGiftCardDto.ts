@@ -24,7 +24,8 @@ export class CreateBusinessGiftCardDto {
 
   @ApiProperty({ example: 'A special gift card for premium services' })
   @IsString()
-  description: string;
+  @IsOptional()
+  description?: string;
 
   @ApiProperty({ example: 100.0 })
   @IsNumber()
@@ -44,9 +45,9 @@ export class CreateBusinessGiftCardDto {
   @Max(365)
   expiryInDays: number;
 
-  @ApiProperty({ example: 'GIFTKSH-SUNSETGLOW-2024-A3B9K' })
+  @ApiProperty({ example: 'KSHA3B9K' })
   @IsString()
-  @Matches(/^GIFTKSH-[A-Z0-9]+-\d{4}-[A-Z0-9]{5}$/, {
+  @Matches(/^KSH[A-Z0-9]{5}$/, {
     message: 'Invalid gift card code format',
   })
   code: string;
@@ -57,15 +58,13 @@ export class CreateBusinessGiftCardDto {
 
   @ApiProperty({ example: 'John Doe' })
   @IsString()
-  recipientName: string;
+  @IsOptional()
+  recipientName?: string;
 
   @ApiProperty({ example: 'john@example.com' })
-  @IsEmail()
-  recipientEmail: string;
-
-  @ApiProperty({ example: 'Happy Birthday!' })
+  @IsOptional()
   @IsString()
-  message: string;
+  recipientEmail?: string;
 
   @ApiProperty({ example: 'Jane Smith' })
   @IsString()

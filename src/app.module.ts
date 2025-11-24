@@ -43,6 +43,9 @@ import { ProductModule } from './marketplace/product.module';
 import { BusinessGiftCardsModule } from './business/business-giftcard.module';
 import { BusinessOwnerSettingsModule } from './business/business-owner-settings.module';
 import { BusinessSettingsModule } from './business/business-settings.module';
+import { GoogleCalendarModule } from './integration/google-calendar.module';
+import { MailchimpModule } from './integration/mail-chimp.module';
+import { QuickBooksModule } from './integration/quick-books.module';
 
 @Module({
   imports: [
@@ -94,6 +97,9 @@ import { BusinessSettingsModule } from './business/business-settings.module';
     BusinessGiftCardsModule,
     BusinessOwnerSettingsModule,
     BusinessSettingsModule,
+    GoogleCalendarModule,
+    MailchimpModule,
+    QuickBooksModule,
   ],
   controllers: [AppController],
   providers: [AppService, AuthMiddleware],

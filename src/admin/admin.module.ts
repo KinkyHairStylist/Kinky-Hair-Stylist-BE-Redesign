@@ -21,6 +21,7 @@ import { EmailService } from '../email/email.service';
 import { PaymentService } from './payment/payment.service';
 import { CloudinaryModule } from '../user/modules/cloudinary.module';
 import { BusinessWalletModule } from 'src/business/wallet.module';
+import { Transaction } from 'src/business/entities/transaction.entity';
 
 @Module({
   imports: [
@@ -33,11 +34,19 @@ import { BusinessWalletModule } from 'src/business/wallet.module';
     TypeOrmModule.forFeature([Subscription]),
     TypeOrmModule.forFeature([Payment]),
     TypeOrmModule.forFeature([Article]),
+    TypeOrmModule.forFeature([Transaction]),
     CloudinaryModule,
     BusinessWalletModule,
   ],
   controllers: [AdminController, ArticleController, AdminAuthController],
-  providers: [AdminService, EmailService, PaymentService, ArticleService, AdminAuthService, AdminAuthStrategy],
+  providers: [
+    AdminService,
+    EmailService,
+    PaymentService,
+    ArticleService,
+    AdminAuthService,
+    AdminAuthStrategy,
+  ],
   exports: [AdminService],
 })
 export class AdminModule {}

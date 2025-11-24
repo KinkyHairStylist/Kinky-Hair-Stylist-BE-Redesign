@@ -5,10 +5,11 @@ import { PaymentService } from './payment.service';
 import { PaymentController } from './payment.controller';
 import { Business } from 'src/business/entities/business.entity';
 import { BusinessWalletModule } from 'src/business/wallet.module';
+import { Transaction } from 'src/business/entities/transaction.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Payment, Business]),
+    TypeOrmModule.forFeature([Payment, Business, Transaction]),
     BusinessWalletModule,
   ],
   controllers: [PaymentController],

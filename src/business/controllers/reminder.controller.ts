@@ -8,11 +8,18 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ReminderService } from '../services/reminder.service';
-import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
 import { SendReminderDto } from '../dtos/requests/Reminder.dto';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
+import { RolesGuard } from 'src/middleware/roles.guard';
+import { Role } from 'src/middleware/role.enum';
+import { Roles } from 'src/middleware/roles.decorator';
 
+@ApiTags('Business Reminder')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Business, Role.SuperAdmin)
 @Controller('reminders')
-// @UseGuards(JwtAuthGuard)
 export class ReminderController {
   constructor(private readonly reminderService: ReminderService) {}
 

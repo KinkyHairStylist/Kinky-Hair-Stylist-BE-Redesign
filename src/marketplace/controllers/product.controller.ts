@@ -13,10 +13,20 @@ import {
   Request,
   HttpException,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { ProductService } from '../services/product.service';
 import { CreateProductDto, ProductFiltersDto } from '../dto/marketplace.dto';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
+import { RolesGuard } from 'src/middleware/roles.guard';
+import { Role } from 'src/middleware/role.enum';
+import { Roles } from 'src/middleware/roles.decorator';
 
+@ApiTags('Marketplace (Product)')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Business, Role.SuperAdmin)
 @Controller('marketplace')
 export class ProductController {
   constructor(private readonly productService: ProductService) {}
@@ -29,7 +39,7 @@ export class ProductController {
   async createProduct(@Request() req) {
     const { body, files } = req;
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(
@@ -89,7 +99,7 @@ export class ProductController {
   @Get('products/list')
   async getProductList(@Request() req, @Query() filters: ProductFiltersDto) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(

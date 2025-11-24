@@ -10,8 +10,14 @@ import {
   Body,
   Post,
   Delete,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Business } from '../entities/business.entity';
@@ -23,8 +29,15 @@ import {
   UpdateBusinessNameDto,
   UpdateBusinessProfileDto,
 } from '../dtos/requests/BusinessSettingsDto';
+import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
+import { RolesGuard } from 'src/middleware/roles.guard';
+import { Role } from 'src/middleware/role.enum';
+import { Roles } from 'src/middleware/roles.decorator';
 
-@ApiTags('business-settings')
+@ApiTags('Business Settings')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Business, Role.SuperAdmin)
 @Controller('business-settings')
 export class BusinessSettingsController {
   constructor(
@@ -36,7 +49,7 @@ export class BusinessSettingsController {
   @Get('/profile')
   async getBusinessProfile(@Request() req) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(
@@ -82,7 +95,7 @@ export class BusinessSettingsController {
     @Body() updateDto: UpdateBusinessNameDto,
   ) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
       const business =
         await this.businessService.updateBusinessNameAndDescription(
           businessId,
@@ -119,7 +132,7 @@ export class BusinessSettingsController {
     @Body() updateDto: UpdateBookingDaysDto,
   ) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       const business = await this.businessService.updateBookingDays(
         businessId,
@@ -151,7 +164,7 @@ export class BusinessSettingsController {
     @Param('businessId') businessId: string,
   ) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(
@@ -195,7 +208,7 @@ export class BusinessSettingsController {
     @Body('imageUrl') imageUrl: string,
   ) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(
@@ -263,13 +276,35 @@ export class BusinessSettingsController {
     @Param('businessId') businessId: string,
     @Request() req,
     @Body() updateDto: UpdateBusinessLocationDto,
-  ): Promise<Business> {
-    const ownerId = req.user.id;
-    return this.businessService.updateBusinessLocation(
-      businessId,
-      ownerId,
-      updateDto,
-    );
+  ) {
+    try {
+      const ownerId = req.user.id || req.user.sub;
+
+      if (!ownerId) {
+        throw new HttpException(
+          'User not authenticated',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      const result = await this.businessService.updateBusinessLocation(
+        businessId,
+        ownerId,
+        updateDto,
+      );
+
+      return {
+        success: true,
+        message: 'Location updated successfully',
+        data: result,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Failed to update location',
+        error: error.message,
+      };
+    }
   }
 
   @Patch(':businessId/profile')
