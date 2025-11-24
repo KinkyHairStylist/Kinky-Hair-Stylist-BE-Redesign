@@ -12,8 +12,8 @@ export const typeOrmConfig: TypeOrmModuleOptions = {
   database: process.env.DB_DATABASE ?? 'khs',
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
   ssl: {
-    rejectUnauthorized: false, // allow self-signed certs
+    rejectUnauthorized: false,
   },
-  synchronize: true,
+  synchronize: false,
   autoLoadEntities: true,
 };

@@ -57,6 +57,7 @@ export class Staff {
   @Column({ default: true })
   isActive: boolean;
 
+
   @Column({ nullable: true })
   employmentType: string;
 

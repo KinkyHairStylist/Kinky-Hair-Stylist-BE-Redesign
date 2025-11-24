@@ -12,10 +12,10 @@ export class Address {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({nullable:true})
   name: string;
 
-  @Column()
+  @Column({nullable:true})
   location: string;
 
   @Column({ default: false })
