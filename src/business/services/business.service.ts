@@ -21,6 +21,7 @@ import {CreateStaffDto} from "../dtos/requests/AddStaffDto";
 import {EmergencyContact} from "../entities/emergency-contact.entity";
 import {Address} from "../entities/address.entity";
 import {EditStaffDto} from "../dtos/requests/EditStaffDto";
+import { startOfDay, endOfDay, format } from 'date-fns';
 
 @Injectable()
 export class BusinessService {
@@ -81,6 +82,17 @@ export class BusinessService {
     return await this.appointmentRepo.findOne({where: {id}});
   }
 
+  async createBooking(body:any,userMail:string){
+    const business = await this.businessRepo.findOne({ where: { ownerEmail: userMail } });
+    if(!business){throw new NotFoundException("Business id not found");}
+    const appointment = this.appointmentRepo.create({
+       ...body,
+      business
+    })
+
+    return this.appointmentRepo.save(appointment)
+  }
+
   async completeBooking(id:string){
     const appointment = await this.appointmentRepo.findOne({where: {id}});
     if (!appointment) {throw new NotFoundException('Appointment Not Found');}
@@ -97,39 +109,21 @@ export class BusinessService {
 
   }
 
-  async createBooking(dto: CreateBookingDto, clientId: string): Promise<Appointment> {
-    const client = await this.userRepo.findOne({ where: { id: clientId } });
-    if (!client) throw new NotFoundException("Client user not found");
 
-    const business = await this.businessRepo.findOne({ where: { id: dto.businessId } });
-    if (!business) throw new NotFoundException("Business not found");
 
-    let staff: Staff[] = [];
-    if (dto.staffIds && dto.staffIds.length > 0) {
-      staff = await this.staffRepo.find({
-        where: { id: In(dto.staffIds) }
-      });
-
-      if (staff.length !== dto.staffIds.length) {
-        throw new NotFoundException("One or more staff members not found");
-      }
-    }
-
-    const appointment = this.appointmentRepo.create({
-      client,
-      business,
-      staff,
-      serviceName: dto.serviceName,
-      date: dto.date,
-      time: dto.time,
-      duration: dto.duration,
-      amount: dto.amount ?? 0,
-      specialRequests: dto.specialRequests ?? undefined,
-      status: AppointmentStatus.PENDING,
-      paymentStatus: dto.paymentStatus ?? PaymentStatus.UNPAID,
+  async getTodayAppointments(userEmail: string): Promise<Appointment[]> {
+    const business = await this.businessRepo.findOne({
+      where: { ownerEmail: userEmail },
     });
 
-    return await this.appointmentRepo.save(appointment);
+    if (!business) throw new NotFoundException('Business not found');
+
+    const today = new Date();
+
+    return this.appointmentRepo.find({
+      where: { date:format(today, 'yyyy-MM-dd'), business: { id: business.id }
+      },
+    });
   }
 
 
@@ -245,6 +239,8 @@ export class BusinessService {
   async addStaff(userMail:string,createStaffDto: CreateStaffDto): Promise<Staff> {
     const { addresses, emergencyContacts, selectedServices,  ...staffData } = createStaffDto;
 
+    console.log(createStaffDto)
+
 
     const business = await this.businessRepo.findOne({ where: { ownerEmail: userMail } });
     if (!business) {
@@ -265,9 +261,13 @@ export class BusinessService {
     }
 
     if (emergencyContacts?.length) {
-      const contactEntities = emergencyContacts.map(contact =>
-          this.emergencyRepo.create({ ...contact, staff }),
-      );
+      const contactEntities = emergencyContacts.map(contact => {
+        if (!contact.id || contact.id.trim() === '') {
+          delete contact.id;
+        }
+
+        return this.emergencyRepo.create({ ...contact, staff });
+      });
       await this.emergencyRepo.save(contactEntities);
       staff.emergencyContacts = contactEntities;
     }
@@ -291,6 +291,8 @@ export class BusinessService {
       where: { id: staffId },
       relations: ['addresses', 'emergencyContacts', 'services'],
     });
+
+    console.log(editStaffDto)
 
     if (!staff) {
       throw new Error('Staff not found');

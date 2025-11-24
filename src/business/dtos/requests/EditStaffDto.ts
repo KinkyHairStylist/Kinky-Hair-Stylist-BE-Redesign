@@ -34,18 +34,15 @@ export class EditStaffDto {
     employmentType?: 'full-time' | 'part-time' | 'contract';
 
     @IsArray()
-    @IsOptional()
-    addresses?: { name: string; location: string; isPrimary?: boolean }[];
+    addresses?:any;
 
     @IsArray()
     @IsOptional()
-    emergencyContacts?: {
-        firstName: string;
-        lastName?: string;
-        relationship: string;
-        email: string;
-        phoneNumber: string;
-    }[];
+    emergencyContacts?: any;
+
+    @IsString()
+    @IsOptional()
+    avatar?: string;
 
     @IsArray()
     @IsOptional()

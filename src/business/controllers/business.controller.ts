@@ -16,11 +16,11 @@ import { BusinessService } from '../services/business.service';
 import { CreateBusinessDto } from '../dtos/requests/CreateBusinessDto';
 import { BookingPoliciesData, BusinessServiceData } from '../types/constants';
 import { Public } from '../middlewares/public.decorator';
-import {GetAvailableSlotsDto} from "../dtos/requests/GetAvailableSlotsDto";
 import {CreateBlockedTimeDto} from "../dtos/requests/CreateBlockedTimeDto";
 import {CreateServiceDto} from "../dtos/requests/CreateServiceDto";
 import {CreateStaffDto} from "../dtos/requests/AddStaffDto";
 import {EditStaffDto} from "../dtos/requests/EditStaffDto";
+import {CreateBookingDto} from "../dtos/requests/CreateBookingDto";
 
 interface RequestWithUser extends Request {
   user: User;
@@ -158,6 +158,21 @@ export class BusinessController {
   @Post('acceptBooking/:id')
   async acceptBooking(@Param('id') id: string) {
     return this.businessService.acceptBooking(id);
+  }
+
+  @Post('createBooking')
+  async createBooking(
+      @Body() body: any,
+      @Req() req: RequestWithUser,
+
+  ) {
+    const userMail = req.user.email
+    return this.businessService.createBooking(body,userMail)
+  }
+
+  @Get('getAppointmentsToday')
+  async getTodayAppointments(@Req() req: RequestWithUser,) {
+    return this.businessService.getTodayAppointments(req.user.email);
   }
 
   @Post('rejectBooking/:id')
