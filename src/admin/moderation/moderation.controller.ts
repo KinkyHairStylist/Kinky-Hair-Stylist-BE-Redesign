@@ -20,6 +20,16 @@ export class ModerationController {
   constructor(private readonly moderationService: ModerationService) {}
 
   // 1️⃣ Get all flagged content
+  @Get('stats')
+  async getReportStats() {
+    const stats = await this.moderationService.getReportStats();
+
+    return {
+      message: 'Report statistics retrieved successfully',
+      data: stats,
+    };
+  }
+
   @Get('flagged')
   getFlaggedContent() {
     return this.moderationService.getFlaggedContent();

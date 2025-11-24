@@ -8,19 +8,19 @@ import { Transaction } from 'src/business/entities/transaction.entity';
 import { User } from '../../all_user_entities/user.entity';
 import { Referral } from '../user_entities/referrals.entity';
 import { Article } from 'src/all_user_entities/article.entity';
-import { SupportTicket } from 'src/all_user_entities/support-ticket.entity';
-import { LiveChatMessage } from 'src/all_user_entities/live-chat-message.entity';
+// import { SupportTicket } from 'src/all_user_entities/support-ticket.entity';
+// import { LiveChatMessage } from 'src/all_user_entities/user_status.entity';
 
 import { UserController } from '../controllers/user.controller';
 import { GiftCardController } from '../controllers/gift-card.controller';
 import { ArticleController } from '../controllers/article.controller';
-import { TicketController } from '../controllers/ticket.controller';
+// import { TicketController } from '../controllers/ticket.controller';
 import { UserProfileController } from '../controllers/user-profile.controller';
 
 import { UserService } from '../services/user.service';
 import { GiftCardService } from '../services/gift-card.service';
 import { ArticleService } from '../services/article.service';
-import { TicketService } from '../services/ticket.service';
+// import { TicketService } from '../services/ticket.service';
 import { UserProfileService } from '../services/user-profile.service';
 
 import { EmailValidationMiddleware } from '../../middleware/email-validation.middleware';
@@ -42,8 +42,8 @@ import { BusinessModule } from 'src/business/business.module'; // <-- import Bus
       BusinessGiftCard,
       Card,
       Article,
-      SupportTicket,
-      LiveChatMessage,
+      // SupportTicket,
+      // LiveChatMessage,
       Transaction,
     ]),
     forwardRef(() => BusinessModule), 
@@ -58,7 +58,7 @@ import { BusinessModule } from 'src/business/business.module'; // <-- import Bus
     UserController,
     GiftCardController,
     ArticleController,
-    TicketController,
+    // TicketController,
     UserProfileController,
   ],
   providers: [
@@ -66,7 +66,7 @@ import { BusinessModule } from 'src/business/business.module'; // <-- import Bus
     JwtRefreshStrategy,
     GiftCardService,
     ArticleService,
-    TicketService,
+    // TicketService,
     UserProfileService,
     PasswordUtil,
     PaystackService, // keep PaystackService here
