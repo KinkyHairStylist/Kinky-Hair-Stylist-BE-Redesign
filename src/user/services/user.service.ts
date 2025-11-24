@@ -10,15 +10,15 @@ import { JwtService } from '@nestjs/jwt';
 import sgMail from '@sendgrid/mail';
 
 import { User } from '../../all_user_entities/user.entity';
-import { 
-  GetStartedDto, 
-  VerifyCodeDto, 
-  ResendCodeDto, 
-  SignUpDto, 
-  CustomerLoginDto, 
-  ResetPasswordStartDto, 
-  ResetPasswordVerifyDto, 
-  ResetPasswordFinishDto, 
+import {
+  GetStartedDto,
+  VerifyCodeDto,
+  ResendCodeDto,
+  SignUpDto,
+  CustomerLoginDto,
+  ResetPasswordStartDto,
+  ResetPasswordVerifyDto,
+  ResetPasswordFinishDto,
   AuthResponseDto,
 } from '../dtos/user.dto';
 import { PasswordHashingHelper } from '../../helpers/password-hashing.helper';

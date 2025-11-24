@@ -1,10 +1,12 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Withdrawal } from './entities/withdrawal.entity';
 import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
-import { UpdateWithdrawalDto } from './dto/update-withdrawal.dto';
-import { ILike } from 'typeorm';
 import { BusinessGiftCard } from 'src/business/entities/business-giftcard.entity';
 
 @Injectable()
@@ -39,7 +41,9 @@ export class WithdrawalService {
     });
 
     if (!giftcard) {
-      throw new NotFoundException(`Gift card not found for business: ${dto.businessName}`);
+      throw new NotFoundException(
+        `Gift card not found for business: ${dto.businessName}`,
+      );
     }
 
     if (giftcard.amount < dto.amount) {
@@ -58,7 +62,6 @@ export class WithdrawalService {
 
     return this.withdrawalRepo.save(withdrawal);
   }
-
 
   // ✅ Approve and process payout
   async approve(id: string): Promise<Withdrawal> {
@@ -87,9 +90,11 @@ export class WithdrawalService {
     return this.withdrawalRepo.find({ where: { status: 'Pending' } });
   }
 
-   // 🗑️ Delete all withdrawal requests
+  // 🗑️ Delete all withdrawal requests
   async deleteAll(): Promise<{ message: string }> {
     await this.withdrawalRepo.clear();
-    return { message: 'All withdrawal requests have been deleted successfully' };
+    return {
+      message: 'All withdrawal requests have been deleted successfully',
+    };
   }
 }

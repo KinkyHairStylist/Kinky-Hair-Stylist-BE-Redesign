@@ -9,10 +9,20 @@ import {
   Put,
   Query,
   Request,
+  UseGuards,
 } from '@nestjs/common';
 import { InventoryService } from '../services/inventory.service';
 import { AddCategoryDto, UpdateCategoriesDto } from '../dto/marketplace.dto';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
+import { RolesGuard } from 'src/middleware/roles.guard';
+import { Role } from 'src/middleware/role.enum';
+import { Roles } from 'src/middleware/roles.decorator';
 
+@ApiTags('Marketplace (Inventory)')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Business, Role.SuperAdmin)
 @Controller('marketplace')
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
@@ -20,7 +30,7 @@ export class InventoryController {
   @Get('inventory/summary')
   async getPlatformSummary(@Request() req) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(
@@ -48,7 +58,7 @@ export class InventoryController {
   @Get('inventory/business/summary')
   async getBusinessSummary(@Request() req) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(
@@ -82,7 +92,7 @@ export class InventoryController {
   @Get('inventory/business/low-stock')
   async getBusinessLowStockProducts(@Request() req) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(
@@ -126,7 +136,7 @@ export class InventoryController {
   @Get('inventory/categories-list')
   async getCategoriesList(@Request() req) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(

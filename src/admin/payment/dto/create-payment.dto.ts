@@ -9,16 +9,15 @@ import {
 } from 'class-validator';
 
 export class CreatePaymentDto {
-  @IsString()
-  @MinLength(1)
-  client: string;
+  @IsUUID()
+  senderId: string;
 
   @IsUUID()
   businessId: string;
 
   @IsOptional()
   @IsEmail()
-  customerEmail: string;
+  senderEmail: string;
 
   @IsOptional()
   @IsString()

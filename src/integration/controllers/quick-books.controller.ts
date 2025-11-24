@@ -1,6 +1,23 @@
-import { Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { QuickBooksService } from '../services/quick-books.service';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
+import { RolesGuard } from 'src/middleware/roles.guard';
+import { Role } from 'src/middleware/role.enum';
+import { Roles } from 'src/middleware/roles.decorator';
 
+@ApiTags('QuickBooks')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Business, Role.SuperAdmin)
 @Controller('quickbooks')
 export class QuickBooksController {
   constructor(private readonly quickbooksService: QuickBooksService) {}

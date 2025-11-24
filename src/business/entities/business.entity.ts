@@ -21,6 +21,7 @@ import { Wallet } from './wallet.entity';
 import { Product } from '../../marketplace/entity/product.entity';
 import { BusinessGiftCard } from './business-giftcard.entity';
 import { BusinessOwnerSettings } from './business-owner-settings.entity';
+import { Withdrawal } from 'src/admin/withdrawal/entities/withdrawal.entity';
 
 export enum BusinessStatus {
   PENDING = 'pending',
@@ -135,7 +136,7 @@ export class Business {
     type: 'jsonb',
     nullable: true,
     default: () =>
-        `'{"rating":0,"reviews":0,"completionRate":0,"avgResponseMins":0}'`,
+      `'{"rating":0,"reviews":0,"completionRate":0,"avgResponseMins":0}'`,
   })
   performance: {
     rating: number;
@@ -150,9 +151,13 @@ export class Business {
   @OneToOne(() => Wallet, (wallet) => wallet.business, { cascade: true })
   wallet: Wallet;
 
-  @OneToOne(() => BusinessOwnerSettings, (ownerSettings) => ownerSettings.business, {
-    cascade: true,
-  })
+  @OneToOne(
+    () => BusinessOwnerSettings,
+    (ownerSettings) => ownerSettings.business,
+    {
+      cascade: true,
+    },
+  )
   ownerSettings: BusinessOwnerSettings;
 
   @OneToMany(() => Product, (product) => product.business)
@@ -160,6 +165,9 @@ export class Business {
 
   @OneToMany(() => BusinessGiftCard, (giftcard) => giftcard.business)
   giftCards: BusinessGiftCard[];
+
+  @OneToMany(() => Withdrawal, (w) => w.business)
+  withdrawals: Withdrawal[];
 
   @CreateDateColumn()
   createdAt: Date;

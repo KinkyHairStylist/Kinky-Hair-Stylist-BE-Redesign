@@ -8,17 +8,29 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   Request,
+  UseGuards,
 } from '@nestjs/common';
 import {
   AddPaymentMethodDto,
   AddTransactionDto,
   CreateWalletDto,
+  DebitWalletRequestDto,
+  TransactionFiltersDto,
 } from '../dtos/requests/WalletDto';
 import { BusinessWalletService } from '../services/wallet.service';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
+import { RolesGuard } from 'src/middleware/roles.guard';
+import { Role } from 'src/middleware/role.enum';
+import { Roles } from 'src/middleware/roles.decorator';
 
+@ApiTags('Business Wallet')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Business, Role.SuperAdmin)
 @Controller('business-wallet')
-// @UseGuards(JwtAuthGuard)
 export class BusinessWalletController {
   constructor(private readonly walletService: BusinessWalletService) {}
 
@@ -27,7 +39,7 @@ export class BusinessWalletController {
     @Request() req,
     @Body() createWalletData: CreateWalletDto,
   ) {
-    const ownerId = req.user.sub || req.user.userId;
+    const ownerId = req.user.id || req.user.sub;
 
     if (!ownerId) {
       throw new HttpException(
@@ -51,7 +63,7 @@ export class BusinessWalletController {
 
   @Get('/wallet')
   async getWalletByOwnerId(@Request() req) {
-    const ownerId = req.user.sub || req.user.userId;
+    const ownerId = req.user.id || req.user.sub;
 
     if (!ownerId) {
       throw new HttpException(
@@ -77,7 +89,7 @@ export class BusinessWalletController {
     @Request() req,
     @Body() paymentMethodData: AddPaymentMethodDto,
   ) {
-    const ownerId = req.user.sub || req.user.userId;
+    const ownerId = req.user.id || req.user.sub;
 
     if (!ownerId) {
       throw new HttpException(
@@ -103,7 +115,7 @@ export class BusinessWalletController {
     @Request() req,
     @Param('walletId') walletId: string,
   ) {
-    const ownerId = req.user.sub || req.user.userId;
+    const ownerId = req.user.id || req.user.sub;
 
     if (!ownerId) {
       throw new HttpException(
@@ -128,8 +140,9 @@ export class BusinessWalletController {
   async getTransactionHistory(
     @Request() req,
     @Param('walletId') walletId: string,
+    @Query() filters: TransactionFiltersDto,
   ) {
-    const ownerId = req.user.sub || req.user.userId;
+    const ownerId = req.user.id || req.user.sub;
 
     if (!ownerId) {
       throw new HttpException(
@@ -138,24 +151,24 @@ export class BusinessWalletController {
       );
     }
 
-    // const result = await this.walletService.getTransactionHistory(walletId);
+    const result = await this.walletService.getTransactionHistory(
+      walletId,
+      filters,
+    );
 
-    // if (!result.success) {
-    //   throw new HttpException(
-    //     { message: result.message, error: result.error },
-    //     HttpStatus.NOT_FOUND,
-    //   );
-    // }
+    if (!result.success) {
+      throw new HttpException(
+        { message: result.message, error: result.error },
+        HttpStatus.NOT_FOUND,
+      );
+    }
 
-    // return result;
+    return result;
   }
 
   @Patch('/debit')
-  async debitWallet(
-    @Request() req,
-    @Body() debitWalletData: AddTransactionDto,
-  ) {
-    const ownerId = req.user.sub || req.user.userId;
+  async debitWallet(@Request() req, @Body() body: DebitWalletRequestDto) {
+    const ownerId = req.user.id || req.user.sub;
 
     if (!ownerId) {
       throw new HttpException(
@@ -164,21 +177,24 @@ export class BusinessWalletController {
       );
     }
 
-    // try {
-    //   const result = await this.walletService.deductFunds(debitWalletData);
+    try {
+      const result = await this.walletService.deductFunds(body);
 
-    //   return {
-    //     success: true,
-    //     data: result,
-    //     message: 'Business Wallet debited successfully',
-    //   };
-    // } catch (error) {
-    //   console.log('Failed to debit business wallet error:', error);
-    //   return {
-    //     success: false,
-    //     error: error.message,
-    //     message: `Failed to debit business wallet: ${error.message}`,
-    //   };
-    // }
+      return {
+        success: true,
+        data: {
+          transaction: result.transaction,
+          withdrawal: result.withdrawal,
+        },
+        message: 'Business Wallet debited successfully',
+      };
+    } catch (error) {
+      console.log('Failed to debit business wallet error:', error);
+      return {
+        success: false,
+        error: error.message,
+        message: `Failed to debit business wallet: ${error.message}`,
+      };
+    }
   }
 }

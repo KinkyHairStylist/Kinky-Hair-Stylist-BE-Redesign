@@ -289,7 +289,7 @@ export class WebhookService {
 
   // PAYSTACK
   /**
-   * Handle incoming PayPal webhook
+   * Handle incoming PayStack webhook
    */
   async handlePayStackWebhook(
     signature: string,

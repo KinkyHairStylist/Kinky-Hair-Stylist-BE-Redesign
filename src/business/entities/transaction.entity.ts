@@ -9,8 +9,8 @@ import {
   Index,
 } from 'typeorm';
 
-import { User } from "src/all_user_entities/user.entity";
-import { Wallet } from './wallet.entity'
+import { User } from 'src/all_user_entities/user.entity';
+import { Wallet } from './wallet.entity';
 import { WalletCurrency } from 'src/admin/payment/enums/wallet.enum';
 
 // --------------------------
@@ -26,6 +26,7 @@ export enum TransactionType {
 
 export enum PaymentMethod {
   CARD = 'Card',
+  BANK = 'Bank',
   PAYSTACK = 'Paystack',
   PAYPAL = 'PayPal',
   GIFTCARD = 'GiftCard',
@@ -100,10 +101,10 @@ export class Transaction {
   description: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  customerName: string;
+  service: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  service: string;
+  customerName: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   mode: string; // e.g. "API", "Web", "Mobile", "Webhook"
@@ -148,4 +149,4 @@ export class Transaction {
   })
   @JoinColumn({ name: 'walletId' })
   wallet: Wallet;
-  }
+}

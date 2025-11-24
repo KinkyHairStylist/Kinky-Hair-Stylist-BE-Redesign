@@ -10,9 +10,10 @@ import {
   UseGuards,
   Patch,
   Param,
+  Request,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 import { Session } from 'express-session';
 import { UserService } from '../services/user.service';
 import {
@@ -91,7 +92,10 @@ export class UserController {
     type: AuthResponseDto,
   })
   @UsePipes(new ValidationPipe())
-  async signup(@Body() dto: SignUpDto): Promise<AuthResponseDto> {
+  async signup(
+    @Request() req,
+    @Body() dto: SignUpDto,
+  ): Promise<AuthResponseDto> {
     return this.userService.signUp(dto);
   }
 

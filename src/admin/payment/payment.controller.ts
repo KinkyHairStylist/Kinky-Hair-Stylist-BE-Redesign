@@ -11,10 +11,7 @@ import {
   Patch,
   UseGuards,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
 import { PaymentService } from './payment.service';
@@ -27,7 +24,7 @@ import { RolesGuard } from 'src/middleware/roles.guard';
 @ApiTags('Admin All Transactions')
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Admin, Role.SuperAdmin)
+@Roles(Role.Admin, Role.SuperAdmin, Role.Client)
 @Controller('admin/payments')
 export class PaymentController {
   private readonly logger = new Logger(PaymentController.name);
@@ -61,7 +58,7 @@ export class PaymentController {
   ) {
     try {
       this.logger.log(
-        `${dto.method.toUpperCase()}: Creating payment for business: ${dto.businessId}`,
+        `${dto.method.toUpperCase()}: Creating payment for business`,
       );
 
       let result;
@@ -139,14 +136,14 @@ export class PaymentController {
   }
 
   @Patch('/verify/:txReference')
-  async verifyPaystackPayment(@Param('txReference') txReference: string) {
+  async verifyPayment(@Param('txReference') txReference: string) {
     try {
       const result =
         await this.paymentService.verifyPaystackWebhookPayment(txReference);
 
       return {
         success: true,
-        data: result.data,
+        data: result.payment,
         message: result.message,
       };
     } catch (error) {

@@ -22,13 +22,20 @@ import { CreateBlockedTimeDto } from '../dtos/requests/CreateBlockedTimeDto';
 import { CreateServiceDto } from '../dtos/requests/CreateServiceDto';
 import { CreateStaffDto } from '../dtos/requests/AddStaffDto';
 import { EditStaffDto } from '../dtos/requests/EditStaffDto';
+import { RolesGuard } from 'src/middleware/roles.guard';
+import { Role } from 'src/middleware/role.enum';
+import { Roles } from 'src/middleware/roles.decorator';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 interface RequestWithUser extends Request {
   user: User;
 }
 
+@ApiTags('Business')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Business, Role.SuperAdmin)
 @Controller('business')
-@UseGuards(JwtAuthGuard)
 export class BusinessController {
   constructor(private readonly businessService: BusinessService) {}
 
@@ -91,7 +98,6 @@ export class BusinessController {
     @Req() req: RequestWithUser,
   ) {
     body.ownerMail = req.user.email;
-    console.log(body.date);
     return this.businessService.editBlockedTime(id, body);
   }
 

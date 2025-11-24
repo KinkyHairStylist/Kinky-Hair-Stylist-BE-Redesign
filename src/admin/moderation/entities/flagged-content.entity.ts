@@ -1,4 +1,10 @@
-import { Entity, BeforeInsert, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import {
+  Entity,
+  BeforeInsert,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+} from 'typeorm';
 
 export type ReportType = 'Review' | 'Profile' | 'Business';
 export type ReportSeverity = 'Medium' | 'Low' | 'High';
@@ -19,16 +25,16 @@ export class FlaggedContent {
   @Column({ type: 'text' })
   preview: string;
 
-  @Column({ type: 'varchar' })
+  @Column({ type: 'varchar', nullable: true })
   reporter: string;
 
-  @Column({ type: 'varchar' })
+  @Column({ type: 'varchar', nullable: true })
   reported: string;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'text', nullable: true })
   reason: string;
 
-  @Column({ type: 'varchar' })
+  @Column({ type: 'varchar', nullable: true })
   severity: ReportSeverity;
 
   @Column({ type: 'varchar', default: 'Pending' })

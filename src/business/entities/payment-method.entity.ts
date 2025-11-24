@@ -10,8 +10,8 @@ import {
 import { Wallet } from './wallet.entity';
 import { PaymentMethodType } from 'src/admin/payment/enums/wallet.enum';
 
-@Entity('payment_methods')
-export class PaymentMethod {
+@Entity('wallet_payment_methods')
+export class WalletPaymentMethod {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

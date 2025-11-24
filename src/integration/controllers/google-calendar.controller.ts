@@ -9,10 +9,20 @@ import {
   HttpException,
   HttpStatus,
   Body,
+  UseGuards,
 } from '@nestjs/common';
 import { GoogleCalendarService } from '../services/google-calendar.service';
 import { UpdateBusinessOwnerSettingsDto } from 'src/business/dtos/requests/BusinessOwnerSettingsDto';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
+import { RolesGuard } from 'src/middleware/roles.guard';
+import { Role } from 'src/middleware/role.enum';
+import { Roles } from 'src/middleware/roles.decorator';
 
+@ApiTags('Google Calendar')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Business, Role.SuperAdmin)
 @Controller('google-calendar')
 export class GoogleCalendarController {
   constructor(private readonly googleCalendarService: GoogleCalendarService) {}
@@ -27,7 +37,7 @@ export class GoogleCalendarController {
     @Param('businessId') businessId: string,
   ) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(
@@ -64,7 +74,7 @@ export class GoogleCalendarController {
     @Body() updateDto: UpdateBusinessOwnerSettingsDto,
   ) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(
@@ -116,7 +126,7 @@ export class GoogleCalendarController {
     @Body() updateDto: UpdateBusinessOwnerSettingsDto,
   ) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(

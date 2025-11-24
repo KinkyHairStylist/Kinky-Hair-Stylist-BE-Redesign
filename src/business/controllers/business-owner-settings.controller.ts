@@ -12,6 +12,7 @@ import {
   HttpException,
   BadRequestException,
   Patch,
+  UseGuards,
 } from '@nestjs/common';
 import { BusinessOwnerSettingsService } from '../services/business-owner-settings.service';
 import { BusinessOwnerSettings } from '../entities/business-owner-settings.entity';
@@ -24,7 +25,16 @@ import { UserService } from 'src/user/services/user.service';
 import { Business } from '../entities/business.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
+import { RolesGuard } from 'src/middleware/roles.guard';
+import { Role } from 'src/middleware/role.enum';
+import { Roles } from 'src/middleware/roles.decorator';
 
+@ApiTags('Business Owner Settings')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Business, Role.SuperAdmin)
 @Controller('business-owner-settings')
 export class BusinessOwnerSettingsController {
   constructor(
@@ -46,7 +56,7 @@ export class BusinessOwnerSettingsController {
   @Get('owner')
   async getOwner(@Request() req) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(
@@ -79,7 +89,7 @@ export class BusinessOwnerSettingsController {
   async updateOwnerProfile(@Request() req) {
     const { body, files } = req;
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(
@@ -131,7 +141,7 @@ export class BusinessOwnerSettingsController {
     @Body() addresses: CreateUserAddressDto,
   ) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(
@@ -172,7 +182,7 @@ export class BusinessOwnerSettingsController {
     @Body() body: any,
   ) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(
@@ -213,7 +223,7 @@ export class BusinessOwnerSettingsController {
     @Param('addressId') addressId: string,
   ) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(
@@ -250,7 +260,7 @@ export class BusinessOwnerSettingsController {
   @Get('/settings')
   async findByOwnerId(@Request() req) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(
@@ -282,7 +292,7 @@ export class BusinessOwnerSettingsController {
     @Body() updateDto: UpdateBusinessOwnerSettingsDto,
   ) {
     try {
-      const ownerId = req.user.sub || req.user.userId;
+      const ownerId = req.user.id || req.user.sub;
 
       if (!ownerId) {
         throw new HttpException(

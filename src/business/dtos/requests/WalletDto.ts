@@ -1,15 +1,24 @@
+import { Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsEnum,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
+  Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 import {
   PaymentMethodType,
   WalletCurrency,
 } from 'src/admin/payment/enums/wallet.enum';
+import {
+  PaymentMethod,
+  TransactionType,
+} from 'src/business/entities/transaction.entity';
 
 // DTOs for wallet operations
 export class CreateWalletDto {
@@ -34,6 +43,12 @@ export class AddTransactionDto {
   @IsUUID()
   businessId: string;
 
+  @IsUUID()
+  recipientId: string;
+
+  @IsUUID()
+  senderId: string;
+
   @IsNumber()
   amount: number;
 
@@ -44,15 +59,20 @@ export class AddTransactionDto {
 
   @IsString()
   @MinLength(1)
-  type: 'credit' | 'debit';
+  type: TransactionType;
 
   @IsString()
   @MinLength(1)
   description?: string;
 
+  @IsOptional()
   @IsString()
   @MinLength(1)
   customerName?: string;
+
+  @IsOptional()
+  @MinLength(1)
+  method?: PaymentMethod;
 
   @IsOptional()
   @IsString()
@@ -127,4 +147,60 @@ export class AddPaymentMethodDto {
 
   @IsBoolean()
   isDefault: boolean;
+}
+
+export class CreateWithdrawalDto {
+  businessId: string;
+  businessName: string;
+  bankName?: string;
+  accountHolderName?: string;
+  accountNumber?: string;
+  bankDetails?: string;
+  amount: number;
+  currentBalance: number;
+}
+
+export class WithdrawalDto {
+  @IsString()
+  bankName: string;
+
+  @IsString()
+  accountHolderName: string;
+
+  @IsString()
+  accountNumber: string;
+}
+
+export class DebitWalletRequestDto {
+  @ValidateNested()
+  @Type(() => AddTransactionDto)
+  @IsObject()
+  transaction: AddTransactionDto;
+
+  @ValidateNested()
+  @Type(() => WithdrawalDto)
+  @IsObject()
+  withdrawal: WithdrawalDto;
+}
+
+export class TransactionFiltersDto {
+  @IsOptional()
+  type?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  page?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  limit?: number;
+
+  @IsOptional()
+  @IsEnum(['asc', 'desc'])
+  sortOrder?: string;
+
+  @IsOptional()
+  sortBy?: string;
 }
