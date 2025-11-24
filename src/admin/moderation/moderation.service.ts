@@ -1,7 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { FlaggedContent } from './entities/flagged-content.entity';
+import { 
+  FlaggedContent, 
+  ReportType,
+  ReporterType,
+  ReportSeverity,
+  ReportStatus,
+ } from './entities/flagged-content.entity';
 import { ModerationSettings } from './entities/moderation-settings.entity';
 
 @Injectable()
@@ -13,39 +19,70 @@ export class ModerationService {
     private readonly settingsRepo: Repository<ModerationSettings>,
   ) {}
 
+  // get summary
+  async getReportStats() {
+    const total = await this.flaggedRepo.count();
+    const pending = await this.flaggedRepo.count({ where: { status: ReportStatus.PENDING } });
+    const approved = await this.flaggedRepo.count({ where: { status: ReportStatus.APPROVED } });
+    const rejected = await this.flaggedRepo.count({ where: { status: ReportStatus.REJECTED } });
+
+    return {
+      total,
+      pending,
+      approved,
+      rejected,
+    };
+  }
+
   // Get all flagged content
   async getFlaggedContent() {
-    return this.flaggedRepo.find({ order: { createdAt: 'DESC' } });
+    // Fetch existing records
+    const records = await this.flaggedRepo.find({
+      order: { createdAt: 'DESC' },
+    });
+
+    return records;
   }
+
 
   // 2️⃣ Get all user reviews (flagged type = Review)
   async getAllUserReviews() {
-    return this.flaggedRepo.find({ where: { type: 'Review' } });
+    return this.flaggedRepo.find({
+      where: { type: ReportType.REVIEW },
+      order: { createdAt: 'DESC' },
+      relations: ['reported', 'reporter'],
+    });
   }
-   // ✅ Create new reported content (review/profile/business)
-async createReport(data: Partial<FlaggedContent>): Promise<FlaggedContent> {
-  const report = this.flaggedRepo.create({
-    ...data,
-    status: 'Pending',
-    createdAt: new Date(),
-  });
-  return this.flaggedRepo.save(report);
-}
+
+   //  Create new reported content (review/profile/business)
+  async createReport(data: Partial<FlaggedContent>): Promise<FlaggedContent> {
+    const report = this.flaggedRepo.create({
+      ...data,
+      status: ReportStatus.PENDING,
+      reporterType: data.reporterType || ReporterType.ADMIN_SYSTEM,
+      severity: data.severity || ReportSeverity.LOW,
+    });
+
+    return this.flaggedRepo.save(report);
+  }
 
 
   // 3️⃣ Approve review
   async approveReview(id: string) {
     const review = await this.flaggedRepo.findOne({ where: { id } });
-    if (!review) throw new NotFoundException('Review not found');
-    review.status = 'Approved';
+
+    if (!review) throw new NotFoundException('Report not found');
+
+    review.status = ReportStatus.APPROVED;
     return this.flaggedRepo.save(review);
   }
-
   // 4️⃣ Reject review
   async rejectReview(id: string) {
     const review = await this.flaggedRepo.findOne({ where: { id } });
-    if (!review) throw new NotFoundException('Review not found');
-    review.status = 'Rejected';
+
+    if (!review) throw new NotFoundException('Report not found');
+
+    review.status = ReportStatus.REJECTED;
     return this.flaggedRepo.save(review);
   }
 
