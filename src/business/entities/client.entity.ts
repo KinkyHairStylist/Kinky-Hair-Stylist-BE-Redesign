@@ -11,13 +11,7 @@ import {
   BeforeUpdate,
 } from 'typeorm';
 import { ClientType } from './client-settings.entity';
-
-export enum Gender {
-  MALE = 'male',
-  FEMALE = 'female',
-  OTHER = 'other',
-  PREFER_NOT_TO_SAY = 'prefer-not-to-say',
-}
+import { Gender } from '../types/constants';
 
 export enum Pronouns {
   HE_HIM = 'he-him',
