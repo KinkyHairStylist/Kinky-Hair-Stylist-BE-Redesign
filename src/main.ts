@@ -72,7 +72,7 @@ async function bootstrap() {
   // Define public routes that should bypass authentication
   const publicRoutes = [
     '/api/docs',
-    // '/api',
+    '/api/salons',
     '/api/get-started',
     '/api/auth/get-started',
     '/api/auth/verify-code',

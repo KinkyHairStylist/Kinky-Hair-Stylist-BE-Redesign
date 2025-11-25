@@ -13,10 +13,10 @@ import {
 import { ClientType } from './client-settings.entity';
 
 export enum Gender {
-  MALE = 'male',
-  FEMALE = 'female',
-  OTHER = 'other',
-  PREFER_NOT_TO_SAY = 'prefer-not-to-say',
+  MALE = 'MALE',
+  FEMALE = 'FEMALE',
+  CUSTOM = 'CUSTOM',
+  PREFER_NOT_TO_SAY = 'PREFER_NOT_TO_SAY',
 }
 
 export enum Pronouns {
