@@ -19,7 +19,7 @@ import {Appointment} from "./entities/appointment.entity";
 import {Staff} from "./entities/staff.entity";
 import {BlockedTimeSlot} from "./entities/blocked-time-slot.entity";
 import {BookingDay} from "./entities/booking-day.entity";
-import {Service} from "./entities/Service.entity";
+import {Service} from "./entities/service.entity";
 import {AdvertisementPlan} from "./entities/advertisement-plan.entity";
 import {EmergencyContact} from "./entities/emergency-contact.entity";
 import {Address} from "./entities/address.entity";

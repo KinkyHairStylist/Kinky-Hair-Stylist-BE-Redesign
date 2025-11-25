@@ -1,5 +1,4 @@
-import { IsString, IsOptional, IsArray, IsEmail } from 'class-validator';
-@IsString()
+import {IsString, IsOptional, IsArray, IsEmail, IsObject} from 'class-validator';
 
 export class CreateStaffDto {
 
@@ -21,7 +20,11 @@ export class CreateStaffDto {
 
   @IsString()
   @IsOptional()
-  dob?: string; // string as requested
+  dob?: string;
+
+  @IsString()
+  @IsOptional()
+  avatar?: string;
 
   @IsString()
   @IsOptional()
@@ -32,18 +35,13 @@ export class CreateStaffDto {
   employmentType?: 'full-time' | 'part-time' | 'contract';
 
   @IsArray()
-  @IsOptional()
-  addresses?: { name: string; location: string; isPrimary?: boolean }[];
+  addresses:any;
 
   @IsArray()
-  @IsOptional()
-  emergencyContacts?: {
-    firstName: string;
-    lastName?: string;
-    relationship: string;
-    email: string;
-    phoneNumber: string;
-  }[];
+  emergencyContacts?: any;
+
+  @IsObject()
+  settings: any;
 
   @IsArray()
   @IsOptional()

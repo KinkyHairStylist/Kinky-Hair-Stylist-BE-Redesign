@@ -8,8 +8,8 @@ export class Payment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
-  client: string; // customer name
+  @Column({nullable: true})
+  client: string;
 
   @Column()
   business: string;

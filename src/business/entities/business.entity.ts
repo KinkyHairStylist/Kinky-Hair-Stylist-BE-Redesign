@@ -16,7 +16,7 @@ import { CompanySize } from '../types/constants';
 import {Appointment} from "./appointment.entity";
 import {Staff} from "./staff.entity";
 import {BlockedTimeSlot} from "./blocked-time-slot.entity";
-import {Service} from "./Service.entity";
+import {Service} from "./service.entity";
 
 export enum BusinessStatus {
   PENDING = 'pending',

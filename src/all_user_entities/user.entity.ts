@@ -127,3 +127,4 @@ export class User {
   })
   preferences: UserPreferences;
 }
+

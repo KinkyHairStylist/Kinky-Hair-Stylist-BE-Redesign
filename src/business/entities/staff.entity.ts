@@ -7,7 +7,7 @@ import {
     OneToMany,
 } from "typeorm";
 import { Business } from "./business.entity";
-import { Service } from "./Service.entity";
+import { Service } from "./service.entity";
 import { Address } from "./address.entity";
 import { EmergencyContact } from "./emergency-contact.entity";
 
@@ -57,6 +57,7 @@ export class Staff {
     @Column({ default: true })
     isActive: boolean;
 
+
     @Column({ nullable: true })
     employmentType: string;
 
@@ -69,11 +70,67 @@ export class Staff {
     @OneToMany(() => Service, (service) => service.assignedStaff)
     services: Service[];
 
-    @OneToMany(() => Address, (address) => address.staff, { cascade: true })
+    @OneToMany(() => Address, (address) => address.staff, { cascade: true, eager: true })
     addresses: Address[];
 
-    @OneToMany(() => EmergencyContact, (contact) => contact.staff, { cascade: true })
+    @OneToMany(() => EmergencyContact, (contact) => contact.staff, { cascade: true, eager: true })
     emergencyContacts: EmergencyContact[];
+
+    @Column({
+        type: 'jsonb',
+        nullable: true,
+        default: () => `'{
+      "permissions": {
+        "viewAppointments": true,
+        "editAppointments": true,
+        "manageClients": false,
+        "viewFinancials": false,
+        "manageStaff": false
+      },
+      "workingHours": { "start": "09:00", "end": "18:00" },
+      "workingDays": {
+        "Monday": true,
+        "Tuesday": true,
+        "Wednesday": true,
+        "Thursday": true,
+        "Friday": true,
+        "Saturday": true,
+        "Sunday": false
+      },
+      "notifications": {
+        "newBooking": true,
+        "dailySummary": true
+      },
+      "color": "#ef4444"
+    }'`,
+    })
+    settings :{
+        permissions: {
+            viewAppointments: boolean;
+            editAppointments: boolean;
+            manageClients: boolean;
+            viewFinancials: boolean;
+            manageStaff: boolean;
+        };
+        workingHours: {
+            start: string;
+            end: string;
+        };
+        workingDays: {
+            Monday: boolean;
+            Tuesday: boolean;
+            Wednesday: boolean;
+            Thursday: boolean;
+            Friday: boolean;
+            Saturday: boolean;
+            Sunday: boolean;
+        };
+        notifications: {
+            newBooking: boolean;
+            dailySummary: boolean;
+        };
+        color: string;
+    };
 
     @ManyToOne(() => Business, (business) => business.staff, { onDelete: "CASCADE" })
     @JoinColumn({ name: "business_id" })

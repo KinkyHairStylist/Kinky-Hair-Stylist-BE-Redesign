@@ -5,52 +5,55 @@ import {
     ManyToOne,
     CreateDateColumn,
     UpdateDateColumn,
-    JoinColumn, JoinTable, ManyToMany,
-} from "typeorm";
+    JoinColumn,
+    JoinTable,
+    ManyToMany,
+} from 'typeorm';
 import { User } from 'src/all_user_entities/user.entity';
-import { Business } from "./business.entity";
-import {Staff} from "./staff.entity";
+import { Business } from './business.entity';
+import { Staff } from './staff.entity';
+import {Service} from "./service.entity";
 
 export enum AppointmentStatus {
-    CONFIRMED = "Confirmed",
-    PENDING = "Pending",
-    CANCELLED = "Cancelled",
-    COMPLETED = "Completed",
-    RESCHEDULED = "Rescheduled",
+    CONFIRMED = 'Confirmed',
+    PENDING = 'Pending',
+    CANCELLED = 'Cancelled',
+    COMPLETED = 'Completed',
+    RESCHEDULED = 'Rescheduled',
 }
 
 export enum PaymentStatus {
-    PAID = "Paid",
-    UNPAID = "Unpaid",
+    PAID = 'Paid',
+    UNPAID = 'Unpaid',
 }
 
-@Entity("appointments")
+@Entity('appointments')
 export class Appointment {
-    @PrimaryGeneratedColumn("uuid")
+    @PrimaryGeneratedColumn('uuid')
     id: string;
 
     // Client (User)
     @ManyToOne(() => User, (user) => user.clientAppointments, {
         eager: true,
-        onDelete: "CASCADE",
+        onDelete: 'CASCADE',
     })
-    @JoinColumn({ name: "client_id" })
+    @JoinColumn({ name: 'client_id' })
     client: User;
 
     @ManyToMany(() => Staff, { eager: true })
     @JoinTable({
-        name: "appointment_staff",
-        joinColumn: { name: "appointment_id", referencedColumnName: "id" },
-        inverseJoinColumn: { name: "staff_id", referencedColumnName: "id" },
+        name: 'appointment_staff',
+        joinColumn: { name: 'appointment_id', referencedColumnName: 'id' },
+        inverseJoinColumn: { name: 'staff_id', referencedColumnName: 'id' },
     })
     staff: Staff[];
 
     // Business
     @ManyToOne(() => Business, (business) => business.appointments, {
         eager: true,
-        onDelete: "CASCADE",
+        onDelete: 'CASCADE',
     })
-    @JoinColumn({ name: "business_id" })
+    @JoinColumn({ name: 'business_id' })
     business: Business;
 
     // Appointment details
@@ -67,30 +70,37 @@ export class Appointment {
     duration: string; // e.g. "4:00 PM (120 min)"
 
     @Column({
-        type: "enum",
+        type: 'enum',
         enum: AppointmentStatus,
         default: AppointmentStatus.PENDING,
     })
     status: AppointmentStatus;
 
     // 💰 Payment details
-    @Column({ type: "float", default: 0 })
+    @Column({ type: 'float', default: 0 })
     amount: number;
 
+    @ManyToOne(() => Service, (service) => service.appointments, {
+        nullable: true,
+        eager: true,
+        onDelete: 'SET NULL',
+    })
+    @JoinColumn({ name: 'service_id' })
+    service?: Service;
+
     @Column({
-        type: "enum",
+        type: 'enum',
         enum: PaymentStatus,
         default: PaymentStatus.UNPAID,
     })
     paymentStatus: PaymentStatus;
 
-    // ✍️ Optional Notes
-    @Column({ type: "text", nullable: true })
+    @Column({ type: 'text', nullable: true })
     specialRequests?: string;
 
     // 🕓 Appointment timeline
     @Column({
-        type: "jsonb",
+        type: 'jsonb',
         nullable: true,
         default: () => `'[]'`,
     })
