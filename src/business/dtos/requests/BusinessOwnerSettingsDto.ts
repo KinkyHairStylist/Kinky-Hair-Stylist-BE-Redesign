@@ -211,7 +211,7 @@ export class IntegrationsDto {
 
   @IsBoolean()
   @IsOptional()
-  quickBooks?: boolean;
+  zohoBooks?: boolean;
 }
 
 export class CreateBusinessOwnerSettingsDto {

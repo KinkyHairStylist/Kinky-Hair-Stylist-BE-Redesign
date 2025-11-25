@@ -6,7 +6,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { google } from 'googleapis';
-import { OAuth2Client } from 'google-auth-library';
 import { GoogleCredentials } from '../entities/google-credentials.entity';
 import { Appointment } from 'src/business/entities/appointment.entity';
 import { BusinessOwnerSettingsService } from 'src/business/services/business-owner-settings.service';
@@ -103,7 +102,7 @@ export class GoogleCalendarService {
   /**
    * Get authenticated calendar client for a business
    */
-  private async getCalendarClient(businessId: string) {
+  async getCalendarClient(businessId: string) {
     const credentials = await this.googleCredsRepo.findOne({
       where: { business: { id: businessId } },
     });

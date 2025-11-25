@@ -11,17 +11,14 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import {
-  ClientSource,
-  Gender,
-  Pronouns,
-} from 'src/business/entities/client.entity';
+import { ClientSource, Pronouns } from 'src/business/entities/client.entity';
 import {
   ClientType,
   Languages,
   PreferredContactMethod,
   Timezone,
 } from 'src/business/entities/client-settings.entity';
+import { Gender } from 'src/business/types/constants';
 
 export class CreateClientProfileDto {
   @IsString()
@@ -180,46 +177,6 @@ export class CreateClientDto {
   @Type(() => CreateClientSettingsDto)
   settings: CreateClientSettingsDto;
 }
-
-// export class UpdateClientDto {
-//   @IsOptional()
-//   @IsString()
-//   firstName?: string;
-
-//   @IsOptional()
-//   @IsString()
-//   lastName?: string;
-
-//   @IsOptional()
-//   @IsEmail()
-//   email?: string;
-
-//   @IsOptional()
-//   @IsString()
-//   phone?: string;
-
-//   @IsOptional()
-//   @IsDateString()
-//   dateOfBirth?: string;
-
-//   @IsOptional()
-//   @IsEnum(Gender)
-//   gender?: Gender;
-
-//   @IsOptional()
-//   @IsEnum(Pronouns)
-//   pronouns?: Pronouns;
-
-//   @IsOptional()
-//   occupation?: string;
-
-//   @IsOptional()
-//   @IsEnum(ClientSource)
-//   clientSource?: ClientSource;
-
-//   @IsOptional()
-//   profileImage?: string;
-// }
 
 export class UpdateClientDto {
   @IsOptional()
