@@ -6,10 +6,13 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   JoinColumn,
+  OneToMany,
 } from 'typeorm';
+
 import { Business } from './business.entity';
 import { Staff } from './staff.entity';
 import { AdvertisementPlan } from './advertisement-plan.entity';
+import { Appointment } from './appointment.entity'
 
 @Entity('Service')
 export class Service {
@@ -53,4 +56,7 @@ export class Service {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @OneToMany(() => Appointment, (appointment) => appointment.service,{nullable: true})
+  appointments: Appointment[];
 }

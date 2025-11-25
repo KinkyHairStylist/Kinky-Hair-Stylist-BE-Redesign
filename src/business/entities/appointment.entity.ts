@@ -9,6 +9,8 @@ import {
   JoinTable,
   ManyToMany,
 } from 'typeorm';
+
+import { Service } from './service.entity'
 import { User } from 'src/all_user_entities/user.entity';
 import { Business } from './business.entity';
 import { Staff } from './staff.entity';
@@ -78,7 +80,7 @@ export class Appointment {
   })
   status: AppointmentStatus;
 
-  // 💰 Payment details
+  // Payment details
   @Column({ type: 'float', default: 0 })
   amount: number;
 
@@ -89,11 +91,11 @@ export class Appointment {
   })
   paymentStatus: PaymentStatus;
 
-  // ✍️ Optional Notes
+  // Optional Notes
   @Column({ type: 'text', nullable: true })
   specialRequests?: string;
 
-  // 🕓 Appointment timeline
+  // Appointment timeline
   @Column({
     type: 'jsonb',
     nullable: true,
@@ -116,4 +118,12 @@ export class Appointment {
 
   @Column({ type: 'varchar', nullable: true })
   zohoCustomerId?: string;
+  
+  @ManyToOne(() => Service, (service) => service.appointments, {
+    nullable: true,
+    eager: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'service_id' })
+  service?: Service;
 }
