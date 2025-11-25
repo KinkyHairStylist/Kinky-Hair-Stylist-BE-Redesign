@@ -6,7 +6,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { google } from 'googleapis';
-import { OAuth2Client } from 'google-auth-library';
 import { GoogleCredentials } from '../entities/google-credentials.entity';
 import { Appointment } from 'src/business/entities/appointment.entity';
 import { BusinessOwnerSettingsService } from 'src/business/services/business-owner-settings.service';
@@ -115,26 +114,24 @@ export class GoogleCalendarService {
     }
 
     // Set credentials
-    // this.oauth2Client.setCredentials({
-    //   access_token: credentials.accessToken,
-    //   refresh_token: credentials.refreshToken,
-    //   expiry_date: credentials.expiryDate,
-    // });
+    this.oauth2Client.setCredentials({
+      access_token: credentials.accessToken,
+      refresh_token: credentials.refreshToken,
+      expiry_date: credentials.expiryDate,
+    });
 
     // Check if token needs refresh
-    // if (Date.now() >= credentials.expiryDate) {
-    const { credentials: newTokens } =
-      await this.oauth2Client.refreshAccessToken();
+    if (Date.now() >= credentials.expiryDate) {
+      const { credentials: newTokens } =
+        await this.oauth2Client.refreshAccessToken();
 
-    // Update stored credentials
-    credentials.accessToken = newTokens.access_token;
-    credentials.expiryDate = newTokens.expiry_date;
-    await this.googleCredsRepo.save(credentials);
+      // Update stored credentials
+      credentials.accessToken = newTokens.access_token;
+      credentials.expiryDate = newTokens.expiry_date;
+      await this.googleCredsRepo.save(credentials);
 
-    this.oauth2Client.setCredentials(newTokens);
-    // }
-
-    console.log('NEW TOKENS: ', newTokens);
+      this.oauth2Client.setCredentials(newTokens);
+    }
 
     return google.calendar({ version: 'v3', auth: this.oauth2Client });
   }

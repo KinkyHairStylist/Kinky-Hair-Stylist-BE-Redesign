@@ -174,7 +174,7 @@ export class BusinessOwnerSettings {
   @Index()
   apiKey: string;
 
-  @OneToOne(() => Business, (business) => business.giftCards, {
+  @OneToOne(() => Business, (business) => business.ownerSettings, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'businessId' })

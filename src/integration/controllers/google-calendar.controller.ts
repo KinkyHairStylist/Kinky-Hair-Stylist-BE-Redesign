@@ -108,16 +108,10 @@ export class GoogleCalendarController {
    * POST /google-calendar/sync/:appointmentId
    * Manually sync an appointment to Google Calendar
    */
-  // @Post('sync/:appointmentId')
-  // async syncAppointment(@Param('appointmentId') appointmentId: string) {
-  //   const eventId =
-  //     await this.googleCalendarService.createCalendarEvent(appointmentId);
-  //   return { message: 'Appointment synced to Google Calendar', eventId };
-  // }
-  @Post('sync/:businessId')
-  async syncAppointment(@Param('businessId') businessId: string) {
+  @Post('sync/:appointmentId')
+  async syncAppointment(@Param('appointmentId') appointmentId: string) {
     const eventId =
-      await this.googleCalendarService.getCalendarClient(businessId);
+      await this.googleCalendarService.createCalendarEvent(appointmentId);
     return { message: 'Appointment synced to Google Calendar', eventId };
   }
 

@@ -30,24 +30,20 @@ export class Withdrawal {
   @Column()
   businessName: string;
 
-  @Column({ nullable: true })
-  bankName: string;
-
-  @Column({ nullable: true })
-  accountHolderName: string;
-
-  @Column({ nullable: true })
-  accountNumber: string;
-
   @ManyToOne(
     () => WalletPaymentMethod,
     (walletPaymentMethod) => walletPaymentMethod.withdrawalDetails,
     {
-      onDelete: 'SET NULL',
+      nullable: true,
       eager: true,
+      onDelete: 'SET NULL',
     },
   )
+  @JoinColumn({ name: 'bankDetailsId' })
   bankDetails: WalletPaymentMethod;
+
+  @Column({ type: 'uuid', nullable: true })
+  bankDetailsId: string;
 
   @Column('decimal', { precision: 10, scale: 2 })
   amount: number;

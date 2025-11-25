@@ -33,8 +33,8 @@ interface RequestWithUser extends Request {
 
 @ApiTags('Business')
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Business, Role.SuperAdmin)
+// @UseGuards(JwtAuthGuard, RolesGuard)
+// @Roles(Role.Business, Role.SuperAdmin)
 @Controller('business')
 export class BusinessController {
   constructor(private readonly businessService: BusinessService) {}

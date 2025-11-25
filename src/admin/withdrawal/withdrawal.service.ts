@@ -32,6 +32,7 @@ export class WithdrawalService {
   }
 
   // ✅ Create a new withdrawal request
+
   async create(dto: CreateWithdrawalDto): Promise<Withdrawal> {
     const businessName = dto.businessName.trim();
 
@@ -56,7 +57,6 @@ export class WithdrawalService {
       ...dto,
       status: 'Pending',
       currentBalance: giftcard.remainingAmount,
-      bankDetails: { id: dto.paymentMethodId },
       requestDate: new Date().toISOString(),
     });
 

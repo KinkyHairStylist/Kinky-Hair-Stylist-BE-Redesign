@@ -210,17 +210,35 @@ export class BusinessWalletService {
 
     // Check if sufficient balance
     if (wallet.balance < debitWalletDto.transaction.amount) {
-      throw new BadRequestException('Insufficient wallet balance');
+      throw new BadRequestException('Insufficient wallet balance ');
+    }
+
+    // Fetch the payment method entity
+    const bankDetails = await this.paymentMethodRepository.findOne({
+      where: { id: debitWalletDto.withdrawal.bankDetailsId, isActive: true },
+      relations: ['wallet'],
+    });
+
+    if (!bankDetails) {
+      throw new NotFoundException('Bank details not found');
     }
 
     const transaction = await this.processTransaction(
       debitWalletDto.transaction,
     );
 
+    // Optional: ensure payment method belongs to same wallet/business
+    if (bankDetails.walletId !== transaction.walletId) {
+      throw new BadRequestException(
+        'Payment method does not belong to this business',
+      );
+    }
+
     const withdrawal = await this.createWithdrawal(
+      bankDetails,
       debitWalletDto.transaction,
       wallet.business.businessName,
-      debitWalletDto.withdrawal,
+      wallet.balance,
     );
 
     return {
@@ -287,14 +305,14 @@ export class BusinessWalletService {
         wallet.totalIncome =
           Number(wallet.totalIncome) + Number(addTransactionDto.amount / 100);
 
-        console.log(`WALLET CREDITED ${addTransactionDto.amount / 100}`);
+        // console.log(`WALLET CREDITED ${addTransactionDto.amount / 100}`);
       } else {
         wallet.balance =
           Number(wallet.balance) - Number(addTransactionDto.amount);
         wallet.totalExpenses =
           Number(wallet.totalExpenses) + Number(addTransactionDto.amount);
 
-        console.log(`WALLET DEBITED ${addTransactionDto.amount}`);
+        // console.log(`WALLET DEBITED ${addTransactionDto.amount}`);
       }
 
       await this.walletRepository.save(wallet);
@@ -452,6 +470,33 @@ export class BusinessWalletService {
   }
 
   /**
+   * Get all withdrawals for a business
+   */
+  async getBusinessWithdrawals(
+    businessId: string,
+  ): Promise<ApiResponse<Withdrawal[]>> {
+    try {
+      const withdrawals = await this.withdrawalRepository.find({
+        where: { businessId },
+        order: { createdAt: 'DESC' },
+      });
+
+      return {
+        success: true,
+        data: withdrawals,
+        message: 'Business Withdrawals list retrieved successfully',
+      };
+    } catch (error) {
+      console.log('Failed to fetch Business Withdrawals error:', error);
+      return {
+        success: false,
+        error: error.message,
+        message: 'Failed to fetch Business Withdrawals',
+      };
+    }
+  }
+
+  /**
    * Remove payment method
    */
   async removePaymentMethod(paymentMethodId: string): Promise<void> {
@@ -512,17 +557,6 @@ export class BusinessWalletService {
     wallet.status = status;
     return this.walletRepository.save(wallet);
   }
-
-  // async getGiftCardsList(filters: BusinessGiftCardFiltersDto) {
-  //   const {
-  //     search,
-  //     sortBy = 'createdAt',
-  //     sortOrder = 'desc',
-  //     page = 1,
-  //     limit = 6,
-  //     status,
-  //     sentStatus,
-  //   } = filters;
 
   /**
    * Get transaction history for a wallet
@@ -623,24 +657,23 @@ export class BusinessWalletService {
    * Create a new withdrawal request
    */
   private async createWithdrawal(
+    bankDetails: WalletPaymentMethod,
     dto: AddTransactionDto,
     businessName: string,
-    withdrawalDto: WithdrawalDto,
+    currentWalletBalance: number,
   ): Promise<Withdrawal> {
     // Create withdrawal
     const withdrawal = this.withdrawalRepository.create({
       businessId: dto.businessId,
       businessName,
-      bankName: withdrawalDto.bankName,
-      accountHolderName: withdrawalDto.accountHolderName,
-      accountNumber: withdrawalDto.accountNumber,
+      currentBalance: currentWalletBalance - dto.amount,
+      bankDetails,
       amount: dto.amount,
       status: 'Pending',
       requestDate: new Date().toISOString(),
-      timeAgo: 'Just now',
     });
 
-    console.log('Withdrawal Record Logged');
+    // console.log('Withdrawal Record Logged');
 
     return await this.withdrawalRepository.save(withdrawal);
   }
