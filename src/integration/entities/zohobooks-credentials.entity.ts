@@ -4,7 +4,6 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
-  Repository,
 } from 'typeorm';
 import { Business } from 'src/business/entities/business.entity';
 

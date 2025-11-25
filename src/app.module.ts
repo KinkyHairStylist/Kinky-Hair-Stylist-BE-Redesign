@@ -45,8 +45,7 @@ import { BusinessOwnerSettingsModule } from './business/business-owner-settings.
 import { BusinessSettingsModule } from './business/business-settings.module';
 import { GoogleCalendarModule } from './integration/google-calendar.module';
 import { MailchimpModule } from './integration/mail-chimp.module';
-import { QuickBooksModule } from './integration/quick-books.module';
-import { ZohoBooksModule } from './integration/controllers/zohobooks.module';
+import { ZohoBooksModule } from './integration/zohobooks.module';
 
 @Module({
   imports: [
@@ -100,7 +99,6 @@ import { ZohoBooksModule } from './integration/controllers/zohobooks.module';
     BusinessSettingsModule,
     GoogleCalendarModule,
     MailchimpModule,
-    QuickBooksModule,
     ZohoBooksModule,
   ],
   controllers: [AppController],

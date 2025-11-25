@@ -103,7 +103,7 @@ export class GoogleCalendarService {
   /**
    * Get authenticated calendar client for a business
    */
-  private async getCalendarClient(businessId: string) {
+  async getCalendarClient(businessId: string) {
     const credentials = await this.googleCredsRepo.findOne({
       where: { business: { id: businessId } },
     });
@@ -115,24 +115,26 @@ export class GoogleCalendarService {
     }
 
     // Set credentials
-    this.oauth2Client.setCredentials({
-      access_token: credentials.accessToken,
-      refresh_token: credentials.refreshToken,
-      expiry_date: credentials.expiryDate,
-    });
+    // this.oauth2Client.setCredentials({
+    //   access_token: credentials.accessToken,
+    //   refresh_token: credentials.refreshToken,
+    //   expiry_date: credentials.expiryDate,
+    // });
 
     // Check if token needs refresh
-    if (Date.now() >= credentials.expiryDate) {
-      const { credentials: newTokens } =
-        await this.oauth2Client.refreshAccessToken();
+    // if (Date.now() >= credentials.expiryDate) {
+    const { credentials: newTokens } =
+      await this.oauth2Client.refreshAccessToken();
 
-      // Update stored credentials
-      credentials.accessToken = newTokens.access_token;
-      credentials.expiryDate = newTokens.expiry_date;
-      await this.googleCredsRepo.save(credentials);
+    // Update stored credentials
+    credentials.accessToken = newTokens.access_token;
+    credentials.expiryDate = newTokens.expiry_date;
+    await this.googleCredsRepo.save(credentials);
 
-      this.oauth2Client.setCredentials(newTokens);
-    }
+    this.oauth2Client.setCredentials(newTokens);
+    // }
+
+    console.log('NEW TOKENS: ', newTokens);
 
     return google.calendar({ version: 'v3', auth: this.oauth2Client });
   }

@@ -8,6 +8,8 @@ import { Appointment } from 'src/business/entities/appointment.entity';
 import { Repository } from 'typeorm';
 import { ZohoBooksCredentials } from '../entities/zohobooks-credentials.entity';
 import axios, { AxiosInstance } from 'axios';
+import { UpdateBusinessOwnerSettingsDto } from 'src/business/dtos/requests/BusinessOwnerSettingsDto';
+import { BusinessOwnerSettingsService } from 'src/business/services/business-owner-settings.service';
 
 @Injectable()
 export class ZohoBooksService {
@@ -22,6 +24,8 @@ export class ZohoBooksService {
     private zohoBooksCredsRepo: Repository<ZohoBooksCredentials>,
     @InjectRepository(Appointment)
     private appointmentRepo: Repository<Appointment>,
+
+    private readonly businessOwnerSettingsService: BusinessOwnerSettingsService,
   ) {
     const zohoClientId = process.env.ZOHO_CLIENT_ID;
     const zohoRedirectUri = process.env.ZOHO_REDIRECT_URI;
@@ -62,9 +66,16 @@ export class ZohoBooksService {
    * @param code - Authorization code from Zoho
    * @param businessId - Business ID from state parameter
    */
-  async handleOAuthCallback(code: string, businessId: string): Promise<void> {
+  async handleOAuthCallback(
+    code: string,
+    businessId: string,
+    ownerId: string,
+    updateDto: UpdateBusinessOwnerSettingsDto,
+  ): Promise<ZohoBooksCredentials> {
     try {
-      // Exchange code for tokens
+      console.log('🔄 Step 1: Exchanging code for tokens...');
+
+      // Step 1: Exchange code for tokens
       const tokenResponse = await axios.post(
         `${this.ZOHO_ACCOUNTS_URL}/oauth/v2/token`,
         null,
@@ -82,13 +93,24 @@ export class ZohoBooksService {
       const { access_token, refresh_token, expires_in, api_domain } =
         tokenResponse.data;
 
-      // Get organization ID
-      const orgResponse = await axios.get(
-        `${this.ZOHO_API_BASE}/organizations`,
-        {
-          headers: { Authorization: `Zoho-oauthtoken ${access_token}` },
+      console.log('✅ Tokens received:', {
+        hasAccessToken: !!access_token,
+        hasRefreshToken: !!refresh_token,
+        apiDomain: api_domain,
+      });
+
+      // Step 2: Determine the correct API base URL from api_domain
+      // const domain = api_domain.replace('https://www.', ''); // "zohoapis.com"
+      // const apiBaseUrl = `https://books.${domain}/api/v3`;
+      const apiBaseUrl = `${api_domain}/books/v3`;
+
+      // Step 3: Get organizations
+
+      const orgResponse = await axios.get(`${apiBaseUrl}/organizations`, {
+        headers: {
+          Authorization: `Zoho-oauthtoken ${access_token}`,
         },
-      );
+      });
 
       const organizations = orgResponse.data.organizations;
       if (!organizations || organizations.length === 0) {
@@ -97,14 +119,15 @@ export class ZohoBooksService {
 
       const organizationId = organizations[0].organization_id;
 
-      // Determine data center from api_domain
-      let dataCenter = 'com';
+      // Step 4: Determine data center from api_domain
+      let dataCenter = 'com'; // Default to .com (US)
       if (api_domain.includes('.eu')) dataCenter = 'eu';
       else if (api_domain.includes('.in')) dataCenter = 'in';
       else if (api_domain.includes('.com.au')) dataCenter = 'com.au';
       else if (api_domain.includes('.jp')) dataCenter = 'jp';
 
-      // Save credentials
+      // Step 5: Save credentials
+
       let credentials = await this.zohoBooksCredsRepo.findOne({
         where: { business: { id: businessId } },
       });
@@ -129,13 +152,27 @@ export class ZohoBooksService {
       }
 
       await this.zohoBooksCredsRepo.save(credentials);
-    } catch (error) {
-      console.error(
-        'ZohoBooks OAuth error:',
-        error.response?.data || error.message,
+
+      console.log('✅ Credentials saved successfully!');
+
+      await this.businessOwnerSettingsService.update(
+        ownerId,
+        businessId,
+        updateDto,
       );
+
+      return credentials;
+    } catch (error) {
+      console.error('❌ ZohoBooks OAuth error:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message,
+      });
+
       throw new BadRequestException(
-        'Failed to authenticate with ZohoBooks: ' + error.message,
+        'Failed to authenticate with ZohoBooks: ' +
+          (error.response?.data?.message || error.message),
       );
     }
   }
@@ -165,12 +202,15 @@ export class ZohoBooksService {
     }
 
     // Check if token needs refresh (5 minute buffer)
-    if (Date.now() >= credentials.expiryDate - 300000) {
-      await this.refreshAccessToken(credentials);
-    }
+    // if (Date.now() >= credentials.expiryDate - 300000) {
+    //   await this.refreshAccessToken(credentials);
+    // }
+    await this.refreshAccessToken(credentials);
 
     // Determine API URL based on data center
-    let apiBaseUrl = 'https://books.zoho.com/api/v3';
+    //  'https://www.zohoapis.com'
+    // let apiBaseUrl = 'https://books.zoho.com/api/v3';
+    let apiBaseUrl = 'https://www.zohoapis.com/api/v3';
     if (credentials.dataCenter !== 'com') {
       apiBaseUrl = `https://books.zoho.${credentials.dataCenter}/api/v3`;
     }
@@ -191,7 +231,7 @@ export class ZohoBooksService {
    */
   private async refreshAccessToken(
     credentials: ZohoBooksCredentials,
-  ): Promise<void> {
+  ): Promise<ZohoBooksCredentials> {
     try {
       const response = await axios.post(
         `${this.ZOHO_ACCOUNTS_URL}/oauth/v2/token`,
@@ -199,16 +239,24 @@ export class ZohoBooksService {
         {
           params: {
             refresh_token: credentials.refreshToken,
-            client_id: process.env.ZOHO_CLIENT_ID,
-            client_secret: process.env.ZOHO_CLIENT_SECRET,
+            client_id: this.zohoClientId,
+            client_secret: this.zohoSecret,
             grant_type: 'refresh_token',
           },
         },
       );
 
       credentials.accessToken = response.data.access_token;
-      credentials.expiryDate = Date.now() + response.data.expires_in * 1000;
-      await this.zohoBooksCredsRepo.save(credentials);
+
+      const expiresIn = Number(response.data.expires_in);
+      if (!expiresIn || isNaN(expiresIn)) {
+        console.warn('Invalid expires_in received:', response.data.expires_in);
+        credentials.expiryDate = Date.now() + 3600 * 1000; // fallback
+      } else {
+        credentials.expiryDate = Date.now() + expiresIn * 1000;
+      }
+
+      return await this.zohoBooksCredsRepo.save(credentials);
     } catch (error) {
       console.error('Failed to refresh ZohoBooks token:', error);
       throw new BadRequestException(
@@ -216,7 +264,6 @@ export class ZohoBooksService {
       );
     }
   }
-
   /**
    * Create or get customer in ZohoBooks
    *
@@ -423,7 +470,16 @@ export class ZohoBooksService {
   /**
    * Disconnect ZohoBooks integration
    */
-  async disconnect(businessId: string): Promise<void> {
+  async disconnect(
+    businessId: string,
+    ownerId: string,
+    updateDto: UpdateBusinessOwnerSettingsDto,
+  ): Promise<void> {
+    await this.businessOwnerSettingsService.update(
+      ownerId,
+      businessId,
+      updateDto,
+    );
     await this.zohoBooksCredsRepo.delete({ business: { id: businessId } });
   }
 }

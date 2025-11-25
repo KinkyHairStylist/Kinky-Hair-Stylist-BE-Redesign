@@ -123,7 +123,7 @@ export class Integrations {
   mailChimp: boolean;
 
   @Column({ default: false, nullable: true })
-  quickBooks: boolean;
+  zohoBooks: boolean;
 }
 
 export class PricingPolicies {

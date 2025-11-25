@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Delete,
   Get,
@@ -8,6 +9,7 @@ import {
   Post,
   Query,
   Request,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ZohoBooksService } from '../services/zohobooks.service';
@@ -16,6 +18,7 @@ import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
 import { RolesGuard } from 'src/middleware/roles.guard';
 import { Role } from 'src/middleware/role.enum';
 import { Roles } from 'src/middleware/roles.decorator';
+import { UpdateBusinessOwnerSettingsDto } from 'src/business/dtos/requests/BusinessOwnerSettingsDto';
 
 @ApiTags('ZohoBooks')
 @ApiBearerAuth('access-token')
@@ -58,37 +61,46 @@ export class ZohoBooksController {
   }
 
   /**
-   * GET /api/zohobooks/callback?code=xxx&state=businessId
+   * POST /api/zohobooks/callback?code=xxx&state=businessId
    * Handle OAuth callback from ZohoBooks
    */
-  @Get('callback')
+  @Post('callback')
   async handleCallback(
+    @Request() req,
     @Query('code') code: string,
     @Query('state') businessId: string,
-    @Query('error') error: string,
-    // @Res() res: Response,
+    @Body() updateDto: UpdateBusinessOwnerSettingsDto,
   ) {
-    // if (error || !code) {
-    //   return res.redirect(
-    //     `${process.env.FRONTEND_URL}/settings/integrations?error=auth_failed&service=zohobooks`,
-    //   );
-    // }
-
     try {
+      const ownerId = req.user.id || req.user.sub;
+
+      if (!ownerId) {
+        throw new HttpException(
+          'User not authenticated',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
       const result = await this.zohoBooksService.handleOAuthCallback(
         code,
         businessId,
+        ownerId,
+        updateDto,
       );
 
-      return result;
-      //   return res.redirect(
-      //     `${process.env.FRONTEND_URL}/settings/integrations?success=true&service=zohobooks`,
-      //   );
+      return {
+        success: true,
+        data: result,
+        message: 'Zohobooks connected successfully',
+      };
     } catch (error) {
       console.error('ZohoBooks OAuth error:', error);
-      //   return res.redirect(
-      //     `${process.env.FRONTEND_URL}/settings/integrations?error=auth_failed&service=zohobooks`,
-      //   );
+
+      return {
+        success: false,
+        error: error.message,
+        message: error.message || 'Failed to connect zohobooks',
+      };
     }
   }
 
@@ -110,13 +122,34 @@ export class ZohoBooksController {
    * Create invoice for appointment
    */
   @Post('invoice/:appointmentId')
-  async createInvoice(@Param('appointmentId') appointmentId: string) {
-    const invoiceId = await this.zohoBooksService.createInvoice(appointmentId);
-    return {
-      success: true,
-      message: 'Invoice created in ZohoBooks',
-      invoiceId,
-    };
+  async createInvoice(
+    @Request() req,
+    @Param('appointmentId') appointmentId: string,
+  ) {
+    try {
+      const ownerId = req.user.id || req.user.sub;
+
+      if (!ownerId) {
+        throw new HttpException(
+          'User not authenticated',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      const invoiceId =
+        await this.zohoBooksService.createInvoice(appointmentId);
+      return {
+        success: true,
+        data: invoiceId,
+        message: 'Invoice created in ZohoBooks',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        message: error.message || 'Failed to create invoice',
+      };
+    }
   }
 
   /**
@@ -140,54 +173,34 @@ export class ZohoBooksController {
    * Disconnect ZohoBooks integration
    */
   @Delete('disconnect/:businessId')
-  async disconnect(@Param('businessId') businessId: string) {
-    await this.zohoBooksService.disconnect(businessId);
-    return {
-      success: true,
-      message: 'ZohoBooks disconnected successfully',
-    };
+  async disconnect(
+    @Request() req,
+    @Param('businessId') businessId: string,
+    @Body() updateDto: UpdateBusinessOwnerSettingsDto,
+  ) {
+    try {
+      const ownerId = req.user.id || req.user.sub;
+
+      if (!ownerId) {
+        throw new HttpException(
+          'User not authenticated',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      await this.zohoBooksService.disconnect(businessId, ownerId, updateDto);
+      return {
+        success: true,
+        message: 'ZohoBooks disconnected successfully',
+      };
+    } catch (error) {
+      console.error('ZohoBooks OAuth error:', error);
+
+      return {
+        success: false,
+        error: error.message,
+        message: error.message || 'Failed to disconnect zohobooks',
+      };
+    }
   }
 }
-
-// ============================================
-// 6. USAGE IN APPOINTMENT SERVICE
-// ============================================
-/*
-// appointment.service.ts
-
-async completeAppointment(id: string) {
-  const appointment = await this.appointmentRepo.findOne({ where: { id } });
-  appointment.status = AppointmentStatus.COMPLETED;
-  appointment.paymentStatus = PaymentStatus.PAID;
-  await this.appointmentRepo.save(appointment);
-
-  try {
-    // Create customer and invoice in ZohoBooks
-    const invoiceId = await this.zohoBooksService.createInvoice(id);
-    
-    // Record payment
-    await this.zohoBooksService.recordPayment(id, invoiceId);
-    
-    // Store invoice ID in appointment
-    appointment.zohoInvoiceId = invoiceId;
-    await this.appointmentRepo.save(appointment);
-  } catch (error) {
-    console.error('Failed to sync with ZohoBooks:', error);
-  }
-
-  return appointment;
-}
-*/
-
-// ============================================
-// 7. ADD TO APPOINTMENT ENTITY
-// ============================================
-/*
-// Add this column to your Appointment entity:
-
-@Column({ type: 'varchar', nullable: true })
-zohoInvoiceId?: string;
-
-@Column({ type: 'varchar', nullable: true })
-zohoCustomerId?: string;
-*/

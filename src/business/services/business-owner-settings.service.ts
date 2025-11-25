@@ -186,9 +186,9 @@ export class BusinessOwnerSettingsService {
         settings.integrations.mailChimp = incoming.mailChimp;
       }
 
-      // quickBooks
-      if (incoming.quickBooks !== undefined) {
-        settings.integrations.quickBooks = incoming.quickBooks;
+      // zohoBooks
+      if (incoming.zohoBooks !== undefined) {
+        settings.integrations.zohoBooks = incoming.zohoBooks;
       }
     }
 

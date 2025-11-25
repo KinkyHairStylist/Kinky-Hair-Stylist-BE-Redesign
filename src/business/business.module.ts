@@ -25,6 +25,8 @@ import { Service } from './entities/service.entity';
 import { EmergencyContact } from './entities/emergency-contact.entity';
 import { GoogleCalendarModule } from 'src/integration/google-calendar.module';
 import { MailchimpModule } from 'src/integration/mail-chimp.module';
+import { BusinessOwnerSettingsModule } from './business-owner-settings.module';
+import { ZohoBooksModule } from 'src/integration/zohobooks.module';
 
 @Module({
   imports: [
@@ -46,6 +48,8 @@ import { MailchimpModule } from 'src/integration/mail-chimp.module';
     EmailModule,
     GoogleCalendarModule,
     MailchimpModule,
+    BusinessOwnerSettingsModule,
+    ZohoBooksModule,
     forwardRef(() => GoogleCalendarModule),
     forwardRef(() => BusinessWalletModule),
   ],

@@ -1,4 +1,5 @@
 import { Business } from 'src/business/entities/business.entity';
+import { WalletPaymentMethod } from 'src/business/entities/payment-method.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -38,8 +39,15 @@ export class Withdrawal {
   @Column({ nullable: true })
   accountNumber: string;
 
-  @Column({ nullable: true })
-  bankDetails: string;
+  @ManyToOne(
+    () => WalletPaymentMethod,
+    (walletPaymentMethod) => walletPaymentMethod.withdrawalDetails,
+    {
+      onDelete: 'SET NULL',
+      eager: true,
+    },
+  )
+  bankDetails: WalletPaymentMethod;
 
   @Column('decimal', { precision: 10, scale: 2 })
   amount: number;

@@ -110,4 +110,10 @@ export class Appointment {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @Column({ type: 'varchar', nullable: true })
+  zohoInvoiceId?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  zohoCustomerId?: string;
 }

@@ -16,6 +16,9 @@ export const typeOrmConfig: TypeOrmModuleOptions = {
   },
   synchronize: true,
   autoLoadEntities: true,
+  extra: {
+    max: 5,
+  },
 
   // 🔥 CRITICAL: Connection pool settings
   // poolSize: 10, // Maximum number of connections in the pool
