@@ -33,6 +33,8 @@ import { GoogleCalendarService } from 'src/integration/services/google-calendar.
 import { WalletCurrency } from 'src/admin/payment/enums/wallet.enum';
 import { BusinessWalletService } from './wallet.service';
 import { MailchimpService } from 'src/integration/services/mailchimp.service';
+import { BusinessOwnerSettingsService } from './business-owner-settings.service';
+import { ZohoBooksService } from 'src/integration/services/zohobooks.service';
 
 @Injectable()
 export class BusinessService {
@@ -64,6 +66,8 @@ export class BusinessService {
     private mailchimpService: MailchimpService,
     private emailService: EmailService,
     private readonly walletService: BusinessWalletService,
+    private readonly businessOwnerSettingsService: BusinessOwnerSettingsService,
+    private readonly zohoBooksService: ZohoBooksService,
   ) {}
 
   /**
@@ -81,9 +85,13 @@ export class BusinessService {
       owner,
     });
 
+    owner.isBusiness = true;
+    await this.userRepo.save(owner);
+
     business.ownerName = owner?.firstName + ' ' + owner?.surname || '';
     business.ownerEmail = owner?.email || '';
     business.ownerPhone = owner?.phoneNumber || '';
+    business.owner.isBusiness = owner?.isBusiness || false;
 
     await this.businessRepo.save(business);
 
@@ -102,7 +110,10 @@ export class BusinessService {
   }
 
   async completeBooking(id: string) {
-    const appointment = await this.appointmentRepo.findOne({ where: { id } });
+    const appointment = await this.appointmentRepo.findOne({
+      where: { id },
+      relations: ['business'],
+    });
     if (!appointment) {
       throw new NotFoundException('Appointment Not Found');
     }
@@ -119,18 +130,42 @@ export class BusinessService {
 
     await this.appointmentRepo.save(appointment);
 
-    // sync client for email marketing
-    await this.mailchimpService.syncContact(appointment.id);
+    const settings = await this.businessOwnerSettingsService.findByBusinessId(
+      appointment.business.id,
+    );
 
-    //     // Update Google Calendar event
-    if (appointment.googleEventId) {
+    if (settings.integrations.mailChimp) {
+      // sync client for email marketing
+      await this.mailchimpService.syncContact(appointment.id);
+    }
+
+    if (settings.integrations.googleCalendar) {
+      //     // Update Google Calendar event
+      if (appointment.googleEventId) {
+        try {
+          await this.googleCalendarService.updateCalendarEvent(
+            id,
+            appointment.googleEventId,
+          );
+        } catch (error) {
+          console.error('Failed to update Google Calendar:', error);
+        }
+      }
+    }
+
+    if (settings.integrations.zohoBooks) {
       try {
-        await this.googleCalendarService.updateCalendarEvent(
-          id,
-          appointment.googleEventId,
-        );
+        // Create customer and invoice in ZohoBooks
+        const invoiceId = await this.zohoBooksService.createInvoice(id);
+
+        // Record payment
+        await this.zohoBooksService.recordPayment(id, invoiceId);
+
+        // Store invoice ID in appointment
+        appointment.zohoInvoiceId = invoiceId;
+        await this.appointmentRepo.save(appointment);
       } catch (error) {
-        console.error('Failed to update Google Calendar:', error);
+        console.error('Failed to sync with ZohoBooks:', error);
       }
     }
 
@@ -176,20 +211,28 @@ export class BusinessService {
 
     await this.appointmentRepo.save(appointment);
 
-    // Sync to Google Calendar
-    try {
-      const eventId = await this.googleCalendarService.createCalendarEvent(
-        appointment.id,
-      );
-      appointment.googleEventId = eventId;
-      await this.appointmentRepo.save(appointment);
-    } catch (error) {
-      console.error('Failed to sync to Google Calendar:', error);
-      // Don't fail the appointment creation if calendar sync fails
+    const settings = await this.businessOwnerSettingsService.findByBusinessId(
+      business.id,
+    );
+
+    if (settings.integrations.googleCalendar) {
+      // Sync to Google Calendar
+      try {
+        const eventId = await this.googleCalendarService.createCalendarEvent(
+          appointment.id,
+        );
+        appointment.googleEventId = eventId;
+        await this.appointmentRepo.save(appointment);
+      } catch (error) {
+        console.error('Failed to sync to Google Calendar:', error);
+        // Don't fail the appointment creation if calendar sync fails
+      }
     }
 
-    // integrate Mailchimp: appointment confirmation
-    await this.mailchimpService.sendAppointmentConfirmation(appointment.id);
+    if (settings.integrations.mailChimp) {
+      // integrate Mailchimp: appointment confirmation
+      await this.mailchimpService.sendAppointmentConfirmation(appointment.id);
+    }
 
     return appointment;
   }
@@ -538,20 +581,28 @@ export class BusinessService {
     appointment.status = AppointmentStatus.CANCELLED;
     await this.appointmentRepo.save(appointment);
 
-    //     // Update Google Calendar event
-    if (appointment.googleEventId) {
-      try {
-        await this.googleCalendarService.updateCalendarEvent(
-          id,
-          appointment.googleEventId,
-        );
-      } catch (error) {
-        console.error('Failed to update Google Calendar:', error);
+    const settings = await this.businessOwnerSettingsService.findByBusinessId(
+      appointment.business.id,
+    );
+
+    if (settings.integrations.googleCalendar) {
+      //     // Update Google Calendar event
+      if (appointment.googleEventId) {
+        try {
+          await this.googleCalendarService.updateCalendarEvent(
+            id,
+            appointment.googleEventId,
+          );
+        } catch (error) {
+          console.error('Failed to update Google Calendar:', error);
+        }
       }
     }
 
-    // integrate mailchimp: appointment rejection mail
-    await this.mailchimpService.sendAppointmentRejection(appointment.id);
+    if (settings.integrations.mailChimp) {
+      // integrate mailchimp: appointment rejection mail
+      await this.mailchimpService.sendAppointmentRejection(appointment.id);
+    }
 
     return appointment;
   }
@@ -564,20 +615,28 @@ export class BusinessService {
     appointment.status = AppointmentStatus.CONFIRMED;
     await this.appointmentRepo.save(appointment);
 
-    //     // Update Google Calendar event
-    if (appointment.googleEventId) {
-      try {
-        await this.googleCalendarService.updateCalendarEvent(
-          id,
-          appointment.googleEventId,
-        );
-      } catch (error) {
-        console.error('Failed to update Google Calendar:', error);
+    const settings = await this.businessOwnerSettingsService.findByBusinessId(
+      appointment.business.id,
+    );
+
+    if (settings.integrations.googleCalendar) {
+      //     // Update Google Calendar event
+      if (appointment.googleEventId) {
+        try {
+          await this.googleCalendarService.updateCalendarEvent(
+            id,
+            appointment.googleEventId,
+          );
+        } catch (error) {
+          console.error('Failed to update Google Calendar:', error);
+        }
       }
     }
 
-    // integrate Mailchimp: appointment acceptance
-    await this.mailchimpService.sendAppointmentAcceptance(appointment.id);
+    if (settings.integrations.mailChimp) {
+      // integrate Mailchimp: appointment acceptance
+      await this.mailchimpService.sendAppointmentAcceptance(appointment.id);
+    }
 
     return appointment;
   }

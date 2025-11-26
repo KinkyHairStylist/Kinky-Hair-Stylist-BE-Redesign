@@ -28,6 +28,7 @@ import {
 } from './business-cloudinary.service';
 import { User } from 'src/all_user_entities/user.entity';
 import { ApiResponse } from '../types/client.types';
+import { Business } from '../entities/business.entity';
 
 @Injectable()
 export class BusinessOwnerSettingsService {
@@ -37,26 +38,63 @@ export class BusinessOwnerSettingsService {
 
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+
+    @InjectRepository(Business)
+    private readonly businessRepo: Repository<Business>,
     private readonly businessCloudinaryService: BusinessCloudinaryService,
   ) {}
 
   async findByBusinessId(businessId: string): Promise<BusinessOwnerSettings> {
-    const settings = await this.businessOwnerSettingsRepository.findOne({
+    let settings;
+
+    settings = await this.businessOwnerSettingsRepository.findOne({
       where: { businessId },
     });
 
     if (!settings) {
-      throw new NotFoundException(
-        `Settings not found for business ${businessId}`,
-      );
+      const business = await this.businessRepo.findOne({
+        where: { id: businessId },
+      });
+
+      if (!business) {
+        throw new BadRequestException('Business not found');
+      }
+
+      settings = this.businessOwnerSettingsRepository.create({
+        ownerId: business.ownerId,
+        businessId: businessId,
+      });
+
+      // Persist to DB
+      settings = await this.businessOwnerSettingsRepository.save(settings);
     }
 
     return settings;
   }
+
   async findByOwnerId(ownerId: string): Promise<BusinessOwnerSettings | null> {
-    const settings = await this.businessOwnerSettingsRepository.findOne({
+    let settings;
+
+    settings = await this.businessOwnerSettingsRepository.findOne({
       where: { ownerId },
     });
+
+    // If it doesn't exist → create a new empty settings object
+    if (!settings) {
+      const business = await this.businessRepo.findOne({ where: { ownerId } });
+
+      if (!business) {
+        throw new BadRequestException('Business not found');
+      }
+
+      settings = this.businessOwnerSettingsRepository.create({
+        ownerId,
+        businessId: business.id,
+      });
+
+      // Persist to DB
+      settings = await this.businessOwnerSettingsRepository.save(settings);
+    }
 
     return settings;
   }
@@ -186,9 +224,9 @@ export class BusinessOwnerSettingsService {
         settings.integrations.mailChimp = incoming.mailChimp;
       }
 
-      // quickBooks
-      if (incoming.quickBooks !== undefined) {
-        settings.integrations.quickBooks = incoming.quickBooks;
+      // zohoBooks
+      if (incoming.zohoBooks !== undefined) {
+        settings.integrations.zohoBooks = incoming.zohoBooks;
       }
     }
 

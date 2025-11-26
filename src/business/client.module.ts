@@ -14,6 +14,7 @@ import { ClientSettingsService } from './services/client-settings.service';
 import { ClientProfileValidationMiddleware } from './middlewares/validate-client-data.middleware';
 import { FormidableMiddleware } from './middlewares/formidable.middleware';
 import { BusinessCloudinaryModule } from './business-cloudinary.module';
+import { User } from 'src/all_user_entities/user.entity';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { BusinessCloudinaryModule } from './business-cloudinary.module';
       EmergencyContactSchema,
       ClientSettingsSchema,
       Business,
+      User,
     ]),
     BusinessCloudinaryModule,
   ],

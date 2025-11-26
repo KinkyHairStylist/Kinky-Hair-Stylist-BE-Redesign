@@ -8,7 +8,8 @@ import {
   ClientType,
   PreferredContactMethod,
 } from '../entities/client-settings.entity';
-import { ClientSource, Gender, Pronouns } from '../entities/client.entity';
+import { ClientSource, Pronouns } from '../entities/client.entity';
+import { Gender } from './constants';
 
 export interface Client {
   id: string;

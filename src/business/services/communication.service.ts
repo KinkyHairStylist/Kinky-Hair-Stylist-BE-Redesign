@@ -178,7 +178,7 @@ export class CommunicationService {
       `,
     };
 
-    const [response] = await sgMail.send(msg);
+    await sgMail.send(msg);
     // console.log('SendGrid Response Status:', response.statusCode);
     // console.log('SendGrid Headers:', response.headers);
   }

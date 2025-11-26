@@ -17,8 +17,8 @@ import { Roles } from 'src/middleware/roles.decorator';
 
 @ApiTags('Business Promotion')
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Business, Role.SuperAdmin)
+// @UseGuards(JwtAuthGuard, RolesGuard)
+// @Roles(Role.Business, Role.SuperAdmin)
 @Controller('promotions')
 export class PromotionController {
   constructor(private readonly promotionService: PromotionService) {}

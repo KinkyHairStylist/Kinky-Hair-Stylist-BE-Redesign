@@ -25,7 +25,7 @@ import { MembershipModule } from './user/modules/membership-tier.module';
 import { CardModule } from './user/modules/card.module';
 // import { ModerationModule } from './admin/moderation/moderation.module';
 import { ModerationModule } from './admin/moderation/moderation.module';
-import { ChatModule  } from './admin/live-chat/chat.module';
+import { ChatModule } from './admin/live-chat/chat.module';
 import { PlatformSettingsModule } from './admin/platform-settings/platform-settings.module';
 import { NotificationSettingsModule } from './user/modules/notification-settings.module';
 
@@ -45,7 +45,7 @@ import { BusinessOwnerSettingsModule } from './business/business-owner-settings.
 import { BusinessSettingsModule } from './business/business-settings.module';
 import { GoogleCalendarModule } from './integration/google-calendar.module';
 import { MailchimpModule } from './integration/mail-chimp.module';
-import { QuickBooksModule } from './integration/quick-books.module';
+import { ZohoBooksModule } from './integration/zohobooks.module';
 
 @Module({
   imports: [
@@ -99,7 +99,7 @@ import { QuickBooksModule } from './integration/quick-books.module';
     BusinessSettingsModule,
     GoogleCalendarModule,
     MailchimpModule,
-    QuickBooksModule,
+    ZohoBooksModule,
   ],
   controllers: [AppController],
   providers: [AppService, AuthMiddleware],

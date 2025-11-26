@@ -33,8 +33,8 @@ import { Roles } from 'src/middleware/roles.decorator';
 
 @ApiTags('Business Owner Settings')
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Business, Role.SuperAdmin)
+// @UseGuards(JwtAuthGuard, RolesGuard)
+// @Roles(Role.Business, Role.SuperAdmin)
 @Controller('business-owner-settings')
 export class BusinessOwnerSettingsController {
   constructor(
@@ -335,11 +335,33 @@ export class BusinessOwnerSettingsController {
     return await this.businessOwnerSettingsService.delete(businessId);
   }
 
-  @Get(':businessId')
-  async findOne(
-    @Param('businessId') businessId: string,
-  ): Promise<BusinessOwnerSettings> {
-    return await this.businessOwnerSettingsService.findByBusinessId(businessId);
+  @Get('settings/:businessId')
+  async findOne(@Param('businessId') businessId: string, @Request() req) {
+    try {
+      const ownerId = req.user.id || req.user.sub;
+
+      if (!ownerId) {
+        throw new HttpException(
+          'User not authenticated',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      const result =
+        await this.businessOwnerSettingsService.findByBusinessId(businessId);
+
+      return {
+        success: true,
+        data: result,
+        message: 'Business Owner settings fetched',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        message: error.message || 'Failed to fetch Business Owner settings ',
+      };
+    }
   }
 
   @Get()

@@ -20,8 +20,8 @@ import { Roles } from 'src/middleware/roles.decorator';
 
 @ApiTags('Business Communication')
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Business, Role.SuperAdmin)
+// @UseGuards(JwtAuthGuard, RolesGuard)
+// @Roles(Role.Business, Role.SuperAdmin)
 @Controller('communications')
 // @UseGuards(JwtAuthGuard)
 export class CommunicationController {

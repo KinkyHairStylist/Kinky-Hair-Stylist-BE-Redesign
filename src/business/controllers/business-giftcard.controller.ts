@@ -38,8 +38,8 @@ import { Role } from 'src/middleware/role.enum';
 
 @ApiTags('Business Gift Cards')
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Business, Role.SuperAdmin)
+// @UseGuards(JwtAuthGuard, RolesGuard)
+// @Roles(Role.Business, Role.SuperAdmin)
 @Controller('business-gift-cards')
 export class BusinessGiftCardsController {
   constructor(

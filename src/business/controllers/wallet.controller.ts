@@ -28,8 +28,8 @@ import { Roles } from 'src/middleware/roles.decorator';
 
 @ApiTags('Business Wallet')
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Business, Role.SuperAdmin)
+// @UseGuards(JwtAuthGuard, RolesGuard)
+// @Roles(Role.Business, Role.SuperAdmin)
 @Controller('business-wallet')
 export class BusinessWalletController {
   constructor(private readonly walletService: BusinessWalletService) {}
@@ -125,6 +125,32 @@ export class BusinessWalletController {
     }
 
     const result = await this.walletService.getPaymentMethods(walletId);
+
+    if (!result.success) {
+      throw new HttpException(
+        { message: result.message, error: result.error },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return result;
+  }
+
+  @Get('/withdrawals/:businessId')
+  async getWithdrawalsList(
+    @Request() req,
+    @Param('businessId') businessId: string,
+  ) {
+    const ownerId = req.user.id || req.user.sub;
+
+    if (!ownerId) {
+      throw new HttpException(
+        'User not authenticated',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    const result = await this.walletService.getBusinessWithdrawals(businessId);
 
     if (!result.success) {
       throw new HttpException(

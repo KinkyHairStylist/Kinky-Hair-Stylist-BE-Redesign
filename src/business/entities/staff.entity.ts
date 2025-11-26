@@ -5,15 +5,15 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
-} from "typeorm";
-import { Business } from "./business.entity";
-import { Service } from "./service.entity";
-import { Address } from "./address.entity";
-import { EmergencyContact } from "./emergency-contact.entity";
+} from 'typeorm';
+import { Business } from './business.entity';
+import { Service } from './service.entity';
+import { Address } from './address.entity';
+import { EmergencyContact } from './emergency-contact.entity';
 
 @Entity()
 export class Staff {
-  @PrimaryGeneratedColumn("uuid")
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column({ nullable: true })
@@ -38,15 +38,21 @@ export class Staff {
   jobTitle: string;
 
   @Column({
-    type: "enum",
-    enum: ["HAIRSTYLIST", "BARBER", "NAIL_TECH", "SPA_THERAPIST", "MANAGER", "RECEPTIONIST"],
-    default: "HAIRSTYLIST",
+    type: 'enum',
+    enum: [
+      'HAIRSTYLIST',
+      'BARBER',
+      'NAIL_TECH',
+      'SPA_THERAPIST',
+      'MANAGER',
+      'RECEPTIONIST',
+    ],
+    default: 'HAIRSTYLIST',
   })
   role: string;
 
   @Column({ nullable: true })
   specialization: string;
-
 
   @Column({ nullable: true })
   avatar: string;
@@ -63,20 +69,28 @@ export class Staff {
   @Column({ nullable: true })
   startDate: Date;
 
-  @Column("simple-array", { nullable: true })
+  @Column('simple-array', { nullable: true })
   servicesAssigned: string[];
 
   @OneToMany(() => Service, (service) => service.assignedStaff)
   services: Service[];
 
-  @OneToMany(() => Address, (address) => address.staff, { cascade: true, eager: true })
+  @OneToMany(() => Address, (address) => address.staff, {
+    cascade: true,
+    eager: true,
+  })
   addresses: Address[];
 
-  @OneToMany(() => EmergencyContact, (contact) => contact.staff, { cascade: true, eager: true })
+  @OneToMany(() => EmergencyContact, (contact) => contact.staff, {
+    cascade: true,
+    eager: true,
+  })
   emergencyContacts: EmergencyContact[];
 
-  @ManyToOne(() => Business, (business) => business.staff, { onDelete: "CASCADE" })
-  @JoinColumn({ name: "business_id" })
+  @ManyToOne(() => Business, (business) => business.staff, {
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'business_id' })
   business: Business;
 
   @Column({
@@ -106,32 +120,32 @@ export class Staff {
   },
   "color": "#ef4444"
 }'`,
-})
-settings :{
+  })
+  settings: {
     permissions: {
-        viewAppointments: boolean;
-        editAppointments: boolean;
-        manageClients: boolean;
-        viewFinancials: boolean;
-        manageStaff: boolean;
+      viewAppointments: boolean;
+      editAppointments: boolean;
+      manageClients: boolean;
+      viewFinancials: boolean;
+      manageStaff: boolean;
     };
     workingHours: {
-        start: string;
-        end: string;
+      start: string;
+      end: string;
     };
     workingDays: {
-        Monday: boolean;
-        Tuesday: boolean;
-        Wednesday: boolean;
-        Thursday: boolean;
-        Friday: boolean;
-        Saturday: boolean;
-        Sunday: boolean;
+      Monday: boolean;
+      Tuesday: boolean;
+      Wednesday: boolean;
+      Thursday: boolean;
+      Friday: boolean;
+      Saturday: boolean;
+      Sunday: boolean;
     };
     notifications: {
-        newBooking: boolean;
-        dailySummary: boolean;
+      newBooking: boolean;
+      dailySummary: boolean;
     };
     color: string;
-};
+  };
 }
