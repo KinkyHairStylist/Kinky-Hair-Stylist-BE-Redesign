@@ -120,4 +120,24 @@ export class SalonService {
 
     return query.orderBy('service.createdAt', 'DESC').getMany();
   }
+
+  async getBusinessById(id: string) {
+    const business = await this.businessRepository.findOne({
+      where: { id, status: BusinessStatus.APPROVED },
+      relations: [
+        'serviceList',
+        'serviceList.assignedStaff',
+        'serviceList.appointments',
+        'bookingHours',
+        'staff',
+      ],
+    });
+
+    if (!business) {
+      throw new NotFoundException('Business not found');
+    }
+
+    return business;
+  }
+
 }

@@ -400,7 +400,7 @@ export class BusinessSettingsService {
 
     // Update services array if provided
     if (updateDto.services !== undefined) {
-      business.services = updateDto.services;
+      business.service = updateDto.services;
     }
 
     return await this.businessRepository.save(business);
