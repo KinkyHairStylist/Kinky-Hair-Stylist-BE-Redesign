@@ -43,8 +43,8 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Business Clients')
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Business, Role.SuperAdmin)
+// @UseGuards(JwtAuthGuard, RolesGuard)
+// @Roles(Role.Business, Role.SuperAdmin)
 @Controller('clients')
 @UsePipes(new ValidationPipe({ transform: true }))
 export class ClientController {

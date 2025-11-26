@@ -20,8 +20,8 @@ import { Roles } from 'src/middleware/roles.decorator';
 
 @ApiTags('Business Promotion Message')
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Business, Role.SuperAdmin)
+// @UseGuards(JwtAuthGuard, RolesGuard)
+// @Roles(Role.Business, Role.SuperAdmin)
 @Controller('reviews')
 export class ReviewController {
   constructor(private readonly reviewService: ReviewService) {}

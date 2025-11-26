@@ -161,14 +161,8 @@ export class CreateWithdrawalDto {
 }
 
 export class WithdrawalDto {
-  @IsString()
-  bankName: string;
-
-  @IsString()
-  accountHolderName: string;
-
-  @IsString()
-  accountNumber: string;
+  @IsUUID()
+  bankDetailsId: string;
 }
 
 export class DebitWalletRequestDto {

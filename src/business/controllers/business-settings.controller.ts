@@ -36,8 +36,8 @@ import { Roles } from 'src/middleware/roles.decorator';
 
 @ApiTags('Business Settings')
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Business, Role.SuperAdmin)
+// @UseGuards(JwtAuthGuard, RolesGuard)
+// @Roles(Role.Business, Role.SuperAdmin)
 @Controller('business-settings')
 export class BusinessSettingsController {
   constructor(

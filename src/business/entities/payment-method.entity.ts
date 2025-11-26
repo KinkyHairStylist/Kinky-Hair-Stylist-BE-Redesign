@@ -6,9 +6,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   JoinColumn,
+  OneToMany,
 } from 'typeorm';
 import { Wallet } from './wallet.entity';
 import { PaymentMethodType } from 'src/admin/payment/enums/wallet.enum';
+import { Withdrawal } from 'src/admin/withdrawal/entities/withdrawal.entity';
 
 @Entity('wallet_payment_methods')
 export class WalletPaymentMethod {
@@ -69,4 +71,9 @@ export class WalletPaymentMethod {
   @ManyToOne(() => Wallet, (wallet) => wallet.paymentMethods)
   @JoinColumn({ name: 'walletId' })
   wallet: Wallet;
+
+  @OneToMany(() => Withdrawal, (withdrawal) => withdrawal.bankDetails, {
+    onDelete: 'SET NULL',
+  })
+  withdrawalDetails: Withdrawal;
 }

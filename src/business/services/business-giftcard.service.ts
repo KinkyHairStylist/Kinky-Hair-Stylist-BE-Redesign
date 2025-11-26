@@ -14,6 +14,7 @@ import {
   UpdateBusinessGiftCardDto,
 } from '../dtos/requests/BusinessGiftCardDto';
 import {
+  BusinessGiftCardSoldStatus,
   BusinessGiftCardStatus,
   BusinessSentStatus,
 } from '../enum/gift-card.enum';
@@ -109,6 +110,11 @@ export class BusinessGiftCardsService {
       (card) => card.sentStatus === BusinessSentStatus.PENDING,
     ).length;
 
+    // Count sold cards (sent status is pending)
+    const totalSoldCards = allCards.filter(
+      (card) => card.soldStatus === BusinessGiftCardSoldStatus.PURCHASED,
+    ).length;
+
     // Count available cards (not redeemed, not expired)
     const totalAvailableCards = allCards.filter(
       (card) =>
@@ -125,6 +131,7 @@ export class BusinessGiftCardsService {
       totalCards,
       totalValue: parseFloat(totalValue.toFixed(2)),
       totalRedeemedCards,
+      totalSoldCards,
       totalPendingCards,
       totalAvailableCards,
       totalExpiredCards,
@@ -311,7 +318,7 @@ export class BusinessGiftCardsService {
 
   async markAsExpired(id: string): Promise<BusinessGiftCard> {
     const giftCard = await this.findOne(id);
-    giftCard.status = BusinessGiftCardStatus.EXPIRED;
+    giftCard.status = BusinessGiftCardStatus.INACTIVE;
     return await this.giftCardRepository.save(giftCard);
   }
 
@@ -354,7 +361,11 @@ export class BusinessGiftCardsService {
     return result.affected || 0;
   }
 
-  async creditWalletFromGiftCard(businessId: string, amount: number, reference: string) {
+  async creditWalletFromGiftCard(
+    businessId: string,
+    amount: number,
+    reference: string,
+  ) {
     // await this.addFunds({
     //   businessId,
     //   amount,

@@ -113,6 +113,12 @@ export class Appointment {
   @UpdateDateColumn()
   updatedAt: Date;
 
+  @Column({ type: 'varchar', nullable: true })
+  zohoInvoiceId?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  zohoCustomerId?: string;
+  
   @ManyToOne(() => Service, (service) => service.appointments, {
     nullable: true,
     eager: true,

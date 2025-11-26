@@ -315,27 +315,27 @@ export class InventoryService {
   async getCategoriesList() {
     const platformInventory = await this.ensureInventoryExists();
 
-    const categories = await Promise.all(
-      platformInventory.categoriesList.map(async (catValue) => {
-        const count = await this.productRepository
-          .createQueryBuilder('product')
-          .andWhere('product.category = :category', { category: catValue })
-          .andWhere('product.isActive = :active', { active: true })
-          .getCount();
-
-        return {
-          value: catValue,
-          label: this.formatCategoryLabel(catValue),
-          count,
-        };
-      }),
-    );
-
-    // Add "All Products"
-    const totalProducts = await this.productRepository
+    const productCounts = await this.productRepository
       .createQueryBuilder('product')
-      .andWhere('product.isActive = :active', { active: true })
-      .getCount();
+      .select('product.category', 'category')
+      .addSelect('COUNT(*)', 'count')
+      .where('product.isActive = :active', { active: true })
+      .groupBy('product.category')
+      .getRawMany();
+
+    const categories = platformInventory.categoriesList.map((catValue) => {
+      const found = productCounts.find((p) => p.category === catValue);
+      return {
+        value: catValue,
+        label: this.formatCategoryLabel(catValue),
+        count: found ? Number(found.count) : 0,
+      };
+    });
+
+    const totalProducts = productCounts.reduce(
+      (sum, p) => sum + Number(p.count),
+      0,
+    );
 
     return {
       categories: [
