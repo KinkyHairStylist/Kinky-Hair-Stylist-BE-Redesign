@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -61,11 +62,28 @@ export class UserProfileService {
   }
 
   async updateProfile(user: User, dto: UpdateUserProfileDto): Promise<User> {
-    const foundUser = await this.userRepo.findOne({ where: { id: user.id } });
-    if (!foundUser) throw new NotFoundException('User not found');
+    try {
+      const foundUser = await this.userRepo.findOne({ where: { id: user.id } });
+      if (!foundUser) {
+        throw new NotFoundException('User not found');
+      }
 
-    Object.assign(foundUser, dto);
-    return this.userRepo.save(foundUser);
+      Object.assign(foundUser, dto);
+
+      return await this.userRepo.save(foundUser);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+
+      // If it's already a NestJS exception, rethrow it
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      // Throw a generic internal error for other types
+      throw new InternalServerErrorException(
+        error?.message || 'Failed to update user profile',
+      );
+    }
   }
 
   async uploadAvatar(user: User, file: Express.Multer.File): Promise<User> {

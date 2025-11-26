@@ -30,7 +30,7 @@ export class UpdateUserProfileDto {
   @ApiPropertyOptional({ description: 'Date of birth of the user', example: '1990-01-01' })
   @IsOptional()
   @IsDateString()
-  dateOfBirth?: Date;
+  dateOfBirth?: string;
 }
 
 export class ChangePasswordDto {
