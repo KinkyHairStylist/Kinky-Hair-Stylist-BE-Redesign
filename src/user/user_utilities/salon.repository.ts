@@ -50,7 +50,7 @@ export class BusinessRepository {
       business.latitude = row.business_latitude;
       business.longitude = row.business_longitude;
       business.performance = { rating: parseFloat(row.rating), reviews: 0, completionRate: 0, avgResponseMins: 0 };
-      business.services = row.business_services;
+      business.service = row.business_services;
       business['distance'] = parseFloat(row.distance); // non-persistent
       return business;
     });

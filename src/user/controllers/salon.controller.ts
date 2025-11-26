@@ -84,11 +84,13 @@ export class SalonController {
     return this.salonService.getServices(category);
   }
 
-  // @Get(':id')
-  // @ApiOperation({ summary: 'Get single salon details' })
-  // @ApiResponse({ status: 200, description: 'Return salon details' })
-  // @ApiResponse({ status: 404, description: 'Salon not found' })
-  // async findOne(@Param('id') id: string) {
-  //   return this.salonService.findOne(id);
-  // }
+  @Get(':id')
+  @ApiOperation({ summary: 'Get business by ID with services & available times' })
+  @ApiResponse({ status: 200, description: 'Return business details' })
+  @ApiResponse({ status: 404, description: 'Business not found' })
+  async getBusiness(
+    @Param('id') id: string
+  ) {
+    return this.salonService.getBusinessById(id);
+  }
 }

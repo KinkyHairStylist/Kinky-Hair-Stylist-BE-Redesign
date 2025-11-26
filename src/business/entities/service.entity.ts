@@ -41,7 +41,7 @@ export class Service {
   @JoinColumn({ name: 'advertisementPlanId' })
   advertisementPlan: AdvertisementPlan;
 
-  @ManyToOne(() => Business, (business) => business.service, { nullable: true })
+  @ManyToOne(() => Business, (business) => business.serviceList, { nullable: true })
   business: Business;
 
   @ManyToOne(() => Staff, (staff) => staff.services, {

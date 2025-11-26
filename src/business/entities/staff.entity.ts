@@ -78,4 +78,60 @@ export class Staff {
   @ManyToOne(() => Business, (business) => business.staff, { onDelete: "CASCADE" })
   @JoinColumn({ name: "business_id" })
   business: Business;
+
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+    default: () => `'{
+  "permissions": {
+    "viewAppointments": true,
+    "editAppointments": true,
+    "manageClients": false,
+    "viewFinancials": false,
+    "manageStaff": false
+  },
+  "workingHours": { "start": "09:00", "end": "18:00" },
+  "workingDays": {
+    "Monday": true,
+    "Tuesday": true,
+    "Wednesday": true,
+    "Thursday": true,
+    "Friday": true,
+    "Saturday": true,
+    "Sunday": false
+  },
+  "notifications": {
+    "newBooking": true,
+    "dailySummary": true
+  },
+  "color": "#ef4444"
+}'`,
+})
+settings :{
+    permissions: {
+        viewAppointments: boolean;
+        editAppointments: boolean;
+        manageClients: boolean;
+        viewFinancials: boolean;
+        manageStaff: boolean;
+    };
+    workingHours: {
+        start: string;
+        end: string;
+    };
+    workingDays: {
+        Monday: boolean;
+        Tuesday: boolean;
+        Wednesday: boolean;
+        Thursday: boolean;
+        Friday: boolean;
+        Saturday: boolean;
+        Sunday: boolean;
+    };
+    notifications: {
+        newBooking: boolean;
+        dailySummary: boolean;
+    };
+    color: string;
+};
 }

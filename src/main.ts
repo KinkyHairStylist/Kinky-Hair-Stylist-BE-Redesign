@@ -88,6 +88,7 @@ async function bootstrap() {
     '/api/webhook/paystack',
     '/api/webhook/paypal',
     '/api/payments/verify',
+    '/api/business/create',
     // Add other public routes here
   ];
 

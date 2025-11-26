@@ -72,13 +72,13 @@ export class Business {
 
   // Keep both service array and Service entity relation as-is
   @Column('text', { array: true, default: [] })
-  services: string[];
+  service: string[];
 
   @OneToMany(() => Service, (service) => service.business, {
     cascade: true,
     eager: true,
   })
-  service: Service[];
+  serviceList: Service[];
 
   @Column({ nullable: true })
   category?: string;
