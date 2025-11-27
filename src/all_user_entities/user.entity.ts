@@ -6,7 +6,9 @@ import {
   OneToMany,
   OneToOne,
   UpdateDateColumn,
+  JoinColumn,
 } from 'typeorm';
+
 import { Card } from './card.entity';
 import { GiftCard } from './gift-card.entity';
 import { Referral } from '../user/user_entities/referrals.entity';
@@ -151,5 +153,6 @@ export class User {
     cascade: true,
     eager: true,
   })
+  @JoinColumn()
   role: UserRole;
 }

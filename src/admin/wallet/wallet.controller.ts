@@ -28,7 +28,7 @@ export class WalletController {
   async getTopEarnings(
     @Query() query: TopEarningsQueryDto,
   ): Promise<TopEarningsResponseDto[]> {
-    return this.walletService.getTopEarningBusinesses(query);
+    return this.walletService.getTopEarningBusinesses();
   }
 
   @Get('summary')
