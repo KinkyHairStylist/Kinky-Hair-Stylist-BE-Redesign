@@ -76,7 +76,6 @@ export class Appointment {
     })
     status: AppointmentStatus;
 
-    // 💰 Payment details
     @Column({ type: 'float', default: 0 })
     amount: number;
 
