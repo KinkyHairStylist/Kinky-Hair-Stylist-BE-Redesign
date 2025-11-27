@@ -58,68 +58,49 @@ export class WalletService {
     }));
   }
 
-  async getTopEarningBusinesses(
-    query: TopEarningsQueryDto,
-  ): Promise<TopEarningsResponseDto[]> {
-    const days = query.days ?? 7;
-    const limit = query.limit ?? 10;
+  async getTopEarningBusinesses(): Promise<TopEarningsResponseDto[]> {
+    const limit = 5;
 
-    const now = new Date();
-    const currentStart = new Date(now);
-    currentStart.setDate(now.getDate() - days);
+    // Total earnings across all businesses
+    const totalEarningsResult = await this.transactionRepo
+      .createQueryBuilder('txn')
+      .select('SUM(txn.amount)', 'total')
+      .where('txn.type = :earning', { earning: TransactionType.EARNING })
+      .andWhere('txn.status = :completed', { completed: TransactionStatus.COMPLETED })
+      .getRawOne();
 
-    const previousStart = new Date(currentStart);
-    previousStart.setDate(currentStart.getDate() - days);
+    const overallTotal = Number(totalEarningsResult.total) || 0;
+    if (!overallTotal) return [];
 
+    // Top businesses by total earnings
     const raw = await this.transactionRepo
       .createQueryBuilder('txn')
       .innerJoin('txn.wallet', 'wallet')
       .innerJoin('wallet.business', 'business')
-      .select('wallet.businessId', 'businessid') 
-      .addSelect('business.businessName', 'businessname') 
-      .addSelect(
-        `SUM(CASE 
-            WHEN txn.type = :earning 
-            AND txn.status = :completed
-            AND txn.createdAt BETWEEN :currentStart AND :now 
-            THEN txn.amount ELSE 0 END)`,
-        'currenttotal', 
-      )
-      .addSelect(
-        `SUM(CASE 
-            WHEN txn.type = :earning 
-            AND txn.status = :completed
-            AND txn.createdAt BETWEEN :previousStart AND :currentStart 
-            THEN txn.amount ELSE 0 END)`,
-        'previoustotal', 
-      )
-      .setParameters({
-        earning: TransactionType.EARNING,
-        completed: TransactionStatus.COMPLETED,
-        currentStart,
-        previousStart,
-        now,
-      })
+      .select('wallet.businessId', 'businessId')
+      .addSelect('business.businessName', 'businessName')
+      .addSelect('SUM(txn.amount)::numeric', 'total_earnings') // alias with underscore
+      .where('txn.type = :earning', { earning: TransactionType.EARNING })
+      .andWhere('txn.status = :completed', { completed: TransactionStatus.COMPLETED })
       .groupBy('wallet.businessId')
       .addGroupBy('business.businessName')
-      .orderBy('currenttotal', 'DESC') 
+      .orderBy('total_earnings', 'DESC')
       .limit(limit)
       .getRawMany();
 
-    return raw.map((r) => {
-      const current = Number(r.currentTotal);
-      const previous = Number(r.previousTotal);
-
-      const percentage =
-        previous > 0 ? ((current - previous) / previous) * 100 : 100;
+    return raw.map(r => {
+      const total = Number(r.total_earnings); // use the aliased name
+      const percentage = (total / overallTotal) * 100;
 
       return {
         businessName: r.businessName,
-        total: current.toFixed(2),
+        total: total.toFixed(2),
         percentage: `${percentage.toFixed(1)}%`,
       };
     });
   }
+
+
 
   async getDashboardSummary() {
     const now = new Date();

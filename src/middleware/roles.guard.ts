@@ -1,6 +1,5 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { User } from 'src/all_user_entities/user.entity';
 import { Role } from './role.enum';
 
 @Injectable()
@@ -12,25 +11,31 @@ export class RolesGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (!requiredRoles) {
-      return true;
-    }
+
+    if (!requiredRoles) return true;
+
     const { user } = context.switchToHttp().getRequest();
 
+    if (!user || !user.role) return false;
+
+    // role object contains isAdmin, isSuperAdmin, etc.
+    const roleObj = user.role;
+
     return requiredRoles.some((role) => {
-      if (role === Role.SuperAdmin) {
-        return user.isSuperAdmin;
+      switch (role) {
+        case Role.SuperAdmin:
+          return roleObj.isSuperAdmin;
+        case Role.Admin:
+          return roleObj.isAdmin;
+        case Role.Business:
+          return roleObj.isBusiness;
+        case Role.Staff:
+          return roleObj.isStaff;
+        case Role.Client:
+          return roleObj.isClient;
+        default:
+          return false;
       }
-      if (role === Role.Admin) {
-        return user.isAdmin;
-      }
-      if (role === Role.Business) {
-        return user.isBusiness;
-      }
-      if (role === Role.Client) {
-        return user.isClient;
-      }
-      return false;
     });
   }
 }
