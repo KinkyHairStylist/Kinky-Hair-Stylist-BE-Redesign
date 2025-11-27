@@ -73,9 +73,6 @@ export class Staff {
     @OneToMany(() => Address, (address) => address.staff, { cascade: true, eager: true })
     addresses: Address[];
 
-    @Column({ nullable: true })
-    password?: string;
-
     @OneToMany(() => EmergencyContact, (contact) => contact.staff, { cascade: true, eager: true })
     emergencyContacts: EmergencyContact[];
 
