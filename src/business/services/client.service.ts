@@ -897,10 +897,6 @@ export class ClientService {
         dateOfBirth: client.dateOfBirth,
         password: hashedPassword,
         isVerified: true, // Since client already exists in business system
-        isClient: true,
-        isBusiness: false,
-        isAdmin: false,
-        isSuperAdmin: false,
         addresses: [], // no data yet
         clientAppointments: [], // no appointments yet
       });

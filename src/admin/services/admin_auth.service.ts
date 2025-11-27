@@ -6,14 +6,17 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import sgMail from '@sendgrid/mail';
+import { randomBytes } from 'crypto';
+
+import { UserRole } from 'src/all_user_entities/user-role.entity';
 import { User } from 'src/all_user_entities/user.entity';
 import { AdminInvite } from '../admin_entities/admin-invite.entity';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { getTokens } from '../../helpers/token.helper';
 import { PasswordHashingHelper } from '../../helpers/password-hashing.helper';
-import sgMail from '@sendgrid/mail';
-import { randomBytes } from 'crypto';
+
 
 @Injectable()
 export class AdminAuthService {
@@ -57,9 +60,16 @@ export class AdminAuthService {
   // ADMIN LOGIN
   // -----------------------------------
   async Admin_login(email: string, password: string) {
-    const user = await this.usersRepo.findOne({ where: { email } });
+    const user = await this.usersRepo.findOne({ 
+      where: { email },
+      relations: ['role'], // ensure roles are loaded
+    });
 
-    if (!user || (!user.isAdmin && !user.isSuperAdmin)) {
+    if (!user) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (!user.role || (!user.role.isAdmin && !user.role.isSuperAdmin)) {
       throw new UnauthorizedException('You are not authorized as admin');
     }
 
@@ -161,12 +171,17 @@ export class AdminAuthService {
       surname: dto.surname,
       phoneNumber: dto.phoneNumber,
       gender: dto.gender,
-      isSuperAdmin: decoded.role === 'SUPER_ADMIN',
-      isAdmin: decoded.role === 'ADMIN',
-      isClient: false,
-      isBusiness: false,
       isVerified: true,
     });
+
+    const role = new UserRole();
+    role.isSuperAdmin = decoded.role === 'SUPER_ADMIN';
+    role.isAdmin = decoded.role === 'ADMIN';
+    role.isBusiness = false;
+    role.isClient = true;
+    role.isStaff = false;
+
+    user.role = role;
 
     await this.usersRepo.save(user);
     await this.inviteRepo.delete(invite.id);
@@ -185,10 +200,17 @@ export class AdminAuthService {
   // ADMIN FORGOT PASSWORD
   // -----------------------------------
   async forgotPassword(email: string) {
-    const user = await this.usersRepo.findOne({ where: { email } });
-    if (!user || (!user.isAdmin && !user.isSuperAdmin)) {
-      // Still return a success message to prevent email enumeration
-      return { message: 'If an account with this email exists, a password reset link has been sent.' };
+    const user = await this.usersRepo.findOne({ 
+      where: { email },
+      relations: ['role'], // ensure roles are loaded
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (!user.role || (!user.role.isAdmin && !user.role.isSuperAdmin)) {
+      throw new UnauthorizedException('You are not authorized as admin');
     }
 
     const resetToken = randomBytes(32).toString('hex');
