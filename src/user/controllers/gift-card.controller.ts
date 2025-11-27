@@ -1,34 +1,39 @@
 import { Controller, Post, Body, Get, UseGuards } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
 import { GetUser } from 'src/middleware/get-user.decorator';
 import { User } from 'src/all_user_entities/user.entity';
 import { GiftCardService } from '../services/gift-card.service';
-import {
-  CustomerCreateGiftCardDto,
-  ValidateGiftCardDto,
-  RedeemGiftCardDto,
-} from '../dtos/create-gift-card.dto';
+import { PurchaseBusinessGiftCardDto, ValidateGiftCardDto, RedeemGiftCardDto } from '../dtos/create-gift-card.dto';
+import { Roles } from 'src/middleware/roles.decorator';
+import { Role } from 'src/middleware/role.enum';
+import { RolesGuard } from 'src/middleware/roles.guard';
 
 @ApiTags('Customer Card and Gift Cards')
 @ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Client)
 @Controller('users/gift-cards')
 export class GiftCardController {
   constructor(private readonly giftCardService: GiftCardService) {}
 
   @Post('purchase')
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Purchase a new gift card' })
-  async purchaseGiftCard(
-    @Body() dto: CustomerCreateGiftCardDto,
-    @GetUser() sender: User,
-  ) {
-    return await this.giftCardService.createGiftCard(dto, sender);
+  @ApiOperation({
+    summary: 'Purchase a gift card from available business gift cards',
+    description:
+      'Customers can only purchase gift cards marked as AVAILABLE. After purchase the gift card will change to "purchased".',
+  })
+  @ApiResponse({ status: 201, description: 'Payment initialized' })
+  @ApiResponse({ status: 400, description: 'Gift card not available or already purchased.' })
+  async purchaseGiftCard(@Body() dto: PurchaseBusinessGiftCardDto, @GetUser() sender: User) {
+    return await this.giftCardService.purchaseGiftCard(dto, sender);
+  }
+
+  @Post('complete')
+  @ApiOperation({ summary: 'Complete gift card purchase after Paystack verification' })
+  @ApiResponse({ status: 200, description: 'Gift card purchase completed successfully' })
+  async completePurchase(@Body('reference') reference: string) {
+    return await this.giftCardService.completeGiftCardPurchase(reference);
   }
 
   @Post('validate')
@@ -39,27 +44,27 @@ export class GiftCardController {
   }
 
   @Post('redeem')
-  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Redeem a gift card using its unique code' })
   @ApiResponse({ status: 200, description: 'Gift card redeemed successfully' })
-  async redeemGiftCard(
-    @Body() dto: RedeemGiftCardDto,
-    @GetUser() user: User,
-  ) {
+  @ApiResponse({ status: 400, description: 'Gift card already used or invalid' })
+  async redeemGiftCard(@Body() dto: RedeemGiftCardDto, @GetUser() user: User) {
     return this.giftCardService.redeemGiftCard(dto, user);
   }
 
   @Get('stats')
-  @UseGuards(JwtAuthGuard)
   @ApiOperation({
-    summary: 'Get gift card statistics for the authenticated user (total sent, active count, used count)',
+    summary: 'Get gift card statistics for the authenticated user',
   })
   async getGiftCardStats(@GetUser() user: User) {
     return this.giftCardService.getGiftCardStatsByUser(user);
   }
 
   @Get()
+  @ApiOperation({
+    summary: 'List all available gift cards for purchase',
+    description: 'Only returns gift cards with soldStatus = AVAILABLE',
+  })
   async getAllGiftCards() {
-    return await this.giftCardService.getAllGiftCards();
+    return await this.giftCardService.getAllAvailableBusinessGiftCards();
   }
 }

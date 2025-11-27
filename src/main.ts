@@ -13,24 +13,42 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // Validation Pipe
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  );
 
   // CORS Configuration
+  // const allowedOrigins = [
+  //   'http://localhost:3000', // dev
+  //   'https://sit.kinkyhairstylists.com', // staging
+  //   'https://uat.kinkyhairstylists.com', // staging
+  //   'https://www.kinkyhairstylists.com', // production
+  // ];
+
   app.enableCors({
-    origin: "http://localhost:3000",
+    // origin: (origin, callback) => {
+    //   if (!origin || allowedOrigins.includes(origin)) {
+    //     callback(null, true);
+    //   } else {
+    //     callback(new Error('Not allowed by CORS'));
+    //   }
+    // },
+    origin: true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    transform: true,
-  }));
-
-
-  
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+    }),
+  );
 
   // Input sanitization setup
   const sanitizer = new InputSanitizationMiddleware();
@@ -54,16 +72,23 @@ async function bootstrap() {
   // Define public routes that should bypass authentication
   const publicRoutes = [
     '/api/docs',
-    '/api',
+    '/api/salons',
     '/api/get-started',
     '/api/auth/get-started',
     '/api/auth/verify-code',
     '/api/auth/resend-code',
     '/api/auth/signup',
     '/api/auth/login',
+    '/api/admin/auth/login',
     '/api/auth/reset-password/start',
     '/api/auth/reset-password/verify',
     '/api/auth/reset-password/finish',
+    '/api/auth/business/login',
+    '/api/auth/business/otp/request',
+    '/api/webhook/paystack',
+    '/api/webhook/paypal',
+    '/api/payments/verify',
+    '/api/business/create',
     // Add other public routes here
   ];
 
@@ -113,7 +138,7 @@ async function bootstrap() {
   });
 
   const port = process.env.PORT || 8080;
-  
+
   await app.listen(port, '0.0.0.0');
   console.log(`Server running on http://localhost:${port}`);
   console.log(`Swagger Docs available at http://localhost:${port}/api/docs`);

@@ -1,78 +1,66 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsEmail,
-  IsNotEmpty,
-  IsNumber,
-  IsOptional,
-  IsString,
-  IsUUID,
-} from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsUUID, IsEmail } from 'class-validator';
 
-export class CustomerCreateGiftCardDto {
+export class PurchaseBusinessGiftCardDto {
   @ApiProperty({
-    description: 'Full name of the gift card recipient',
+    description: 'ID of the business gift card to purchase',
+    example: 'e1c9ad5f-0b46-4e3e-9bd3-93a2d57d987b',
+  })
+  @IsUUID()
+  @IsNotEmpty()
+  businessGiftCardId: string;
+
+  @ApiProperty({
+    description: 'User card ID used to make the purchase',
+    example: 'b5a4b2a0-1a9c-4c2f-b3a4-73a1b5ad5f87',
+  })
+  @IsUUID()
+  @IsOptional()
+  cardId: string;
+
+  @ApiProperty({
+    description: 'Name of the gift card recipient',
     example: 'John Doe',
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
   recipientName: string;
 
   @ApiProperty({
-    description: 'Email address of the recipient (must belong to an existing user)',
+    description: 'Email of the gift card recipient',
     example: 'john@example.com',
   })
+  @IsOptional()
   @IsEmail()
   recipientEmail: string;
 
-  @ApiProperty({
-    description: 'Full name of the sender (the person purchasing the gift card)',
-    example: 'Mary Johnson',
-  })
-  @IsNotEmpty()
-  @IsString()
-  senderName: string;
-
   @ApiPropertyOptional({
-    description: 'Optional personalized message to include with the gift card',
-    example: 'Happy Birthday! Enjoy your special day 🎉',
+    description: 'Optional personalized message for the recipient',
+    example: 'Happy Birthday 🎉',
   })
   @IsOptional()
   @IsString()
-  personalMessage?: string;
+  message?: string;
 
-  @ApiProperty({
-    description: 'The monetary value of the gift card in USD (or selected currency)',
-    example: 50,
+  @ApiPropertyOptional({
+    description: 'Card owner fullname from the user body ',
+    example: 'John Don',
   })
-  @IsNotEmpty()
-  @IsNumber()
-  amount: number;
-
-  @ApiProperty({
-    description: 'The ID of the payment method (Card entity UUID)',
-    example: 'b5a4b2a0-1a9c-4c2f-b3a4-73a1b5ad5f87',
-  })
-  @IsUUID()
-  @IsNotEmpty()
-  cardId: string;
+  @IsOptional()
+  @IsString()
+  fullName?: string;
 }
 
 export class RedeemGiftCardDto {
-  @ApiProperty({
-    description: 'Unique gift card code to redeem',
-    example: '3F1A9BC2D7',
-  })
-  @IsNotEmpty()
+  @ApiProperty({ example: '8G3X92DKQ1' })
   @IsString()
+  @IsNotEmpty()
   code: string;
 }
 
 export class ValidateGiftCardDto {
-  @ApiProperty({
-    description: 'Unique gift card code to validate',
-    example: '3F1A9BC2D7',
-  })
-  @IsNotEmpty()
+  @ApiProperty({ example: '8G3X92DKQ1' })
   @IsString()
+  @IsNotEmpty()
   code: string;
 }

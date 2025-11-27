@@ -22,7 +22,6 @@ import { VerifyResetTokenDto } from '../dtos/requests/VerifyResetTokenDto';
 import { RequestPhoneOtpDto } from '../dtos/requests/RequestPhoneOtpDto';
 import { VerifyPhoneOtpDto } from '../dtos/requests/VerifyPhoneOtpDto';
 
-
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
@@ -40,7 +39,6 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly passwordUtil: PasswordUtil,
     private readonly otpService: OtpService,
-
   ) {}
 
   async register(createUserDto: CreateUserDto): Promise<TokenPair> {
@@ -59,7 +57,6 @@ export class AuthService {
         );
       }
       verifiedEmail = payload.email;
-
     } catch (e) {
       throw new UnauthorizedException(
         `Invalid or expired verification token. ${e}`,
@@ -136,6 +133,10 @@ export class AuthService {
       select: ['id', 'email', 'password', 'isVerified'],
     });
 
+    if (!user) {
+      throw new UnauthorizedException('No user');
+    }
+
     if (!user || !user.password) {
       throw new UnauthorizedException('Invalid credentials.');
     }
@@ -146,8 +147,8 @@ export class AuthService {
       );
     }
 
-    if(user.isSuspended){
-      throw new UnauthorizedException("user has been suspended")
+    if (user.isSuspended) {
+      throw new UnauthorizedException('user has been suspended');
     }
 
     const passwordMatch = await this.passwordUtil.comparePassword(
@@ -157,7 +158,6 @@ export class AuthService {
     if (!passwordMatch) {
       throw new UnauthorizedException('Invalid credentials.');
     }
-
 
     return this.getTokens(user.id, user.email);
   }
@@ -171,15 +171,18 @@ export class AuthService {
       ...rest,
       password: hashedPassword,
       isVerified: true,
-      suspensionHistory: ".",
-      isSuspended: false
+      suspensionHistory: '.',
+      isSuspended: false,
     });
 
     // @ts-ignore
     return this.userRepo.save(newUser);
   }
 
-  private async checkExistingUser(email: string, phoneNumber: string): Promise<void> {
+  private async checkExistingUser(
+    email: string,
+    phoneNumber: string,
+  ): Promise<void> {
     const existingUser = await this.userRepo.findOne({
       where: [{ email }, { phoneNumber }],
     });
@@ -325,7 +328,6 @@ export class AuthService {
     };
   }
 
-
   async requestPhoneOtp(requestPhoneOtpDto: RequestPhoneOtpDto) {
     const { phone } = requestPhoneOtpDto;
 
@@ -341,7 +343,10 @@ export class AuthService {
   async verifyPhoneNumber(verifyPhoneOtpDto: VerifyPhoneOtpDto) {
     const { phoneNumber, otp } = verifyPhoneOtpDto;
 
-    const isValid = await this.otpService.verifyPhoneOtpService(phoneNumber, otp);
+    const isValid = await this.otpService.verifyPhoneOtpService(
+      phoneNumber,
+      otp,
+    );
     if (!isValid) {
       throw new BadRequestException('Invalid or expired OTP.');
     }
@@ -359,8 +364,7 @@ export class AuthService {
     };
   }
 
-
-async findOneById(id: string): Promise<User | null> {
+  async findOneById(id: string): Promise<User | null> {
     return this.userRepo.findOne({ where: { id } });
   }
 

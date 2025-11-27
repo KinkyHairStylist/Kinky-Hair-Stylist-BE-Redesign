@@ -23,7 +23,11 @@ export class GiftCard {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => User, { eager: true })
+  @ManyToOne(() => User, {
+    eager: true,
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   sender: User;
 
   @Column()
@@ -40,6 +44,12 @@ export class GiftCard {
 
   @Column('decimal', { precision: 10, scale: 2 })
   amount: number;
+
+  @Column({ type: 'float', nullable: true })
+  currentBalance: number;
+
+  @Column({ type: 'date', nullable: true})
+  purchaseDate: string;
 
   @ManyToOne(() => Card, { eager: true })
   card: Card; // Selected payment method
@@ -60,12 +70,23 @@ export class GiftCard {
   @CreateDateColumn()
   createdAt: Date;
 
-   @Column({ unique: true })
+  @Column({ unique: true })
   code: string;
+
+  @Column({ nullable: true })
+  comment?: string;
 
   @BeforeInsert()
   generateDefaults() {
     // Generate a 10-character random alphanumeric code
     this.code = randomBytes(5).toString('hex').toUpperCase();
+  }
+
+  @BeforeInsert()
+  setCurrentBalance() {
+    // If currentBalance is not set, use amount
+    if (this.currentBalance === null || this.currentBalance === undefined) {
+      this.currentBalance = Number(this.amount);
+    }
   }
 }

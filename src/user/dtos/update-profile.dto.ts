@@ -1,5 +1,5 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsEnum, IsPhoneNumber, IsDateString } from 'class-validator';
+import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
+import { IsOptional, IsString, IsEnum, IsPhoneNumber, IsDateString, MinLength } from 'class-validator';
 import { Gender } from 'src/business/types/constants';
 
 export class UpdateUserProfileDto {
@@ -30,5 +30,16 @@ export class UpdateUserProfileDto {
   @ApiPropertyOptional({ description: 'Date of birth of the user', example: '1990-01-01' })
   @IsOptional()
   @IsDateString()
-  dateOfBirth?: Date;
+  dateOfBirth?: string;
+}
+
+export class ChangePasswordDto {
+  @ApiProperty({ example: 'currentPassword123' })
+  @IsString()
+  currentPassword: string;
+
+  @ApiProperty({ example: 'newSecurePassword456' })
+  @IsString()
+  @MinLength(6, { message: 'New password must be at least 6 characters long' })
+  newPassword: string;
 }

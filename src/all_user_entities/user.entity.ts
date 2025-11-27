@@ -7,18 +7,20 @@ import {
   OneToOne,
   UpdateDateColumn,
 } from 'typeorm';
-
 import { Card } from './card.entity';
 import { GiftCard } from './gift-card.entity';
-import { Referral } from '../user/user_entities/referrals.entity'
+import { Referral } from '../user/user_entities/referrals.entity';
 import { Appointment } from 'src/business/entities/appointment.entity';
 import { RefreshToken } from 'src/business/entities/refresh.token.entity';
 import { Business } from 'src/business/entities/business.entity';
 import { Gender } from 'src/business/types/constants';
 import { Booking } from 'src/user/user_entities/booking.entity';
+import { Transaction } from 'src/business/entities/transaction.entity';
 import { UserPreferences } from 'src/user/user_entities/preferences.entity';
+import { UserNotificationSettings } from 'src/user/user_entities/user_notification_settings.entity';
+import { UserRole } from './user-role.entity';
 
-@Entity()
+@Entity({ name: 'user' })
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -28,6 +30,13 @@ export class User {
 
   @Column({ unique: true })
   email: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  addresses: {
+    id?: string;
+    type?: string;
+    fullAddress?: string;
+  }[];
 
   @Column({ type: 'varchar', nullable: true })
   password?: string;
@@ -41,13 +50,13 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   phoneNumber: string;
 
-  @Column({ type: 'enum', enum: Gender,  nullable: true })
+  @Column({ type: 'enum', enum: Gender, nullable: true })
   gender: Gender;
 
   @Column({ type: 'date', nullable: true })
   dateOfBirth: Date;
 
-  @Column({default:"."})
+  @Column({ default: '.' })
   suspensionHistory: string;
 
   @Column({ default: false })
@@ -56,7 +65,9 @@ export class User {
   @Column({ default: false })
   isVerified: boolean;
 
-  @OneToMany(() => Appointment, (appointment) => appointment.client,{nullable:true})
+  @OneToMany(() => Appointment, (appointment) => appointment.client, {
+    nullable: true,
+  })
   clientAppointments: Appointment[];
 
   @OneToMany(() => RefreshToken, (token) => token.user)
@@ -77,16 +88,16 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   resetCodeExpires: Date | null;
 
-  @Column({default: 0})
+  @Column({ default: 0 })
   booking: number;
 
-  @Column({default: 0})
-  spent: number
+  @Column({ default: 0 })
+  spent: number;
 
-  @Column({nullable:true,default:0})
+  @Column({ nullable: true, default: 0 })
   longitude: number;
 
-  @Column({nullable:true,default:0})
+  @Column({ nullable: true, default: 0 })
   latitude: number;
 
   @CreateDateColumn()
@@ -95,7 +106,7 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @Column({default: "just now"})
+  @Column({ default: 'just now' })
   activity: string;
 
   //  Relationship — one user can refer many others
@@ -121,10 +132,25 @@ export class User {
   @OneToMany(() => GiftCard, (giftCard) => giftCard.sender)
   giftCards: GiftCard[];
 
+  @OneToMany(() => Transaction, (t) => t.sender)
+  sentTransactions: Transaction[];
+
+  @OneToMany(() => Transaction, (t) => t.recipient)
+  receivedTransactions: Transaction[];
+
   @OneToOne(() => UserPreferences, (preferences) => preferences.user, {
     cascade: true,
     eager: true,
   })
   preferences: UserPreferences;
+
+  @OneToOne(() => UserNotificationSettings, (settings) => settings.user)
+  notificationSettings: UserNotificationSettings;
+
+  @OneToOne(() => UserRole, (role) => role.user, {
+    cascade: true,
+    eager: true,
+  })
+  role: UserRole;
 }
 
