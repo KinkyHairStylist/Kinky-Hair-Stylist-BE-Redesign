@@ -85,13 +85,13 @@ export class BusinessService {
       owner,
     });
 
-    owner.isBusiness = true;
+    owner.role.isBusiness = true;
     await this.userRepo.save(owner);
 
     business.ownerName = owner?.firstName + ' ' + owner?.surname || '';
     business.ownerEmail = owner?.email || '';
     business.ownerPhone = owner?.phoneNumber || '';
-    business.owner.isBusiness = owner?.isBusiness || false;
+    business.owner.role.isBusiness = owner?.role.isBusiness || false;
 
     await this.businessRepo.save(business);
 

@@ -1,8 +1,17 @@
-import {Body, Controller, Get, Param, Post, Req, Res} from '@nestjs/common';
+import {Body, Controller, Get, Param, Post, UseGuards, Res} from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+
+import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
+import { Roles } from 'src/middleware/roles.decorator';
+import { Role } from 'src/middleware/role.enum';
+import { RolesGuard } from 'src/middleware/roles.guard';
 import { AdminService } from '../services/admin.service';
 import {CreateMembershipPlanDto} from "../../business/dtos/requests/CreateMembershipDto";
 
-
+@ApiTags('Admin User Management')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Admin, Role.SuperAdmin)
 @Controller('admin')
 export class AdminController {
     constructor(private readonly adminService: AdminService) {}

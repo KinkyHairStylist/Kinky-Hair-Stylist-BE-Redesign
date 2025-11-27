@@ -18,6 +18,7 @@ import { Booking } from 'src/user/user_entities/booking.entity';
 import { Transaction } from 'src/business/entities/transaction.entity';
 import { UserPreferences } from 'src/user/user_entities/preferences.entity';
 import { UserNotificationSettings } from 'src/user/user_entities/user_notification_settings.entity';
+import { UserRole } from './user-role.entity';
 
 @Entity({ name: 'user' })
 export class User {
@@ -146,15 +147,9 @@ export class User {
   @OneToOne(() => UserNotificationSettings, (settings) => settings.user)
   notificationSettings: UserNotificationSettings;
 
-  @Column({ default: false })
-  isSuperAdmin: boolean;
-
-  @Column({ default: false })
-  isAdmin: boolean;
-
-  @Column({ default: false })
-  isBusiness: boolean;
-
-  @Column({ default: true })
-  isClient: boolean;
+  @OneToOne(() => UserRole, (role) => role.user, {
+    cascade: true,
+    eager: true,
+  })
+  role: UserRole;
 }
