@@ -127,6 +127,9 @@ export class Transaction {
   })
   method: PaymentMethod;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  reason: string;
+
   // --------------------------
   // Timestamps
   // --------------------------

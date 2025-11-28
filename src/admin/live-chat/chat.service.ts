@@ -5,6 +5,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ChatMessage } from 'src/all_user_entities/chat-message.entity';
 import { UserStatus } from 'src/all_user_entities/user-status.entity';
 import { User } from 'src/all_user_entities/user.entity';
+import { ChatMessageResponseDto, ChatUserInfoDto } from './send-message.dto';
+import { Appointment } from 'src/business/entities/appointment.entity';
+import { Business } from 'src/business/entities/business.entity';
 
 export interface ChatListItem {
   userId: string;
@@ -23,6 +26,12 @@ export class ChatService {
   constructor(
     @InjectRepository(ChatMessage)
     private chatRepo: Repository<ChatMessage>,
+
+    @InjectRepository(Appointment)
+    private appointmentRepo: Repository<Appointment>,
+
+    @InjectRepository(Business)
+    private businessRepo: Repository<Business>,
 
     @InjectRepository(UserStatus)
     private statusRepo: Repository<UserStatus>,
@@ -147,5 +156,97 @@ export class ChatService {
     return chatList.sort(
       (a, b) => b.timestamp.getTime() - a.timestamp.getTime(),
     );
+  }
+
+  private mapUserToChatProfile(
+    user: User,
+    bookingCount: number,
+    rating: number
+  ): ChatUserInfoDto {
+    const name = `${user.firstName ?? ''} ${user.surname ?? ''}`.trim() || 'Unknown';
+    const initials = name
+      .split(' ')
+      .map((n) => n.charAt(0).toUpperCase())
+      .join('')
+      .toLocaleUpperCase();
+
+    return {
+      name,
+      initials,
+      email: user.email,
+      avatarUrl: user.avatarUrl,
+      phone: user.phoneNumber,
+      location: user.addresses?.[0]?.fullAddress || 'Not provided' ,
+      joinDate: user.createdAt.toISOString(),
+      totalCountBookings: bookingCount,
+      rating,
+    };
+  }
+
+  async getChatMessageWithUserInfo(
+    authUserId: string, 
+    otherUserId: string
+  ): Promise<ChatMessageResponseDto[]> {
+    
+    // Fetch messages only between the two users
+    const messages = await this.chatRepo
+      .createQueryBuilder('msg')
+      .leftJoinAndSelect('msg.sender', 'sender')
+      .leftJoinAndSelect('msg.receiver', 'receiver')
+      .where(
+        '(sender.id = :authUserId AND receiver.id = :otherUserId) OR (sender.id = :otherUserId AND receiver.id = :authUserId)',
+        { authUserId, otherUserId }
+      )
+      .orderBy('msg.createdAt', 'ASC')
+      .getMany();
+
+    const userIds = [authUserId, otherUserId];
+
+    // Booking counts for both users
+    const bookingCounts = await this.appointmentRepo
+      .createQueryBuilder('a')
+      .select('a.client_id', 'clientId')
+      .addSelect('COUNT(a.id)', 'count')
+      .where('a.client_id IN (:...userIds)', { userIds })
+      .groupBy('a.client_id')
+      .getRawMany();
+
+    const bookingMap = bookingCounts.reduce((acc, row) => {
+      acc[row.clientId] = Number(row.count);
+      return acc;
+    }, {});
+
+    // Business ratings for both users
+    const businessRatings = await this.businessRepo
+      .createQueryBuilder('b')
+      .select('b.owner_id', 'ownerId')
+      .addSelect("AVG((b.performance->>'rating')::float)", 'rating')
+      .where('b.owner_id IN (:...userIds)', { userIds })
+      .groupBy('b.owner_id')
+      .getRawMany();
+
+    const ratingMap = businessRatings.reduce((acc, row) => {
+      acc[row.ownerId] = parseFloat(row.rating ?? 0);
+      return acc;
+    }, {});
+
+    // Map messages to DTO
+    return messages.map((msg) => ({
+      id: msg.id,
+      messages: msg.message,
+      imageUrl: msg.imageUrl,
+      read: msg.read,
+      createdAt: msg.createdAt.toISOString(),
+      sender: this.mapUserToChatProfile(
+        msg.sender,
+        bookingMap[msg.sender.id] || 0,
+        ratingMap[msg.sender.id] || 0
+      ),
+      receiver: this.mapUserToChatProfile(
+        msg.receiver,
+        bookingMap[msg.receiver.id] || 0,
+        ratingMap[msg.receiver.id] || 0
+      ),
+    }));
   }
 }
