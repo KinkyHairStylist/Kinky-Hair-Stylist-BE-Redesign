@@ -49,4 +49,12 @@ export class CreateBookingDto {
   @IsNumber()
   @IsNotEmpty()
   totalAmount: number;
+
+  @ApiProperty({
+    example: 'GIFT-12345',
+    description: 'The code of the gift card to be applied',
+    required: false,
+  })
+  @IsString()
+  giftCardCode?: string;
 }

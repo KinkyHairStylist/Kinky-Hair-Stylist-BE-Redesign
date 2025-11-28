@@ -3,23 +3,53 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Booking } from '../user_entities/booking.entity';
 import { PayPalService } from './paypal.service';
+import { GiftCard } from 'src/all_user_entities/gift-card.entity';
+import { GiftCardRedeemHelper } from 'src/helpers/gift-card-redeem.helper';
+import { User } from 'src/all_user_entities/user.entity';
 
 @Injectable()
 export class BookingService {
   constructor(
     @InjectRepository(Booking)
     private bookingRepository: Repository<Booking>,
+    @InjectRepository(GiftCard)
+    private giftCardRepository: Repository<GiftCard>,
     private paypalService: PayPalService,
   ) {}
 
   // Create Booking
-  async createBooking(createBookingDto: any): Promise<{ orderId: string }> {
-    const orderId = await this.paypalService.createOrder(createBookingDto.totalAmount);
+  async createBooking(createBookingDto: any, user: User): Promise<{ orderId?: string; booking?: Booking }> {
+    let totalAmount = createBookingDto.totalAmount;
+    let giftCard;
+
+    if (createBookingDto.giftCardCode) {
+      const redeemResult = await GiftCardRedeemHelper.redeemGiftCardByCode(
+        this.giftCardRepository,
+        { code: createBookingDto.giftCardCode },
+        user,
+      );
+      totalAmount -= redeemResult.amount;
+      giftCard = redeemResult;
+    }
+    
+    if (totalAmount <= 0) {
+      const savedBooking = await this.bookingRepository.save({
+        ...createBookingDto,
+        status: 'confirmed',
+        totalAmount: 0,
+        giftCard,
+      });
+      return { booking: savedBooking };
+    }
+
+    const orderId = await this.paypalService.createOrder(totalAmount);
 
     const booking = this.bookingRepository.create({
       ...createBookingDto,
       status: 'pending',
       paypalOrderId: orderId,
+      totalAmount,
+      giftCard,
     });
 
     await this.bookingRepository.save(booking);

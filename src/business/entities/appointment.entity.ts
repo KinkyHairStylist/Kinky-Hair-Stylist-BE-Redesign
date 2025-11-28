@@ -1,98 +1,129 @@
 import {
-    Entity,
-    PrimaryGeneratedColumn,
-    Column,
-    ManyToOne,
-    CreateDateColumn,
-    UpdateDateColumn,
-    JoinColumn,
-} from "typeorm";
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  CreateDateColumn,
+  UpdateDateColumn,
+  JoinColumn,
+  JoinTable,
+  ManyToMany,
+} from 'typeorm';
+
+import { Service } from './service.entity'
 import { User } from 'src/all_user_entities/user.entity';
-import { Business } from "./business.entity";
+import { Business } from './business.entity';
+import { Staff } from './staff.entity';
 
 export enum AppointmentStatus {
-    CONFIRMED = "Confirmed",
-    PENDING = "Pending",
-    CANCELLED = "Cancelled",
-    COMPLETED = "Completed",
+  CONFIRMED = 'Confirmed',
+  PENDING = 'Pending',
+  CANCELLED = 'Cancelled',
+  COMPLETED = 'Completed',
+  RESCHEDULED = 'Rescheduled',
 }
 
 export enum PaymentStatus {
-    PAID = "Paid",
-    UNPAID = "Unpaid",
+  PAID = 'Paid',
+  UNPAID = 'Unpaid',
 }
 
-@Entity("appointments")
+@Entity('appointments')
 export class Appointment {
-    @PrimaryGeneratedColumn("uuid")
-    id: string;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-    // Client (User)
-    @ManyToOne(() => User, (user) => user.clientAppointments, {
-        eager: true,
-        onDelete: "CASCADE",
-    })
-    @JoinColumn({ name: "client_id" })
-    client: User;
+  // Client (User)
+  @ManyToOne(() => User, (user) => user.clientAppointments, {
+    eager: true,
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'client_id' })
+  client: User;
 
-    // Business
-    @ManyToOne(() => Business, (business) => business.appointments, {
-        eager: true,
-        onDelete: "CASCADE",
-    })
-    @JoinColumn({ name: "business_id" })
-    business: Business;
+  @ManyToMany(() => Staff, { eager: true })
+  @JoinTable({
+    name: 'appointment_staff',
+    joinColumn: { name: 'appointment_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'staff_id', referencedColumnName: 'id' },
+  })
+  staff: Staff[];
 
-    // Appointment details
-    @Column()
-    serviceName: string;
+  // Business
+  @ManyToOne(() => Business, (business) => business.appointments, {
+    eager: true,
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'business_id' })
+  business: Business;
 
-    @Column()
-    date: string; // e.g. "2024-01-15"
+  // Appointment details
+  @Column({ type: 'varchar', nullable: true })
+  googleEventId: string;
 
-    @Column()
-    time: string; // e.g. "2:00 PM"
+  @Column()
+  serviceName: string;
 
-    @Column()
-    duration: string; // e.g. "4:00 PM (120 min)"
+  @Column()
+  date: string; // e.g. "2024-01-15"
 
-    @Column({
-        type: "enum",
-        enum: AppointmentStatus,
-        default: AppointmentStatus.PENDING,
-    })
-    status: AppointmentStatus;
+  @Column()
+  time: string; // e.g. "2:00 PM"
 
-    // 💰 Payment details
-    @Column({ type: "float", default: 0 })
-    amount: number;
+  @Column()
+  duration: string; // e.g. "4:00 PM (120 min)"
 
-    @Column({
-        type: "enum",
-        enum: PaymentStatus,
-        default: PaymentStatus.UNPAID,
-    })
-    paymentStatus: PaymentStatus;
+  @Column({
+    type: 'enum',
+    enum: AppointmentStatus,
+    default: AppointmentStatus.PENDING,
+  })
+  status: AppointmentStatus;
 
-    // ✍️ Optional Notes
-    @Column({ type: "text", nullable: true })
-    specialRequests?: string;
+  // Payment details
+  @Column({ type: 'float', default: 0 })
+  amount: number;
 
-    // 🕓 Appointment timeline
-    @Column({
-        type: "jsonb",
-        nullable: true,
-        default: () => `'[]'`,
-    })
-    timeline: {
-        actor: string;
-        action: string;
-        timestamp: string;
-    }[];
+  @Column({
+    type: 'enum',
+    enum: PaymentStatus,
+    default: PaymentStatus.UNPAID,
+  })
+  paymentStatus: PaymentStatus;
 
-    @CreateDateColumn()
-    createdAt: Date;
+  // Optional Notes
+  @Column({ type: 'text', nullable: true })
+  specialRequests?: string;
 
-    @UpdateDateColumn()
-    updatedAt: Date;
+  // Appointment timeline
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+    default: () => `'[]'`,
+  })
+  timeline: {
+    actor: string;
+    action: string;
+    timestamp: string;
+  }[];
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  @Column({ type: 'varchar', nullable: true })
+  zohoInvoiceId?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  zohoCustomerId?: string;
+  
+  @ManyToOne(() => Service, (service) => service.appointments, {
+    nullable: true,
+    eager: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'service_id' })
+  service?: Service;
 }
