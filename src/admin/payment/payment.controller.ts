@@ -51,6 +51,12 @@ export class PaymentController {
    *   "message": "Redirect user to approval URL"
    * }
    */
+
+  @Get('payment-methods')
+  async paymentMethods() {
+    return this.paymentService.getPaymentMethodStats();
+  }
+
   @Post('create')
   async createPayment(
     @Body()

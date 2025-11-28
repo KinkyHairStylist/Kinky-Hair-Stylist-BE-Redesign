@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query, UseGuards, Param } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
@@ -9,13 +9,13 @@ import { ChatGateway } from './chat.gateway';
 import { CloudinaryService } from 'src/helpers/cloudinary-massage-image-helper';
 import { User } from 'src/all_user_entities/user.entity';
 import { RolesGuard } from 'src/middleware/roles.guard';
-import { SendMessageDto } from './send-message.dto';
+import { ChatMessageResponseDto, SendMessageDto } from './send-message.dto';
 import { GetUser } from 'src/middleware/get-user.decorator';
 
 @ApiTags('Admin and Client Chat')
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Admin, Role.SuperAdmin, Role.Client)
+@Roles(Role.Admin, Role.SuperAdmin, Role.Client, Role.Business)
 @Controller('users/chat')
 export class ChatController {
   constructor(
@@ -58,5 +58,14 @@ export class ChatController {
   @Get('list')
   async getChatList(@GetUser() user: User) {
     return this.chatService.getChatList(user.id);
+  }
+
+  // GET /chat/messages/:otherUserId
+  @Get('messages/:otherUserId')
+  async getMessagesBetweenUsers(
+    @GetUser() user: User,           // Authenticated user
+    @Param('otherUserId') otherUserId: string  // Second user passed via URL
+  ): Promise<ChatMessageResponseDto[]> {
+    return this.chatService.getChatMessageWithUserInfo(user.id, otherUserId);
   }
 }

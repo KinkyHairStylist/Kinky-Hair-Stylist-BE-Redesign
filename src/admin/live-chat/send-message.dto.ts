@@ -26,3 +26,25 @@ export class SendMessageDto {
   @IsString()
   imageBase64?: string;
 }
+
+export class ChatUserInfoDto {
+  name: string;
+  avatarUrl?: string;
+  initials: string;
+  email: string;
+  phone: string;
+  location: string;
+  joinDate: string;
+  totalCountBookings: number;
+  rating: number;
+}
+
+export class ChatMessageResponseDto {
+  id: string;
+  message?: string;
+  imageUrl?: string;
+  read: boolean;
+  createdAt: string;
+  sender: ChatUserInfoDto;
+  receiver: ChatUserInfoDto;
+}

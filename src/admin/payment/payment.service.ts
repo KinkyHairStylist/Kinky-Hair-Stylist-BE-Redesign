@@ -21,6 +21,7 @@ import { BusinessWalletService } from 'src/business/services/wallet.service';
 import {
   PaymentMethod,
   Transaction,
+  TransactionStatus,
   TransactionType,
 } from 'src/business/entities/transaction.entity';
 import { WalletCurrency } from './enums/wallet.enum';
@@ -566,32 +567,33 @@ export class PaymentService {
   async refund(dto: RefundPaymentDto) {
     const { transactionId, amount, refundType, reason } = dto;
 
-    const payment = await this.paymentRepo.findOne({
+    const payment = await this.transactionRepo.findOne({
       where: { id: transactionId },
     });
+
     if (!payment) throw new NotFoundException('Payment not found');
 
-    if (payment.method !== 'paypal') {
-      throw new BadRequestException(
-        'Refunds are only supported for PayPal payments.',
-      );
-    }
+    // if (payment.method !== 'paypal') {
+    //   throw new BadRequestException(
+    //     'Refunds are only supported for PayPal payments.',
+    //   );
+    // }
 
-    await axios.post(
-      `${process.env.PAYPAL_SANDBOX_URL}/v1/payments/sale/${payment.gatewayTransactionId}/refund`,
-      { amount: { total: amount.toFixed(2), currency: 'USD' } },
-      {
-        auth: {
-          username: process.env.PAYPAL_CLIENT_ID!,
-          password: process.env.PAYPAL_SECRET_KEY!,
-        },
-      },
-    );
+    // await axios.post(
+    //   `${process.env.PAYPAL_SANDBOX_URL}/v1/payments/sale/${payment.gatewayTransactionId}/refund`,
+    //   { amount: { total: amount.toFixed(2), currency: 'USD' } },
+    //   {
+    //     auth: {
+    //       username: process.env.PAYPAL_CLIENT_ID!,
+    //       password: process.env.PAYPAL_SECRET_KEY!,
+    //     },
+    //   },
+    // );
 
-    payment.status = 'refunded';
-    payment.refundType = refundType;
-    payment.reason = reason;
-    await this.paymentRepo.save(payment);
+    payment.type = TransactionType.REFUND;
+    payment.status = TransactionStatus.COMPLETED
+    payment.reason = reason ?? "No reason provided";
+    await this.transactionRepo.save(payment);
 
     return { message: 'Refund successful', payment };
   }
@@ -646,5 +648,36 @@ export class PaymentService {
         throw new InternalServerErrorException('PayPal authentication failed');
       }
     }
+  }
+
+  async getPaymentMethodStats() {
+    // Fetch all completed transactions grouped by method
+    const raw = await this.transactionRepo
+      .createQueryBuilder('t')
+      .select('t.method', 'method')
+      .addSelect('COUNT(*)', 'count')
+      .addSelect('SUM(t.amount)', 'totalAmount')
+      .where('t.status = :status', { status: 'completed' })
+      .groupBy('t.method')
+      .getRawMany();
+
+    // Build default response for all methods (including those with 0)
+    const methods = Object.values(PaymentMethod);
+
+    const totalAmount = raw.reduce((sum, r) => sum + Number(r.totalAmount || 0), 0);
+
+    return methods.map((method) => {
+      const record = raw.find((r) => r.method === method);
+
+      const amount = record ? Number(record.totalAmount) : 0;
+      const count = record ? Number(record.count) : 0;
+
+      return {
+        method,
+        amount,
+        count,
+        percentage: totalAmount === 0 ? 0 : Number(((amount / totalAmount) * 100).toFixed(2)),
+      };
+    });
   }
 }
