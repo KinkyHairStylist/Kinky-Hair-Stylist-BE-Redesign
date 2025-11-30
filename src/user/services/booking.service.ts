@@ -8,6 +8,7 @@ import { Staff } from 'src/business/entities/staff.entity';
 import { Transaction, TransactionType, PaymentMethod, TransactionStatus as TxnStatus } from 'src/business/entities/transaction.entity';
 import { WalletCurrency } from 'src/admin/payment/enums/wallet.enum';
 // import { PayPalService } from './paypal.service';
+import { PlatformSettingsService } from 'src/admin/platform-settings/platform-settings.service';
 
 import { GiftCard, GiftCardStatus } from 'src/all_user_entities/gift-card.entity';
 import { User } from 'src/all_user_entities/user.entity';
@@ -27,6 +28,7 @@ export class BookingService {
     private transactionRepository: Repository<Transaction>,
     @InjectRepository(GiftCard)
     private giftCardRepository: Repository<GiftCard>,
+    private platformSettingsService: PlatformSettingsService,
   ) {}
 
   // Create Booking
@@ -92,6 +94,10 @@ export class BookingService {
 
     if (appointments.length === 0) {
       throw new NotFoundException('No appointments found for this order ID');
+    }
+
+    if (appointments.some(appointment => appointment.status === AppointmentStatus.CONFIRMED)) {
+      throw new BadRequestException('Booking is already confirmed');
     }
 
     const totalAmount = appointments.reduce((sum, appt) => sum + appt.amount, 0);
@@ -176,6 +182,25 @@ export class BookingService {
       remainingAmount = 0;
     }
 
+    // Calculate and create platform fee transaction
+    const platformSettings = await this.platformSettingsService.getPayments();
+    const platformFee = totalAmount * (platformSettings.platformFee / 100);
+
+    if (platformFee > 0) {
+      const feeTransaction = this.transactionRepository.create({
+        senderId: user.id,
+        sender: user,
+        amount: platformFee,
+        currency: WalletCurrency.USD,
+        type: TransactionType.FEE,
+        description: `Platform fee for appointment order ${orderId}`,
+        method: PaymentMethod.PAYSTACK, // Platform fee method
+        status: TxnStatus.COMPLETED,
+        referenceId: orderId,
+      });
+      transactions.push(feeTransaction);
+    }
+
     // Save transactions
     if (transactions.length > 0) {
       await this.transactionRepository.save(transactions);
@@ -204,7 +229,7 @@ export class BookingService {
   async getBookingById(orderId: string): Promise<Appointment> {
     const appointment = await this.bookingRepository.findOne({
       where: { orderId },
-      relations: ['business', 'service', 'staff', 'client'],
+      relations: ['business', 'service'],
     });
     if (!appointment) {
       throw new NotFoundException('Appointment not found');
