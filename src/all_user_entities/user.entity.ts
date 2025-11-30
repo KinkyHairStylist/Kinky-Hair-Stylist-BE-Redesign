@@ -157,3 +157,7 @@ export class User {
   role: UserRole;
 }
 
+//TODO: send user and user role schema for reference
+//TODO: create user and set role
+//TODO: modify all endpoints to check business via staff and ownerMail
+//TODO: let access

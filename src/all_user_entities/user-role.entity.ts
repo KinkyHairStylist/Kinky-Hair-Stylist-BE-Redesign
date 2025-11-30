@@ -18,9 +18,16 @@ export class UserRole {
   @Column({ default: true })
   isClient: boolean;
 
-  // NEW FIELD
   @Column({ default: false })
   isStaff: boolean;
+
+  @Column({ default: false })
+  isManager: boolean;
+
+  @Column({ default: false })
+  isBusinessAdmin: boolean;
+
+
 
   @OneToOne(() => User, (user) => user.role)
   user: User;
