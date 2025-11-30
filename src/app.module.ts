@@ -16,7 +16,6 @@ import { BookingModule } from './user/modules/booking.module';
 
 import { AppService } from './app.service';
 import { AppController } from './app.controller';
-import { SeedsModule } from './user/seeds/seed.module';
 import { typeOrmConfig as testTypeOrmConfig } from './config/database.test';
 import { typeOrmConfig } from './config/database';
 import { AuthMiddleware } from './middleware/anth.middleware';
@@ -83,7 +82,6 @@ import { ZohoBooksModule } from './integration/zohobooks.module';
     WebhookModule,
     UserModule,
     SalonModule,
-    SeedsModule,
     BookingModule,
     ReferralModule,
     MembershipModule,

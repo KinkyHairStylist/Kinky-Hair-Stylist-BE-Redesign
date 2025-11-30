@@ -41,6 +41,9 @@ export class Appointment {
   @JoinColumn({ name: 'client_id' })
   client: User;
 
+  @Column({ type: 'varchar', unique: true })
+  orderId: string;
+
   @ManyToMany(() => Staff, { eager: true })
   @JoinTable({
     name: 'appointment_staff',

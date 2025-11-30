@@ -8,14 +8,18 @@ import {
   ClassSerializerInterceptor,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
-import { ApiBearerAuth } from '@nestjs/swagger';
 
+import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
+import { Role } from 'src/middleware/role.enum';
+import { RolesGuard } from 'src/middleware/roles.guard';
+import { Roles } from 'src/middleware/roles.decorator';
 import { SalonService } from '../services/salon.service';
-import { Salon } from '../user_entities/salon.entity';
 import { CacheInterceptor } from '../../cache/cache.interceptor';
 
 @ApiTags('Salons')
 @Controller('salons')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Client)
 @UseInterceptors(ClassSerializerInterceptor)
 export class SalonController {
   constructor(private readonly salonService: SalonService) {}
@@ -92,5 +96,12 @@ export class SalonController {
     @Param('id') id: string
   ) {
     return this.salonService.getBusinessById(id);
+  }
+
+  @Get('services/:businessId')
+  @ApiOperation({ summary: 'Get all services for a business by business ID' })
+  @ApiResponse({ status: 200, description: 'Return list of services' })
+  async getServicesByBusinessId(@Param('businessId') businessId: string) {
+    return this.salonService.getServicesByBusinessId(businessId);
   }
 }

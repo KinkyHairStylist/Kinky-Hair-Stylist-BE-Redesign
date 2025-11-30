@@ -30,6 +30,7 @@ export enum PaymentMethod {
   PAYSTACK = 'Paystack',
   PAYPAL = 'PayPal',
   GIFTCARD = 'GiftCard',
+  CASH = 'Cash',
 }
 
 export enum TransactionStatus {
@@ -131,6 +132,9 @@ export class Transaction {
     nullable: true,
   })
   method: PaymentMethod;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  reason: string;
 
   // --------------------------
   // Timestamps
