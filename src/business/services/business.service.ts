@@ -195,11 +195,14 @@ export class BusinessService {
       }
     }
 
+    const orderId = `BKID-${Math.floor(1000000 + Math.random() * 9000000)}`;
+
     const appointment = this.appointmentRepo.create({
       client,
       business,
       staff,
       serviceName: dto.serviceName,
+      orderId,
       date: dto.date,
       time: dto.time,
       duration: dto.duration,

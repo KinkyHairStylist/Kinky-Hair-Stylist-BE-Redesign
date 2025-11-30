@@ -30,6 +30,7 @@ export enum PaymentMethod {
   PAYSTACK = 'Paystack',
   PAYPAL = 'PayPal',
   GIFTCARD = 'GiftCard',
+  CASH = 'Cash',
 }
 
 export enum TransactionStatus {

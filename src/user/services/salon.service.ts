@@ -140,4 +140,11 @@ export class SalonService {
     return business;
   }
 
+  async getServicesByBusinessId(businessId: string) {
+    return this.serviceRepo.find({
+      where: { business: { id: businessId } },
+      relations: ['business', 'assignedStaff', 'advertisementPlan'],
+    });
+  }
+
 }
