@@ -1,20 +1,26 @@
 import { Controller, Post, Body, Get, Param, Patch, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+
+import { Role } from 'src/middleware/role.enum';
+import { RolesGuard } from 'src/middleware/roles.guard';
+import { Roles } from 'src/middleware/roles.decorator';
 import { BookingService } from '../services/booking.service';
 import { CreateBookingDto } from '../dtos/create-booking.dto';
+import { ConfirmBookingDto } from '../dtos/confirm-booking.dto';
 import { GetUser } from 'src/middleware/get-user.decorator';
 import { User } from 'src/all_user_entities/user.entity';
 import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
 
 @ApiTags('Bookings')
 @ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Client)
 @Controller('/bookings')
 export class BookingController {
   constructor(private bookingService: BookingService) {}
 
   // Create a new booking
   @Post('create')
-  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Create a new booking' })
   @ApiResponse({ status: 201, description: 'The booking has been successfully created.' })
   @ApiBody({ type: CreateBookingDto })
@@ -24,17 +30,10 @@ export class BookingController {
 
   // Confirm a booking
   @Post('confirm')
-  @ApiOperation({ summary: 'Confirm a booking' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        orderId: { type: 'string', example: '12345' },
-      },
-    },
-  })
-  async confirmBooking(@Body('orderId') orderId: string) {
-    return this.bookingService.confirmBooking(orderId);
+  @ApiOperation({ summary: 'Confirm a booking with payment options' })
+  @ApiBody({ type: ConfirmBookingDto })
+  async confirmBooking(@Body() confirmBookingDto: ConfirmBookingDto, @GetUser() user: User) {
+    return this.bookingService.confirmBooking(confirmBookingDto, user);
   }
 
   // Get user bookings
@@ -45,21 +44,21 @@ export class BookingController {
   }
 
   // Get single booking details
-  @Get(':id')
+  @Get(':orderId')
   @ApiOperation({ summary: 'Get single booking details by ID' })
-  async getBookingById(@Param('id') id: number) {
-    return this.bookingService.getBookingById(id);
+  async getBookingById(@Param('orderId') orderId: string) {
+    return this.bookingService.getBookingById(orderId);
   }
 
   // Cancel booking
-  @Patch(':id/cancel')
+  @Patch(':orderId/cancel')
   @ApiOperation({ summary: 'Cancel a booking' })
-  async cancelBooking(@Param('id') id: number) {
-    return this.bookingService.cancelBooking(id);
+  async cancelBooking(@Param('orderId') orderId: string) {
+    return this.bookingService.cancelBooking(orderId);
   }
 
   //  Reschedule booking
-  @Patch(':id/reschedule')
+  @Patch(':orderId/reschedule')
   @ApiOperation({ summary: 'Reschedule a booking' })
   @ApiBody({
     schema: {
@@ -71,11 +70,11 @@ export class BookingController {
     },
   })
   async rescheduleBooking(
-    @Param('id') id: number,
+    @Param('orderId') orderId: string,
     @Body('newDate') newDate: string,
     @Body('newTime') newTime: string,
   ) {
-    return this.bookingService.rescheduleBooking(id, new Date(newDate), newTime);
+    return this.bookingService.rescheduleBooking(orderId, new Date(newDate), newTime);
   }
 
   // (Existing) Get salon time slots (static example)
