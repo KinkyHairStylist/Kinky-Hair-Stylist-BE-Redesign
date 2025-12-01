@@ -429,25 +429,75 @@ export class BusinessService {
       newUser.role = userRole
       await this.userRepo.save(newUser);
 
-      // Send login credentials
+
       await this.emailService.sendEmail(
           staffEmail,
           `Welcome to ${business.businessName} – Your Login Details`,
           `
-        Hi ${firstName || 'there'},
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Welcome to ${business.businessName}</title>
+  <style>
+    body { margin: 0; padding: 0; background-color: #f9fafb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .container { max-width: 600px; margin: 30px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #e5e7eb; }
+    .header { background: #ED3131; padding: 32px 40px; text-align: center; color: white; }
+    .header h1 { margin: 0; font-size: 28px; font-weight: 700; }
+    .header p { margin: 8px 0 0; font-size: 16px; opacity: 0.95; }
+    .body { padding: 40px; color: #1f2937; }
+    .greeting { font-size: 18px; margin-bottom: 20px; }
+    .highlight-box { background: #FEF2F2; border-left: 4px solid #ED3131; padding: 20px; border-radius: 0 8px 8px 0; margin: 28px 0; font-size: 15px; }
+    .highlight-box strong { color: #B91C1C; }
+    .login-btn { display: block; width: fit-content; margin: 32px auto; padding: 14px 32px; background: #ED3131; color: white; font-weight: 600; font-size: 16px; text-decoration: none; border-radius: 9999px; box-shadow: 0 4px 12px rgba(237,49,49,0.3); transition: all 0.2s; }
+    .login-btn:hover { background: #c62828; transform: translateY(-1px); }
+    .footer { background: #f3f4f6; padding: 24px; text-align: center; color: #6b7280; font-size: 13px; }
+    .footer a { color: #ED3131; text-decoration: none; }
+    ul { padding-left: 20px; margin: 16px 0; }
+    li { margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Welcome to ${business.businessName}</h1>
+      <p>You've been added to the team!</p>
+    </div>
 
-        You've been added as staff at <strong>${business.businessName}</strong>.
+    <div class="body">
+      <p class="greeting">Hi ${firstName || 'there'},</p>
 
-        Login with:
-        • Email: ${staffEmail}
-        • Password: ${tempPassword}
+      <p>Great news! You've been added as a staff member at <strong>${business.businessName}</strong>.</p>
 
-        Login here: ${process.env.FRONTEND_URL}
+      <div class="highlight-box">
+        <p><strong>Your login details:</strong></p>
+        <ul>
+          <li><strong>Email:</strong> ${staffEmail}</li>
+          <li><strong>Temporary Password:</strong> ${tempPassword}</li>
+        </ul>
+      </div>
 
-        Please change your password after logging in.
+      <p>
+        <a href="${process.env.FRONTEND_URL}/prospect/auth/login/email-login-modal" class="login-btn">
+          Log In Now
+        </a>
+      </p>
 
-        Welcome to the team!
-      `
+      <p>For security, please <strong>change your password</strong> immediately after logging in.</p>
+
+      <p>Welcome to the team — we're excited to have you!</p>
+    </div>
+
+    <div class="footer">
+      <p>This is an automated message from <strong>${business.businessName}</strong>.<br>
+      If you weren’t expecting this email, please contact your manager.</p>
+      <p><a href="${process.env.FRONTEND_URL}">${process.env.FRONTEND_URL}</a></p>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim()
       );
     } else {
       // User exists → just make sure they are staff
@@ -493,11 +543,6 @@ export class BusinessService {
     }
 
     // Original welcome email (you can keep or remove — we already sent credentials)
-    await this.emailService.sendEmail(
-        staffEmail,
-        `You have been added to ${business.businessName}`,
-        `Hello ${firstName},\n\nYou have been added as a staff member at ${business.businessName}.`
-    );
 
     return staff;
   }

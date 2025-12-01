@@ -412,6 +412,9 @@ export class AuthService {
     });
 
     if(!staff && !role.isBusiness){throw new BadRequestException('Invalid user');}
+
+    if(role.isBusiness) return {accessToken,refreshToken,role:role}
+
     if(!staff?.settings){throw new BadRequestException('Invalid user');}
 
     return { accessToken, refreshToken, role:role, settings:staff.settings };
