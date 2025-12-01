@@ -38,7 +38,7 @@ export class BusinessController {
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Business, Role.SuperAdmin)
+  @Roles(Role.Business, Role.SuperAdmin,Role.Staff)
   @Post('getBookings')
   async getBookings(@Req() req: RequestWithUser) {
     const user = req.user.id;
@@ -47,7 +47,7 @@ export class BusinessController {
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Business, Role.SuperAdmin)
+  @Roles(Role.Business, Role.SuperAdmin,Role.Staff)
   @Post('deactivateStaff/:id')
   async deactivateStaff(@Param('id') id: string) {
     return this.businessService.deactivateStaff(id);
@@ -55,7 +55,7 @@ export class BusinessController {
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Business, Role.SuperAdmin)
+  @Roles(Role.Business, Role.SuperAdmin,Role.Staff)
   @Post('completeBooking/:id')
   async completeBooking(@Param('id') id: string) {
     return this.businessService.completeBooking(id);
@@ -63,7 +63,7 @@ export class BusinessController {
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Business, Role.SuperAdmin)
+  @Roles(Role.Business, Role.SuperAdmin,Role.Staff)
   @Post('getRescheduledBookings')
   async getRescheduledBookings(@Req() req: RequestWithUser) {
     const user = req.user.id;
@@ -72,7 +72,7 @@ export class BusinessController {
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Business, Role.SuperAdmin)
+  @Roles(Role.Business, Role.SuperAdmin,Role.Staff)
   @Get('available-slots')
   async getAvailableSlots(
     @Req() req: RequestWithUser,
@@ -89,7 +89,7 @@ export class BusinessController {
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Business, Role.SuperAdmin)
+  @Roles(Role.Business, Role.SuperAdmin,Role.Staff)
   @Post('rescheduleBooking')
   async rescheduleBooking(
     @Body() body: { id: string; reason: string; date: string; time: string },
@@ -99,7 +99,7 @@ export class BusinessController {
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Business, Role.SuperAdmin)
+  @Roles(Role.Business, Role.SuperAdmin,Role.Staff)
   @Post('blockTime')
   async createBlockedTime(
     @Body() body: CreateBlockedTimeDto,
@@ -111,7 +111,7 @@ export class BusinessController {
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Business, Role.SuperAdmin)
+  @Roles(Role.Business, Role.SuperAdmin,Role.Staff)
   @Post('editBlockTime/:id')
   async editBlockedTime(
     @Param('id') id: string,
@@ -124,7 +124,7 @@ export class BusinessController {
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Business, Role.SuperAdmin)
+  @Roles(Role.Business, Role.SuperAdmin,Role.Staff)
   @Get('getAdvertisementPlans')
   async getAdvertisementPlans() {
     return this.businessService.getAdvertisementPlans();
@@ -132,7 +132,7 @@ export class BusinessController {
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Business, Role.SuperAdmin)
+  @Roles(Role.Business, Role.SuperAdmin,Role.Staff)
   @Get('getTeamMembers')
   async getTeamMembers(@Req() req: RequestWithUser) {
     const userMail = req.user.email;
@@ -141,17 +141,16 @@ export class BusinessController {
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Business, Role.SuperAdmin)
+  @Roles(Role.Business, Role.SuperAdmin,Role.Staff)
   @Get('getServices')
   async getBusinessServices(@Req() req: RequestWithUser) {
     const userMail = req.user.email;
-    console.log(await this.businessService.getBusinessServices(userMail));
     return this.businessService.getBusinessServices(userMail);
   }
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Business, Role.SuperAdmin)
+  @Roles(Role.Business, Role.SuperAdmin,Role.Staff)
   @Post('createService')
   async createService(
     @Req() req: RequestWithUser,
@@ -163,7 +162,7 @@ export class BusinessController {
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Business, Role.SuperAdmin)
+  @Roles(Role.Business, Role.SuperAdmin,Role.Staff)
   @Get('getBooking/:id')
   async getBooking(@Param('id') id: string) {
     return this.businessService.getBooking(id);
@@ -171,7 +170,7 @@ export class BusinessController {
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Business, Role.SuperAdmin)
+  @Roles(Role.Business, Role.SuperAdmin,Role.Staff)
   @Post('deleteBlockedSlot/:id')
   async deleteBlockedSlot(@Param('id') id: string) {
     return this.businessService.deleteBlockedSlot(id);
@@ -179,7 +178,7 @@ export class BusinessController {
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Business, Role.SuperAdmin)
+  @Roles(Role.Business, Role.SuperAdmin,Role.Staff)
   @Post('addStaff')
   async addStaff(@Req() req: RequestWithUser, @Body() body: CreateStaffDto) {
     const userMail = req.user.email;
@@ -188,7 +187,7 @@ export class BusinessController {
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Business, Role.SuperAdmin)
+  @Roles(Role.Business, Role.SuperAdmin,Role.Staff)
   @Get('getBlockedSlots')
   async getBlockedSlots(@Req() req: RequestWithUser) {
     const user = req.user.email;
@@ -197,7 +196,7 @@ export class BusinessController {
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Business, Role.SuperAdmin)
+  @Roles(Role.Business, Role.SuperAdmin,Role.Staff)
   @Post('editStaff/:staffId')
   async editStaff(
     @Param('staffId') staffId: string,
@@ -208,7 +207,7 @@ export class BusinessController {
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Business, Role.SuperAdmin)
+  @Roles(Role.Business, Role.SuperAdmin,Role.Staff)
   @Post('acceptBooking/:id')
   async acceptBooking(@Param('id') id: string) {
     return this.businessService.acceptBooking(id);
@@ -216,7 +215,7 @@ export class BusinessController {
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Business, Role.SuperAdmin)
+  @Roles(Role.Business, Role.SuperAdmin,Role.Staff)
   @Post('rejectBooking/:id')
   async rejectBooking(@Param('id') id: string) {
     return this.businessService.rejectBooking(id);

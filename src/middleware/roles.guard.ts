@@ -1,6 +1,6 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
-import { Role } from './role.enum';
+import {CanActivate, ExecutionContext, Injectable} from '@nestjs/common';
+import {Reflector} from '@nestjs/core';
+import {Role} from './role.enum';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -18,7 +18,7 @@ export class RolesGuard implements CanActivate {
 
     if (!user || !user.role) return false;
 
-    // role object contains isAdmin, isSuperAdmin, etc.
+
     const roleObj = user.role;
 
     return requiredRoles.some((role) => {
@@ -33,6 +33,10 @@ export class RolesGuard implements CanActivate {
           return roleObj.isStaff;
         case Role.Client:
           return roleObj.isClient;
+        case Role.Manager:
+          return roleObj.isManager;
+        case Role.BusinessAdmin:
+          return roleObj.isBusinessAdmin;
         default:
           return false;
       }
