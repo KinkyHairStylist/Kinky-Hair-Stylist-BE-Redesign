@@ -26,6 +26,7 @@ import { RolesGuard } from 'src/middleware/roles.guard';
 import { Role } from 'src/middleware/role.enum';
 import { Roles } from 'src/middleware/roles.decorator';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import {EmailService} from "../../email/email.service";
 
 interface RequestWithUser extends Request {
   user: User;
@@ -34,7 +35,10 @@ interface RequestWithUser extends Request {
 @ApiTags('Business')
 @Controller('business')
 export class BusinessController {
-  constructor(private readonly businessService: BusinessService) {}
+  constructor(
+      private readonly businessService: BusinessService,
+      private readonly emailService:EmailService
+  ) {}
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -221,6 +225,29 @@ export class BusinessController {
     return this.businessService.rejectBooking(id);
   }
 
+
+  @Get('/sendMail')
+  async sendMail(){
+  const staffEmail = 'ola-israel.528@jesuitmemorial.org'
+  console.log('lets go!')
+    const firstName = 'jesse'
+    const business = {businessName:"Natures Gentle touch"}
+    const tempPassword = "secure"
+    try {
+      await this.emailService.sendStaffWelcomeEmail(
+          staffEmail,
+          firstName,
+          business.businessName,
+          tempPassword
+      );
+
+    } catch (emailError) {
+      console.error('Failed to send welcome email:', emailError);
+
+    }
+
+  }
+
   @Public()
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
@@ -261,4 +288,6 @@ export class BusinessController {
     console.log('yo');
     return 'server is live';
   }
+
+
 }

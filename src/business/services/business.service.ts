@@ -373,18 +373,16 @@ export class BusinessService {
       email,
       phoneNumber,
       gender,
+      avatar,
       settings,
-      ...restStaffData
     } = createStaffDto;
-
 
     let business = await this.businessRepo.findOne({
       where: { ownerEmail: ownerMail },
     });
 
-    if(!ownerMail) throw new Error('Invalid User')
-    if(!business) business = await this.getBusinessFromStaff(ownerMail)
-
+    if (!ownerMail) throw new Error('Invalid User');
+    if (!business) business = await this.getBusinessFromStaff(ownerMail);
     if (!business) throw new NotFoundException('Business not found');
 
     const staffEmail = email.toLowerCase().trim();
@@ -394,30 +392,27 @@ export class BusinessService {
       relations: ['role'],
     });
 
+    let tempPassword: string | undefined;
+
     if (!user) {
       // Generate strong random password
-      const tempPassword = Math.random().toString(36).slice(-10) +
+      tempPassword =
+          Math.random().toString(36).slice(-10) +
           Math.random().toString(36).toUpperCase().slice(-4) +
           ['!', '@', '#'][Math.floor(Math.random() * 3)];
 
       const hashedPassword = await this.passwordUtil.hashPassword(tempPassword);
 
-
       const newUser = this.userRepo.create({
-        email,
+        email: staffEmail,
+        firstName,
+        surname: lastName,
+        password: hashedPassword,
+        phoneNumber,
+        gender: gender?.toUpperCase() as any,
         isVerified: true,
-        verificationCode:"",
-        verificationExpires:null,
+        avatarUrl: avatar,
       });
-
-      newUser.surname = lastName
-      newUser.password = hashedPassword
-      newUser.firstName = firstName
-      newUser.phoneNumber = phoneNumber
-      newUser.gender = gender?.toUpperCase() as any
-      newUser.isVerified = true
-      newUser.avatarUrl = createStaffDto.avatar
-
 
       const userRole = new UserRole();
       userRole.isSuperAdmin = false;
@@ -425,124 +420,61 @@ export class BusinessService {
       userRole.isBusiness = false;
       userRole.isClient = false;
       userRole.isStaff = true;
+      newUser.role = userRole;
 
-      newUser.role = userRole
       await this.userRepo.save(newUser);
 
-
-      await this.emailService.sendEmail(
-          staffEmail,
-          `Welcome to ${business.businessName} – Your Login Details`,
-          `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Welcome to ${business.businessName}</title>
-  <style>
-    body { margin: 0; padding: 0; background-color: #f9fafb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    .container { max-width: 600px; margin: 30px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #e5e7eb; }
-    .header { background: #ED3131; padding: 32px 40px; text-align: center; color: white; }
-    .header h1 { margin: 0; font-size: 28px; font-weight: 700; }
-    .header p { margin: 8px 0 0; font-size: 16px; opacity: 0.95; }
-    .body { padding: 40px; color: #1f2937; }
-    .greeting { font-size: 18px; margin-bottom: 20px; }
-    .highlight-box { background: #FEF2F2; border-left: 4px solid #ED3131; padding: 20px; border-radius: 0 8px 8px 0; margin: 28px 0; font-size: 15px; }
-    .highlight-box strong { color: #B91C1C; }
-    .login-btn { display: block; width: fit-content; margin: 32px auto; padding: 14px 32px; background: #ED3131; color: white; font-weight: 600; font-size: 16px; text-decoration: none; border-radius: 9999px; box-shadow: 0 4px 12px rgba(237,49,49,0.3); transition: all 0.2s; }
-    .login-btn:hover { background: #c62828; transform: translateY(-1px); }
-    .footer { background: #f3f4f6; padding: 24px; text-align: center; color: #6b7280; font-size: 13px; }
-    .footer a { color: #ED3131; text-decoration: none; }
-    ul { padding-left: 20px; margin: 16px 0; }
-    li { margin-bottom: 8px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>Welcome to ${business.businessName}</h1>
-      <p>You've been added to the team!</p>
-    </div>
-
-    <div class="body">
-      <p class="greeting">Hi ${firstName || 'there'},</p>
-
-      <p>Great news! You've been added as a staff member at <strong>${business.businessName}</strong>.</p>
-
-      <div class="highlight-box">
-        <p><strong>Your login details:</strong></p>
-        <ul>
-          <li><strong>Email:</strong> ${staffEmail}</li>
-          <li><strong>Temporary Password:</strong> ${tempPassword}</li>
-        </ul>
-      </div>
-
-      <p>
-        <a href="${process.env.FRONTEND_URL}/prospect/auth/login/email-login-modal" class="login-btn">
-          Log In Now
-        </a>
-      </p>
-
-      <p>For security, please <strong>change your password</strong> immediately after logging in.</p>
-
-      <p>Welcome to the team — we're excited to have you!</p>
-    </div>
-
-    <div class="footer">
-      <p>This is an automated message from <strong>${business.businessName}</strong>.<br>
-      If you weren’t expecting this email, please contact your manager.</p>
-      <p><a href="${process.env.FRONTEND_URL}">${process.env.FRONTEND_URL}</a></p>
-    </div>
-  </div>
-</body>
-</html>
-  `.trim()
-      );
-    } else {
-      // User exists → just make sure they are staff
-      if (!user.role) {
-        user.role = new UserRole();
+      try {
+        await this.emailService.sendStaffWelcomeEmail(
+            staffEmail,
+            firstName,
+            business.businessName,
+            tempPassword
+        );
+      } catch (emailError) {
+        console.error('Failed to send welcome email:', emailError);
+        // Don't fail staff creation if email fails
       }
+    } else {
+      // Existing user → ensure they're marked as staff
+      if (!user.role) user.role = new UserRole();
       user.role.isStaff = true;
       await this.userRepo.save(user);
     }
 
-    // ─────────────────────────────────────────────────────
-    // 3. CREATE STAFF PROFILE — 100% UNCHANGED FROM ORIGINAL
-    // ─────────────────────────────────────────────────────
+    // Create staff profile
     const staff = this.staffRepo.create({
-      ...createStaffDto,     // ← everything exactly as before
+      ...createStaffDto,
       email: staffEmail,
       business,
+      settings: settings || undefined,
     });
 
     await this.staffRepo.save(staff);
 
+    // Handle emergency contacts
     if (emergencyContacts?.length) {
-      const cleanContacts = emergencyContacts.map(contact => {
-        const { id, ...rest } = contact as any; // id is destroyed here
+      const cleanContacts = emergencyContacts.map((contact: any) => {
+        const { id, ...rest } = contact;
         return this.emergencyRepo.create({ ...rest, staff });
       });
-
       staff.emergencyContacts = await this.emergencyRepo.save(cleanContacts);
     }
 
+    // Handle addresses
     if (addresses?.length) {
-      const cleanAddresses = addresses.map(addr => {
-        const { id, ...rest } = addr as any; // id vanishes
+      const cleanAddresses = addresses.map((addr: any) => {
+        const { id, ...rest } = addr;
         return this.addressRepo.create({ ...rest, staff });
       });
-
       staff.addresses = await this.addressRepo.save(cleanAddresses);
     }
 
+    // Handle assigned services
     if (selectedServices?.length) {
       staff.services = await this.serviceRepo.findByIds(selectedServices);
       await this.staffRepo.save(staff);
     }
-
-    // Original welcome email (you can keep or remove — we already sent credentials)
 
     return staff;
   }
@@ -955,6 +887,8 @@ export class BusinessService {
       },
     });
   }
+
+
 
   getServices(): BusinessServiceData[] {
     return getBusinessServices();
