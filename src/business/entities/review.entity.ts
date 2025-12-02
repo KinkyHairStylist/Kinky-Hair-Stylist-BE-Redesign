@@ -5,7 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { ClientType } from './client-settings.entity';
+import { ClientType } from './client.entity';
 
 @Entity('reviews')
 export class Review {

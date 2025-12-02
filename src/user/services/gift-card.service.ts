@@ -16,6 +16,7 @@ import { Transaction, TransactionType, TransactionStatus, PaymentMethod } from '
 import { PaystackService } from 'src/payment/paystack.service';
 import { PurchaseBusinessGiftCardDto, RedeemGiftCardDto, ValidateGiftCardDto } from '../dtos/create-gift-card.dto';
 import { BusinessGiftCardSoldStatus, BusinessGiftCardStatus } from 'src/business/enum/gift-card.enum';
+import { PlatformSettingsService } from '../../admin/platform-settings/platform-settings.service';
 
 @Injectable()
 export class GiftCardService {
@@ -32,6 +33,7 @@ export class GiftCardService {
     private readonly dataSource: DataSource,
     // private readonly walletService: BusinessWalletService,
     private readonly paystack: PaystackService,
+    private readonly platformSettingsService: PlatformSettingsService,
   ) {}
 
   // ------------------------------------------------------
@@ -39,7 +41,7 @@ export class GiftCardService {
   // ------------------------------------------------------
   async purchaseGiftCard(dto: PurchaseBusinessGiftCardDto, purchaser: User) {
     const giftCard = await this.giftCardRepo.findOne({
-      where: { id: dto.businessGiftCardId },
+      where: { code: dto.businessGiftCardId },
       relations: ['owner'],
     });
 
@@ -57,14 +59,25 @@ export class GiftCardService {
     if (card.user.id !== purchaser.id)
       throw new ForbiddenException('You cannot use this payment method');
 
-    // Initialize Paystack payment
+    // Get platform fee percentage
+    const paymentsSettings = await this.platformSettingsService.getPayments();
+    const platformFeePercent = Number(paymentsSettings.platformFee) || 0;
+
+    // Calculate gift card amount and fee
+    const giftCardAmount = Number(giftCard.amount);
+    const feeAmount = giftCardAmount * (platformFeePercent / 100);
+    const totalAmount = giftCardAmount + feeAmount;
+
+    // Initialize Paystack payment with total amount (gift card + fee)
     const init = await this.paystack.initializePayment({
       email: purchaser.email,
-      amount: Number(giftCard.amount) * 100,
+      amount: totalAmount * 100,
       metadata: {
         giftCardId: giftCard.id,
         purchaserId: purchaser.id,
         cardId: dto.cardId,
+        giftCardAmount: giftCardAmount,
+        feeAmount: feeAmount,
       },
     });
 
@@ -74,7 +87,7 @@ export class GiftCardService {
     // UPDATE GIFT CARD OWNERSHIP & DETAILS
     giftCard.soldStatus = BusinessGiftCardSoldStatus.PENDING;
     giftCard.status = BusinessGiftCardStatus.ACTIVE;
-    giftCard.remainingAmount = Number(giftCard.amount);
+    giftCard.remainingAmount = giftCardAmount;
 
     // Recipient is from DTO
     giftCard.recipientName = dto.recipientName ?? 'No name provided';
@@ -92,11 +105,11 @@ export class GiftCardService {
 
     await this.giftCardRepo.save(giftCard);
 
-    // Save pending transaction
-    const tx = this.transactionRepo.create({
+    // Save pending gift card purchase transaction
+    const giftCardTx = this.transactionRepo.create({
       senderId: purchaser.id,
       recipientId: giftCard.owner.id,
-      amount: giftCard.amount,
+      amount: giftCardAmount,
       type: TransactionType.DEBIT,
       currency: giftCard.currency as any,
       description: `Purchase of gift card "${giftCard.title}"`,
@@ -108,10 +121,31 @@ export class GiftCardService {
       customerName: `${purchaser.firstName} ${purchaser.surname}`,
     });
 
-    await this.transactionRepo.save(tx);
+    await this.transactionRepo.save(giftCardTx);
+
+    // Save pending platform fee transaction
+    const feeTx = this.transactionRepo.create({
+      senderId: purchaser.id,
+      recipientId: undefined, // Platform fee goes to system
+      amount: feeAmount,
+      type: TransactionType.FEE,
+      currency: giftCard.currency as any,
+      description: `Platform fee for gift card "${giftCard.title}" purchase`,
+      mode: 'Web',
+      referenceId: init.reference,
+      status: TransactionStatus.PENDING,
+      method: PaymentMethod.PAYSTACK,
+      service: 'GiftCard-Fee',
+      customerName: `${purchaser.firstName} ${purchaser.surname}`,
+    });
+
+    await this.transactionRepo.save(feeTx);
 
     return {
       message: 'Payment initialized',
+      giftCardAmount: giftCardAmount,
+      platformFee: feeAmount,
+      totalAmount: totalAmount,
       authorizationUrl: init.authorization_url,
       reference: init.reference,
     };
@@ -133,6 +167,8 @@ export class GiftCardService {
     }
 
     const meta = verification.metadata;
+    const giftCardAmount = Number(meta.giftCardAmount) || 0;
+    const feeAmount = Number(meta.feeAmount) || 0;
 
     // Start DB transaction
     return await this.dataSource.manager.transaction(async (manager) => {
@@ -162,37 +198,39 @@ export class GiftCardService {
 
       await manager.save(BusinessGiftCard, giftCard);
 
-      // Update business wallet
+      // Complete gift card purchase transaction
+      await manager.update(Transaction, {
+        referenceId: reference,
+        service: 'GiftCard-Purchase'
+      }, {
+        status: TransactionStatus.COMPLETED,
+        amount: giftCardAmount
+      });
+
+      // Complete platform fee transaction
+      await manager.update(Transaction, {
+        referenceId: reference,
+        service: 'GiftCard-Fee'
+      }, {
+        status: TransactionStatus.COMPLETED,
+        amount: feeAmount
+      });
+
+      // Update business wallet with gift card amount
       // await this.walletService.addFunds({
       //   businessId: giftCard.businessId,
-      //   amount: Number(verification.amount),
+      //   amount: giftCardAmount,
       //   type: 'credit',
       //   description: `Gift card purchase via Paystack`,
       //   referenceId: reference,
       // });
 
-      // Complete transaction
-      const tx = this.transactionRepo.create({
-        senderId: purchaser.id,
-        recipientId: giftCard.business.ownerId,
-        amount: giftCard.amount,
-        type: TransactionType.EARNING,
-        currency: giftCard.currency as any,
-        description: `Purchased gift card "${giftCard.title}"`,
-        mode: 'Web',
-        referenceId: reference,
-        status: TransactionStatus.COMPLETED,
-        method: PaymentMethod.PAYSTACK,
-        service: 'GiftCard-Purchase',
-        customerName: `${purchaser.firstName} ${purchaser.surname}`,
-      });
-
-      await manager.save(Transaction, tx);
-
       return {
         message: 'Gift card purchase completed successfully',
         giftCard,
-        transaction: tx,
+        giftCardAmount: giftCardAmount,
+        platformFee: feeAmount,
+        totalPaid: giftCardAmount + feeAmount,
       };
     });
   }
@@ -294,5 +332,11 @@ export class GiftCardService {
       },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  /** Get gift card fee from admin platform settings */
+  async getGiftCardFee() {
+    const paymentsSettings = await this.platformSettingsService.getPayments();
+    return { giftCardFee: paymentsSettings.platformFee };
   }
 }

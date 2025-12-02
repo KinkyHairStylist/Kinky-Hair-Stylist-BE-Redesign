@@ -10,9 +10,8 @@ import {
   CreateClientSettingsDto,
   CreateEmergencyContactDto,
 } from '../dtos/requests/ClientDto';
-import { ClientSource, Gender, Pronouns } from '../entities/client.entity';
+import { ClientSource, Gender, Pronouns, ClientType } from '../entities/client.entity';
 import {
-  ClientType,
   Languages,
   PreferredContactMethod,
   Timezone,

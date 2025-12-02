@@ -98,6 +98,9 @@ export class Appointment {
   @Column({ type: 'text', nullable: true })
   specialRequests?: string;
 
+  @Column({ type: 'text', nullable: true })
+  cancellationsNote?: string;
+
   // Appointment timeline
   @Column({
     type: 'jsonb',
