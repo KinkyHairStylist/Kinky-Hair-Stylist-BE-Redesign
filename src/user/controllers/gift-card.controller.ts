@@ -59,6 +59,15 @@ export class GiftCardController {
     return this.giftCardService.getGiftCardStatsByUser(user);
   }
 
+  @Get('fee')
+  @ApiOperation({
+    summary: 'Get the gift card fee from admin platform settings',
+  })
+  @ApiResponse({ status: 200, description: 'Gift card fee retrieved successfully' })
+  async getGiftCardFee() {
+    return this.giftCardService.getGiftCardFee();
+  }
+
   @Get()
   @ApiOperation({
     summary: 'List all available gift cards for purchase',

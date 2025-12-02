@@ -4,8 +4,8 @@ import {
   CreateClientSettingsDto,
   CreateEmergencyContactDto,
 } from '../dtos/requests/ClientDto';
+import { ClientType } from '../entities/client.entity';
 import {
-  ClientType,
   PreferredContactMethod,
 } from '../entities/client-settings.entity';
 import { ClientSource, Pronouns } from '../entities/client.entity';

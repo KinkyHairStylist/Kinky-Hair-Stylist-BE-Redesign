@@ -33,6 +33,7 @@ import { PreferencesModule } from './preferences.module';
 import { PasswordUtil } from 'src/business/utils/password.util';
 import { PaystackService } from 'src/payment/paystack.service';
 import { BusinessModule } from 'src/business/business.module'; // <-- import BusinessModule
+import { PlatformSettingsModule } from '../../admin/platform-settings/platform-settings.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { BusinessModule } from 'src/business/business.module'; // <-- import Bus
     PhoneVerificationModule,
     CloudinaryModule,
     PreferencesModule,
+    PlatformSettingsModule,
   ],
   controllers: [
     UserController,

@@ -12,6 +12,8 @@ import { PlatformSettingsService } from 'src/admin/platform-settings/platform-se
 
 import { GiftCard, GiftCardStatus } from 'src/all_user_entities/gift-card.entity';
 import { User } from 'src/all_user_entities/user.entity';
+import { ReviewService } from 'src/business/services/review.service';
+import { ClientSchema, ClientType } from 'src/business/entities/client.entity';
 
 @Injectable()
 export class BookingService {
@@ -28,7 +30,10 @@ export class BookingService {
     private transactionRepository: Repository<Transaction>,
     @InjectRepository(GiftCard)
     private giftCardRepository: Repository<GiftCard>,
+    @InjectRepository(ClientSchema)
+    private clientRepository: Repository<ClientSchema>,
     private platformSettingsService: PlatformSettingsService,
+    private reviewService: ReviewService,
   ) {}
 
   // Create Booking
@@ -238,16 +243,47 @@ export class BookingService {
   }
 
   // Cancel Booking
-  async cancelBooking(orderId: string): Promise<{ message: string }> {
+  async cancelBooking(orderId: string, cancellationsNote?: string, acceptedTerms?: boolean): Promise<{ message: string }> {
+    if (!acceptedTerms) {
+      throw new BadRequestException('You must accept the cancellation terms to proceed');
+    }
+
     const appointment = await this.bookingRepository.findOne({
       where: { orderId },
     });
     if (!appointment) {
       throw new NotFoundException('Appointment not found');
     }
+
+    if (appointment.status === AppointmentStatus.CANCELLED) {
+      throw new BadRequestException('Appointment is already cancelled');
+    }
+
     appointment.status = AppointmentStatus.CANCELLED;
+    if (cancellationsNote) {
+      appointment.cancellationsNote = cancellationsNote;
+    }
     await this.bookingRepository.save(appointment);
     return { message: 'Appointment cancelled successfully' };
+  }
+
+  // Restore Cancelled Booking
+  async restoreBooking(orderId: string): Promise<{ message: string }> {
+    const appointment = await this.bookingRepository.findOne({
+      where: { orderId },
+    });
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    if (appointment.status !== AppointmentStatus.CANCELLED) {
+      throw new BadRequestException('Appointment is not cancelled, cannot restore');
+    }
+
+    appointment.status = AppointmentStatus.CONFIRMED; // Restore to confirmed status
+    appointment.cancellationsNote = undefined; // Clear cancellation note on restore
+    await this.bookingRepository.save(appointment);
+    return { message: 'Appointment restored successfully' };
   }
 
   // Reschedule Booking
@@ -263,5 +299,50 @@ export class BookingService {
     appointment.status = AppointmentStatus.RESCHEDULED;
     await this.bookingRepository.save(appointment);
     return { message: 'Appointment rescheduled successfully' };
+  }
+
+  // Rate Business
+  async rateBusiness(orderId: string, rating: number, comment: string, user: User) {
+    const appointment = await this.bookingRepository.findOne({
+      where: { orderId, client: { id: user.id } },
+      relations: ['business', 'business.owner'],
+    });
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    const business = appointment.business;
+
+    let client = await this.clientRepository.findOne({
+      where: { email: user.email, ownerId: business.owner.id },
+    });
+
+    if (!client) {
+      client = await this.clientRepository.save({
+        firstName: user.firstName,
+        lastName: user.surname,
+        email: user.email,
+        phone: user.phoneNumber,
+        phoneCode: '',
+        clientType: ClientType.REGULAR,
+        ownerId: business.owner.id,
+        owner: business.owner,
+        isActive: true,
+      } as any);
+    }
+
+    const reviewPayload = {
+      clientId: client!.id,
+      ownerId: business.owner.id,
+      businessId: business.id,
+      rating,
+      comment,
+      service: appointment.serviceName,
+      clientName: `${user.firstName} ${user.surname}`,
+      clientProfileImage: user.avatarUrl,
+      clientType: ClientType.REGULAR,
+    };
+
+    return this.reviewService.createReview(reviewPayload);
   }
 }

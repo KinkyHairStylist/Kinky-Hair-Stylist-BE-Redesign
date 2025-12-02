@@ -12,12 +12,11 @@ import {
   ApiResponse,
 } from '../types/client.types';
 import { Business } from '../entities/business.entity';
-import { ClientSchema } from '../entities/client.entity';
+import { ClientSchema, ClientType } from '../entities/client.entity';
 import { ClientAddressSchema } from '../entities/client-address.entity';
 import { EmergencyContactSchema } from '../entities/emergency-contact-schema.entity';
 import {
   ClientSettingsSchema,
-  ClientType,
 } from '../entities/client-settings.entity';
 import { formatClientType } from '../utils/client.utils';
 import { ClientFiltersDto, UpdateClientDto } from '../dtos/requests/ClientDto';

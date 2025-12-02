@@ -8,14 +8,7 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
-import { ClientSchema } from './client.entity';
-
-export enum ClientType {
-  REGULAR = 'regular',
-  VIP = 'vip',
-  NEW = 'new',
-  ALL = 'all',
-}
+import { ClientSchema, ClientType } from './client.entity';
 
 export enum PreferredContactMethod {
   EMAIL = 'email',
