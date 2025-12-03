@@ -34,6 +34,7 @@ import { PasswordUtil } from 'src/business/utils/password.util';
 import { PaystackService } from 'src/payment/paystack.service';
 import { BusinessModule } from 'src/business/business.module'; // <-- import BusinessModule
 import { PlatformSettingsModule } from '../../admin/platform-settings/platform-settings.module';
+import { UserRole } from '../../all_user_entities/user-role.entity';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { PlatformSettingsModule } from '../../admin/platform-settings/platform-s
       // SupportTicket,
       // LiveChatMessage,
       Transaction,
+      UserRole,
     ]),
     forwardRef(() => BusinessModule), 
     JwtModule.register({}),

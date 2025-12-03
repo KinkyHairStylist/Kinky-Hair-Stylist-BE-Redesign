@@ -222,7 +222,8 @@ export class BusinessController {
     return this.businessService.rejectBooking(id);
   }
 
-  @Public()
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard)
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
   async create(

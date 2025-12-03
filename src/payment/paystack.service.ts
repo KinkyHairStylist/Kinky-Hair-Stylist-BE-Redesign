@@ -16,6 +16,7 @@ export class PaystackService {
   async initializePayment(payload: {
     email: string;
     amount: number; // in kobo
+    callback_url?: string;
     metadata?: any;
   }) {
     try {

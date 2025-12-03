@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
 import { GetUser } from 'src/middleware/get-user.decorator';
@@ -32,7 +32,11 @@ export class GiftCardController {
   @Post('complete')
   @ApiOperation({ summary: 'Complete gift card purchase after Paystack verification' })
   @ApiResponse({ status: 200, description: 'Gift card purchase completed successfully' })
-  async completePurchase(@Body('reference') reference: string) {
+  async completePurchase(@Body('reference') referenceFromBody: string, @Query('reference') referenceFromQuery: string) {
+    const reference = referenceFromBody || referenceFromQuery;
+    if (!reference) {
+      throw new Error('Transaction reference is required');
+    }
     return await this.giftCardService.completeGiftCardPurchase(reference);
   }
 

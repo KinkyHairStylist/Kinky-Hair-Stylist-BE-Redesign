@@ -72,6 +72,7 @@ export class GiftCardService {
     const init = await this.paystack.initializePayment({
       email: purchaser.email,
       amount: totalAmount * 100,
+      callback_url: `${process.env.NEXT_PUBLIC_BASE_URL}customer/gift/purchase?template=${giftCard.template}&code=${giftCard.code}&amount=${giftCard.amount}`,
       metadata: {
         giftCardId: giftCard.id,
         purchaserId: purchaser.id,

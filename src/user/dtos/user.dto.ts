@@ -4,8 +4,10 @@ import {
   IsNotEmpty,
   Matches,
   IsOptional,
+  IsEnum,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Role } from '../../middleware/role.enum';
 
 /**
  * @description DTO for initiating signup or verification process.
