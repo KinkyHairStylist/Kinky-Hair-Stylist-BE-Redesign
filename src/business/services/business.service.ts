@@ -647,14 +647,14 @@ export class BusinessService {
   async getBusinessServices(userMail: string) {
     const business = await this.businessRepo.findOne({
       where: { ownerEmail: userMail },
-      relations: ['service'],
+      relations: ['serviceList'],
     });
 
     if (!business) {
       throw new NotFoundException('Business not found');
     }
 
-    return business.service;
+    return business.serviceList;
   }
 
   async getTeamMembers(userMail: string) {
