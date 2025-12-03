@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '../../all_user_entities/user.entity';
+import { UserRole } from '../../all_user_entities/user-role.entity';
 import { RefreshToken } from '../entities/refresh.token.entity';
 import { CreateUserDto } from '../dtos/requests/CreateUserDto';
 import { LoginDto } from '../dtos/requests/LoginDto';
@@ -18,9 +19,11 @@ import { VerifyPasswordOtpDto } from '../dtos/requests/VerifyPasswordOtpDto';
 import { PasswordUtil } from '../utils/password.util';
 import { OtpService } from './otp.service';
 import { Gender } from '../types/constants';
-import { VerifyResetTokenDto } from '../dtos/requests/VerifyResetTokenDto';
 import { RequestPhoneOtpDto } from '../dtos/requests/RequestPhoneOtpDto';
 import { VerifyPhoneOtpDto } from '../dtos/requests/VerifyPhoneOtpDto';
+import { Business } from '../entities/business.entity';
+import { BusinessService } from './business.service';
+import { CompanySize } from '../types/constants';
 
 export interface TokenPair {
   accessToken: string;
@@ -33,12 +36,19 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
 
+    @InjectRepository(UserRole)
+    private readonly userRoleRepo: Repository<UserRole>,
+
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepo: Repository<RefreshToken>,
+
+    @InjectRepository(Business)
+    private readonly businessRepo: Repository<Business>,
 
     private readonly jwtService: JwtService,
     private readonly passwordUtil: PasswordUtil,
     private readonly otpService: OtpService,
+    private readonly businessService: BusinessService,
   ) {}
 
   async register(createUserDto: CreateUserDto): Promise<TokenPair> {
@@ -63,20 +73,21 @@ export class AuthService {
       );
     }
 
-    if (createUserDto.gender) {
-      const genderValue = createUserDto.gender.toUpperCase();
+    const processedDto = { ...createUserDto };
+    if (processedDto.gender) {
+      const genderValue = processedDto.gender.toUpperCase();
       if (!(genderValue in Gender)) {
         throw new BadRequestException(
-          `Invalid gender value: ${createUserDto.gender}`,
+          `Invalid gender value: ${processedDto.gender}`,
         );
       }
-      createUserDto.gender = Gender[genderValue as keyof typeof Gender];
+      processedDto.gender = Gender[genderValue as keyof typeof Gender] as any;
     }
 
     await this.checkExistingUser(verifiedEmail, phoneNumber);
     this.passwordUtil.validatePasswordStrength(password);
 
-    const user = await this.createUser(createUserDto);
+    const user = await this.createUser(processedDto);
 
     // const user = await this.userRepo.save(newUser);
     return this.getTokens(user.id, user.email);
@@ -125,12 +136,12 @@ export class AuthService {
 
   async login(
     loginDto: LoginDto,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
+  ): Promise<{ accessToken: string; refreshToken: string; message?: string }> {
     const { email, password } = loginDto;
 
     const user = await this.userRepo.findOne({
       where: { email: email.toLowerCase() },
-      select: ['id', 'email', 'password', 'isVerified'],
+      relations: ['role'],
     });
 
     if (!user) {
@@ -159,24 +170,46 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials.');
     }
 
-    return this.getTokens(user.id, user.email);
+    // Check if business user has a business account
+    let message: string | undefined;
+    if (user.role?.isBusiness) {
+      const existingBusiness = await this.businessRepo.findOne({
+        where: { owner: { id: user.id } },
+      });
+      if (!existingBusiness) {
+        message = 'User does not own a business yet. Please create a business.';
+      }
+    }
+
+    const tokens = await this.getTokens(user.id, user.email);
+    return { ...tokens, message };
   }
 
   private async createUser(createUserDto: CreateUserDto): Promise<User> {
-    const { password, ...rest } = createUserDto;
+    const { password, verificationToken, ...rest } = createUserDto;
     const hashedPassword = await this.passwordUtil.hashPassword(password);
 
-    // @ts-ignore
     const newUser = this.userRepo.create({
-      ...rest,
+      ...(rest as Partial<User>),
       password: hashedPassword,
       isVerified: true,
       suspensionHistory: '.',
       isSuspended: false,
     });
 
+    const savedUser = await this.userRepo.save(newUser);
+
+    // Create business user role automatically
+    const userRole = this.userRoleRepo.create({
+      isBusiness: true,
+      isClient: false, // Business users are not regular clients
+    });
     // @ts-ignore
-    return this.userRepo.save(newUser);
+    userRole.user = savedUser;
+
+    await this.userRoleRepo.save(userRole);
+
+    return savedUser;
   }
 
   private async checkExistingUser(
