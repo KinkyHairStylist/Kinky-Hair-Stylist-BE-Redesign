@@ -33,6 +33,7 @@ import { PreferencesModule } from './preferences.module';
 import { PasswordUtil } from 'src/business/utils/password.util';
 import { PaystackService } from 'src/payment/paystack.service';
 import { BusinessModule } from 'src/business/business.module'; // <-- import BusinessModule
+import { BusinessWalletModule } from 'src/business/wallet.module'; // <-- import BusinessWalletModule directly
 import { PlatformSettingsModule } from '../../admin/platform-settings/platform-settings.module';
 import { UserRole } from '../../all_user_entities/user-role.entity';
 
@@ -49,7 +50,8 @@ import { UserRole } from '../../all_user_entities/user-role.entity';
       Transaction,
       UserRole,
     ]),
-    forwardRef(() => BusinessModule), 
+    forwardRef(() => BusinessModule),
+    BusinessWalletModule,
     JwtModule.register({}),
     EmailModule,
     ReferralModule,

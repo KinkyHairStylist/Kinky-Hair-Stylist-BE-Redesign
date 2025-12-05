@@ -63,6 +63,16 @@ export class GiftCardController {
     return this.giftCardService.getGiftCardStatsByUser(user);
   }
 
+  @Get('owned')
+  @ApiOperation({
+    summary: 'Get all gift cards owned by the authenticated user',
+    description: 'Returns gift cards that the user has purchased and owns',
+  })
+  @ApiResponse({ status: 200, description: 'User owned gift cards retrieved successfully' })
+  async getUserOwnedGiftCards(@GetUser() user: User) {
+    return this.giftCardService.getUserOwnedGiftCards(user);
+  }
+
   @Get('fee')
   @ApiOperation({
     summary: 'Get the gift card fee from admin platform settings',
