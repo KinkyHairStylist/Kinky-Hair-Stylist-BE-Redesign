@@ -69,7 +69,6 @@ export class BusinessGiftCardsService {
       ...createGiftCardDto,
       expiresAt,
       businessId: business.id,
-      ownerId,
     });
     return await this.giftCardRepository.save(giftCard);
   }
@@ -233,7 +232,7 @@ export class BusinessGiftCardsService {
 
   async findOneByOwnerId(ownerId: string): Promise<BusinessGiftCard> {
     const giftCard = await this.giftCardRepository.findOne({
-      where: { ownerId },
+      where: { businessId: ownerId },
     });
     if (!giftCard) {
       throw new NotFoundException(`Gift card not found`);

@@ -42,11 +42,11 @@ export class GiftCardService {
   async purchaseGiftCard(dto: PurchaseBusinessGiftCardDto, purchaser: User) {
     const giftCard = await this.giftCardRepo.findOne({
       where: { code: dto.businessGiftCardId },
-      relations: ['owner'],
+      relations: ['business'],
     });
 
     if (!giftCard) throw new NotFoundException('Gift card not found');
-    if (!giftCard.owner) throw new BadRequestException('Business has no owner');
+    if (!giftCard.business.owner) throw new BadRequestException('Business could not be found');
     if (giftCard.soldStatus !== BusinessGiftCardSoldStatus.AVAILABLE)
       throw new BadRequestException('Gift card already purchased');
 
@@ -67,11 +67,13 @@ export class GiftCardService {
     const giftCardAmount = Number(giftCard.amount);
     const feeAmount = giftCardAmount * (platformFeePercent / 100);
     const totalAmount = giftCardAmount + feeAmount;
+    // Round to 2 decimal places to ensure amount is integer when converted to kobo
+    const roundedTotalAmount = Math.round(totalAmount * 100) / 100;
 
     // Initialize Paystack payment with total amount (gift card + fee)
     const init = await this.paystack.initializePayment({
       email: purchaser.email,
-      amount: totalAmount * 100,
+      amount: Math.round(roundedTotalAmount * 100), // Convert to kobo and round to integer
       callback_url: `${process.env.NEXT_PUBLIC_BASE_URL}customer/gift/purchase?template=${giftCard.template}&code=${giftCard.code}&amount=${giftCard.amount}`,
       metadata: {
         giftCardId: giftCard.id,
@@ -109,7 +111,7 @@ export class GiftCardService {
     // Save pending gift card purchase transaction
     const giftCardTx = this.transactionRepo.create({
       senderId: purchaser.id,
-      recipientId: giftCard.owner.id,
+      recipientId: giftCard.business.ownerId,
       amount: giftCardAmount,
       type: TransactionType.DEBIT,
       currency: giftCard.currency as any,
@@ -160,9 +162,15 @@ export class GiftCardService {
     const verification = await this.paystack.verifyPayment(reference);
 
     if (!verification || verification.status !== 'success') {
+      const meta = verification.metadata;
+      const giftCardId = meta.giftCardId;
+      await this.giftCardRepo.update(
+        { id: giftCardId },
+        { soldStatus: BusinessGiftCardSoldStatus.AVAILABLE }
+      );
       await this.transactionRepo.update(
         { referenceId: reference },
-        { status: TransactionStatus.FAILED },
+        { status: TransactionStatus.FAILED }
       );
       throw new BadRequestException('Payment verification failed');
     }
@@ -179,7 +187,7 @@ export class GiftCardService {
       });
       if (!giftCard) throw new NotFoundException('Gift card not found');
       if (!giftCard.ownerId) throw new NotFoundException('Gift card business owner not found');
-      if (giftCard.soldStatus !== BusinessGiftCardSoldStatus.AVAILABLE)
+      if (giftCard.soldStatus === BusinessGiftCardSoldStatus.PURCHASED)
         throw new BadRequestException('Gift card already purchased');
 
       // Find purchaser
