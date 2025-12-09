@@ -8,18 +8,21 @@ import { Transaction } from 'src/business/entities/transaction.entity';
 import { User } from '../../all_user_entities/user.entity';
 import { Referral } from '../user_entities/referrals.entity';
 import { Article } from 'src/all_user_entities/article.entity';
+import { Refund } from '../user_entities/refund.entity';
 // import { SupportTicket } from 'src/all_user_entities/support-ticket.entity';
 // import { LiveChatMessage } from 'src/all_user_entities/user_status.entity';
 
 import { UserController } from '../controllers/user.controller';
 import { GiftCardController } from '../controllers/gift-card.controller';
 import { ArticleController } from '../controllers/article.controller';
+import { TransactionController } from '../controllers/transaction.controller';
 // import { TicketController } from '../controllers/ticket.controller';
 import { UserProfileController } from '../controllers/user-profile.controller';
 
 import { UserService } from '../services/user.service';
 import { GiftCardService } from '../services/gift-card.service';
 import { ArticleService } from '../services/article.service';
+import { TransactionService } from '../services/transaction.service';
 // import { TicketService } from '../services/ticket.service';
 import { UserProfileService } from '../services/user-profile.service';
 
@@ -48,6 +51,7 @@ import { UserRole } from '../../all_user_entities/user-role.entity';
       // SupportTicket,
       // LiveChatMessage,
       Transaction,
+      Refund,
       UserRole,
     ]),
     forwardRef(() => BusinessModule),
@@ -64,6 +68,7 @@ import { UserRole } from '../../all_user_entities/user-role.entity';
     UserController,
     GiftCardController,
     ArticleController,
+    TransactionController,
     // TicketController,
     UserProfileController,
   ],
@@ -72,6 +77,7 @@ import { UserRole } from '../../all_user_entities/user-role.entity';
     JwtRefreshStrategy,
     GiftCardService,
     ArticleService,
+    TransactionService,
     // TicketService,
     UserProfileService,
     PasswordUtil,
