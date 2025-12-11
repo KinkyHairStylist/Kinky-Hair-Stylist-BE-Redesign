@@ -39,6 +39,7 @@ import { BusinessModule } from 'src/business/business.module'; // <-- import Bus
 import { BusinessWalletModule } from 'src/business/wallet.module'; // <-- import BusinessWalletModule directly
 import { PlatformSettingsModule } from '../../admin/platform-settings/platform-settings.module';
 import { UserRole } from '../../all_user_entities/user-role.entity';
+import { AdminChatModule } from './admin-chat.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { UserRole } from '../../all_user_entities/user-role.entity';
     CloudinaryModule,
     PreferencesModule,
     PlatformSettingsModule,
+    AdminChatModule,
   ],
   controllers: [
     UserController,
