@@ -40,6 +40,8 @@ export enum TransactionStatus {
   CANCELLED = 'cancelled',
 }
 
+
+
 // --------------------------
 // Transaction Entity
 // --------------------------
@@ -81,6 +83,9 @@ export class Transaction {
   // --------------------------
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   amount: number;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  reason: string;
 
   @Column({
     type: 'enum',
@@ -128,8 +133,6 @@ export class Transaction {
   })
   method: PaymentMethod;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  reason: string;
 
   // --------------------------
   // Timestamps

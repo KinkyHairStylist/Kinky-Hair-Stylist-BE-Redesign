@@ -50,7 +50,7 @@ export class UserService {
     private userRoleRepository: Repository<UserRole>,
 
     @InjectRepository(Referral)
-    private referralRepository: Repository<Referral>, // new line added
+    private referralRepository: Repository<Referral>,
 
     private jwtService: JwtService,
     private readonly referralService: ReferralService,

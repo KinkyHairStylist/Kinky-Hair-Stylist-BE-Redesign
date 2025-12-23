@@ -21,6 +21,8 @@ import { OtpService } from './otp.service';
 import { Gender } from '../types/constants';
 import { RequestPhoneOtpDto } from '../dtos/requests/RequestPhoneOtpDto';
 import { VerifyPhoneOtpDto } from '../dtos/requests/VerifyPhoneOtpDto';
+import {Staff} from "../entities/staff.entity";
+import {UserRole} from "../../all_user_entities/user-role.entity";
 import { Business } from '../entities/business.entity';
 import { BusinessService } from './business.service';
 import { CompanySize } from '../types/constants';
@@ -35,6 +37,8 @@ export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(Staff)
+    private staffRepo: Repository<Staff>,
 
     @InjectRepository(UserRole)
     private readonly userRoleRepo: Repository<UserRole>,
@@ -89,7 +93,6 @@ export class AuthService {
 
     const user = await this.createUser(processedDto);
 
-    // const user = await this.userRepo.save(newUser);
     return this.getTokens(user.id, user.email);
   }
 
@@ -141,7 +144,8 @@ export class AuthService {
 
     const user = await this.userRepo.findOne({
       where: { email: email.toLowerCase() },
-      relations: ['role'],
+      select: ['id', 'email', 'password', 'isVerified'],
+      relations:['role'],
     });
 
     if (!user) {
@@ -407,4 +411,46 @@ export class AuthService {
       select: ['id', 'email', 'password', 'isVerified', 'phoneNumber'],
     });
   }
+
+  async getTokensAndRoles(
+      userId: string,
+      email: string,
+      role: UserRole,
+  ) {
+    const payload = { sub: userId, email };
+
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(payload, {
+        secret: process.env.JWT_ACCESS_SECRET,
+        expiresIn: '2d',
+      }),
+      this.jwtService.signAsync(payload, {
+        secret: process.env.JWT_ACCESS_SECRET,
+        expiresIn: '7d',
+      }),
+    ]);
+
+    const tokenHash = await this.passwordUtil.hashPassword(refreshToken);
+    await this.refreshTokenRepo.delete({ user: { id: userId } });
+
+    const newRefreshToken = this.refreshTokenRepo.create({
+      user: { id: userId },
+      tokenHash,
+    });
+    await this.refreshTokenRepo.save(newRefreshToken);
+
+
+    const staff = await this.staffRepo.findOne({
+      where: { email: email.toLowerCase() },
+    });
+
+    if(!staff && !role.isBusiness){throw new BadRequestException('Invalid user');}
+
+    if(role.isBusiness) return {accessToken,refreshToken,role:role}
+
+    if(!staff?.settings){throw new BadRequestException('Invalid user');}
+
+    return { accessToken, refreshToken, role:role, settings:staff.settings };
+  }
+
 }
