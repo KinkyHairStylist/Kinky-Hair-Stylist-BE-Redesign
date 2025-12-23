@@ -24,7 +24,7 @@ export class CreateBookingDto {
   })
   @IsDateString()
   @IsNotEmpty()
-  date: Date;
+  date: string;
 
   @ApiProperty({
     example: '10:00 AM',

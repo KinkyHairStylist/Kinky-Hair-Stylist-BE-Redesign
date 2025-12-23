@@ -97,4 +97,7 @@ export class Card {
     onDelete: 'CASCADE',
   })
   user: User;
+
+  @Column({ default: false })
+  isDefault: boolean;
 }

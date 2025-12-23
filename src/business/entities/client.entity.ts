@@ -10,8 +10,14 @@ import {
   JoinColumn,
   BeforeUpdate,
 } from 'typeorm';
-import { ClientType } from './client-settings.entity';
 import { Gender } from '../types/constants';
+
+export enum ClientType {
+  REGULAR = 'regular',
+  VIP = 'vip',
+  NEW = 'new',
+  ALL = 'all',
+}
 
 export enum Pronouns {
   HE_HIM = 'he-him',

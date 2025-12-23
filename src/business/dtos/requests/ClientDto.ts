@@ -11,9 +11,8 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ClientSource, Pronouns } from 'src/business/entities/client.entity';
+import { ClientSource, Pronouns, ClientType } from 'src/business/entities/client.entity';
 import {
-  ClientType,
   Languages,
   PreferredContactMethod,
   Timezone,

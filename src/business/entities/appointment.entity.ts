@@ -41,7 +41,7 @@ export class Appointment {
   @JoinColumn({ name: 'client_id' })
   client: User;
 
-  @Column({ type: 'varchar', unique: true })
+  @Column({ type: 'varchar', nullable: true })
   orderId: string;
 
   @ManyToMany(() => Staff, { eager: true })
@@ -97,6 +97,9 @@ export class Appointment {
   // Optional Notes
   @Column({ type: 'text', nullable: true })
   specialRequests?: string;
+
+  @Column({ type: 'text', nullable: true })
+  cancellationsNote?: string;
 
   // Appointment timeline
   @Column({

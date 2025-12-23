@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
 import { GetUser } from 'src/middleware/get-user.decorator';
@@ -32,7 +32,11 @@ export class GiftCardController {
   @Post('complete')
   @ApiOperation({ summary: 'Complete gift card purchase after Paystack verification' })
   @ApiResponse({ status: 200, description: 'Gift card purchase completed successfully' })
-  async completePurchase(@Body('reference') reference: string) {
+  async completePurchase(@Body('reference') referenceFromBody: string, @Query('reference') referenceFromQuery: string) {
+    const reference = referenceFromBody || referenceFromQuery;
+    if (!reference) {
+      throw new Error('Transaction reference is required');
+    }
     return await this.giftCardService.completeGiftCardPurchase(reference);
   }
 
@@ -57,6 +61,25 @@ export class GiftCardController {
   })
   async getGiftCardStats(@GetUser() user: User) {
     return this.giftCardService.getGiftCardStatsByUser(user);
+  }
+
+  @Get('owned')
+  @ApiOperation({
+    summary: 'Get all gift cards owned by the authenticated user',
+    description: 'Returns gift cards that the user has purchased and owns',
+  })
+  @ApiResponse({ status: 200, description: 'User owned gift cards retrieved successfully' })
+  async getUserOwnedGiftCards(@GetUser() user: User) {
+    return this.giftCardService.getUserOwnedGiftCards(user);
+  }
+
+  @Get('fee')
+  @ApiOperation({
+    summary: 'Get the gift card fee from admin platform settings',
+  })
+  @ApiResponse({ status: 200, description: 'Gift card fee retrieved successfully' })
+  async getGiftCardFee() {
+    return this.giftCardService.getGiftCardFee();
   }
 
   @Get()

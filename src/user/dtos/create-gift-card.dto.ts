@@ -3,10 +3,10 @@ import { IsNotEmpty, IsOptional, IsString, IsUUID, IsEmail } from 'class-validat
 
 export class PurchaseBusinessGiftCardDto {
   @ApiProperty({
-    description: 'ID of the business gift card to purchase',
-    example: 'e1c9ad5f-0b46-4e3e-9bd3-93a2d57d987b',
+    description: 'Code of the gift card to purchase',
+    example: 'KyGThyg789',
   })
-  @IsUUID()
+  @IsString()
   @IsNotEmpty()
   businessGiftCardId: string;
 

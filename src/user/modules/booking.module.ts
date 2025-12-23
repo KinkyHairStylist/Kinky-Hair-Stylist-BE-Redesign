@@ -7,12 +7,20 @@ import { Staff } from 'src/business/entities/staff.entity';
 import { Transaction } from 'src/business/entities/transaction.entity';
 import { BookingService } from '../services/booking.service';
 import { BookingController } from '../controllers/booking.controller';
-// import { PayPalService } from '../services/paypal.service';
+import { PayPalService } from '../services/paypal.service';
 import { GiftCard } from 'src/all_user_entities/gift-card.entity';
+import { PlatformSettingsService } from 'src/admin/platform-settings/platform-settings.service';
+import { PlatformSettingsEntity } from 'src/admin/platform-settings/entities/platform-settings.entity';
+import { ReviewModule } from 'src/business/review.module';
+import { Review } from 'src/business/entities/review.entity';
+import { ClientSchema } from 'src/business/entities/client.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Appointment, Business, Service, Staff, Transaction, GiftCard])],
+  imports: [
+    TypeOrmModule.forFeature([Appointment, Business, Service, Staff, Transaction, GiftCard, PlatformSettingsEntity, Review, ClientSchema]),
+    ReviewModule
+  ],
   controllers: [BookingController],
-  providers: [BookingService],
+  providers: [BookingService, PayPalService, PlatformSettingsService],
 })
 export class BookingModule {}

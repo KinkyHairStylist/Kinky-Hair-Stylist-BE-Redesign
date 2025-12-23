@@ -10,6 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import sgMail from '@sendgrid/mail';
 
 import { User } from '../../all_user_entities/user.entity';
+import { UserRole } from '../../all_user_entities/user-role.entity';
 import {
   GetStartedDto,
   VerifyCodeDto,
@@ -44,6 +45,9 @@ export class UserService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+
+    @InjectRepository(UserRole)
+    private userRoleRepository: Repository<UserRole>,
 
     @InjectRepository(Referral)
     private referralRepository: Repository<Referral>,
@@ -224,7 +228,13 @@ export class UserService {
     // Generate referral code for the new user
     user.referralCode = await this.referralService.ensureReferralCode(user.id);
 
+    const userRole = this.userRoleRepository.create({
+      isClient: true, 
+      user: user,
+    });
+
     await this.userRepository.save(user);
+    await this.userRoleRepository.save(userRole);
 
     // If a referral code was used, complete the referral and reward the referrer
     if (referralCode) {
@@ -368,7 +378,7 @@ export class UserService {
   }
 
   async findById(id: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { id } });
+    return this.userRepository.findOne({ where: { id }, relations: ['role'] });
   }
 
   public sanitizeUser(user: User): SanitizedUser {

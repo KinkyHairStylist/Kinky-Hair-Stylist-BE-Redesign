@@ -31,8 +31,8 @@ import {
 } from '../dtos/requests/ClientDto';
 import { JwtAuthGuard } from '../middlewares/guards/jwt-auth.guard';
 import { ClientFormData } from '../types/client.types';
+import { ClientType } from '../entities/client.entity';
 import {
-  ClientType,
   PreferredContactMethod,
 } from '../entities/client-settings.entity';
 import { ClientSettingsService } from '../services/client-settings.service';

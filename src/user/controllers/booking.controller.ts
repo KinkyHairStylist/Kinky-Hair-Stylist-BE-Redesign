@@ -7,6 +7,8 @@ import { Roles } from 'src/middleware/roles.decorator';
 import { BookingService } from '../services/booking.service';
 import { CreateBookingDto } from '../dtos/create-booking.dto';
 import { ConfirmBookingDto } from '../dtos/confirm-booking.dto';
+import { RateBusinessDto } from '../dtos/rate-business.dto';
+import { CancelBookingDto } from '../dtos/cancel-booking.dto';
 import { GetUser } from 'src/middleware/get-user.decorator';
 import { User } from 'src/all_user_entities/user.entity';
 import { JwtAuthGuard } from 'src/middleware/jwt-auth.guard';
@@ -36,7 +38,15 @@ export class BookingController {
     return this.bookingService.confirmBooking(confirmBookingDto, user);
   }
 
-  // Get user bookings
+  // Get bookings for the authenticated user
+  @Get('me')
+  @ApiOperation({ summary: 'Get all bookings for the authenticated user' })
+  @ApiResponse({ status: 200, description: 'Bookings retrieved successfully' })
+  async getMyBookings(@GetUser() user: User) {
+    return this.bookingService.getUserBookings(user.id);
+  }
+
+  // Get user bookings (admin use - secured by roles)
   @Get('user/:userId')
   @ApiOperation({ summary: 'Get all bookings for a user' })
   async getUserBookings(@Param('userId') userId: string) {
@@ -52,9 +62,28 @@ export class BookingController {
 
   // Cancel booking
   @Patch(':orderId/cancel')
-  @ApiOperation({ summary: 'Cancel a booking' })
-  async cancelBooking(@Param('orderId') orderId: string) {
-    return this.bookingService.cancelBooking(orderId);
+  @ApiOperation({ summary: 'Cancel a booking with optional note' })
+  @ApiBody({ type: CancelBookingDto })
+  @ApiResponse({ status: 200, description: 'Booking cancelled successfully' })
+  async cancelBooking(@Param('orderId') orderId: string, @Body() cancelBookingDto: CancelBookingDto) {
+    return this.bookingService.cancelBooking(orderId, cancelBookingDto.cancellationsNote, cancelBookingDto.acceptedTerms);
+  }
+
+  // Restore cancelled booking
+  @Patch(':orderId/restore')
+  @ApiOperation({ summary: 'Restore a cancelled booking' })
+  @ApiResponse({ status: 200, description: 'Booking restored successfully' })
+  async restoreBooking(@Param('orderId') orderId: string) {
+    return this.bookingService.restoreBooking(orderId);
+  }
+
+  // Rate booking business
+  @Post(':orderId/rate')
+  @ApiOperation({ summary: 'Rate a business for a specific booking' })
+  @ApiBody({ type: RateBusinessDto })
+  @ApiResponse({ status: 201, description: 'Business rated successfully' })
+  async rateBusiness(@Param('orderId') orderId: string, @Body() rateBusinessDto: RateBusinessDto, @GetUser() user: User) {
+    return this.bookingService.rateBusiness(orderId, rateBusinessDto.rating, rateBusinessDto.comment, user);
   }
 
   //  Reschedule booking
