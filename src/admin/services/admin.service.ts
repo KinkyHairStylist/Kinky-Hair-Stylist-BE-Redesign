@@ -460,6 +460,42 @@ export class AdminService {
     return 'done!';
   }
 
+  async updateUserRole(id: string, role?: 'ADMIN' | 'CLIENT' | 'CUSTOMER') {
+  const user = await this.userRepo.findOne({ where: { id } });
+  if (!user) {
+    throw new BadRequestException('User not found');
+  }
+
+  if (user.isMerchant && !user.isStaff) {
+    throw new BadRequestException('Role update is not supported for merchant/business accounts.');
+  }
+
+  if (role === 'ADMIN' || (role === undefined && !user.isStaff)) {
+    user.isStaff = true;
+    user.adminRole = AdminRole.ADMIN;
+    user.isCustomer = false;
+  } else {
+    user.isStaff = false;
+    user.adminRole = null;
+    user.isCustomer = true;
+  }
+
+  await this.userRepo.save(user);
+
+  return {
+    message: user.isStaff
+      ? `User ${user.firstName ?? user.email} updated to Admin role.`
+      : `Admin role removed for ${user.firstName ?? user.email}.`,
+    user: {
+      id: user.id,
+      isStaff: Boolean(user.isStaff),
+      isMerchant: Boolean(user.isMerchant),
+      isCustomer: Boolean(user.isCustomer),
+      persona: user.isStaff ? 'Admin' : user.isMerchant ? 'Merchant' : 'Customer',
+    },
+  };
+}
+
 async getAllBusinesses() {
     const businesses = await this.businessRepo
       .createQueryBuilder('business')
