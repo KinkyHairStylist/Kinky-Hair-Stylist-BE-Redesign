@@ -1755,6 +1755,7 @@ export class BookingService {
       clientId: client!.id,
       ownerId: business.owner.id,
       businessId: business.id,
+      orderId: appointment.orderId, 
       rating,
       comment,
       service: appointment.serviceName,
