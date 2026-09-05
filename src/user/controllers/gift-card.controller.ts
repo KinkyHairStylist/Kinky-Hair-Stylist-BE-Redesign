@@ -31,7 +31,11 @@ export class GiftCardController {
   }
 
   @Post('complete')
-  @ApiOperation({ summary: 'Complete gift card purchase after Paystack verification' })
+  @ApiOperation({
+    summary: 'Complete gift card purchase after Stripe PaymentIntent succeeds',
+    description:
+      'Body/query `reference` is the Stripe PaymentIntent id (pi_...) returned from POST /purchase. Idempotent — safe to call more than once.',
+  })
   @ApiResponse({ status: 200, description: 'Gift card purchase completed successfully' })
   async completePurchase(@Body('reference') referenceFromBody: string, @Query('reference') referenceFromQuery: string) {
     const reference = referenceFromBody || referenceFromQuery;

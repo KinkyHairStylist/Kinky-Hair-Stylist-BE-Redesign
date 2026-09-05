@@ -41,6 +41,7 @@ import { CloudinaryModule } from './cloudinary.module';
 import { PreferencesModule } from './preferences.module';
 import { PasswordUtil } from 'src/business/utils/password.util';
 import { PaystackService } from 'src/payment/paystack.service';
+import { StripeService } from 'src/payment/stripe.service';
 import { BusinessModule } from 'src/business/business.module';
 import { BusinessWalletModule } from 'src/business/wallet.module';
 import { PlatformSettingsModule } from '../../admin/platform-settings/platform-settings.module';
@@ -94,6 +95,7 @@ import { SlackModule } from 'src/slack/slack.module';
     UserProfileService,
     PasswordUtil,
     PaystackService, // keep PaystackService here
+    StripeService,
   ],
   exports: [UserService, GiftCardService], // <-- export GiftCardService if needed elsewhere
 })
