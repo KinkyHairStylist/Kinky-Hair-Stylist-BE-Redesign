@@ -28,6 +28,12 @@ export class RolesGuard implements CanActivate {
           return user.isCustomer;
         case Role.BusinessStaff:
           return user.isBusinessStaff;
+        case Role.Admin:
+          return user.isStaff;
+        case Role.SuperAdmin:
+          return user.isStaff;
+        case Role.Client:
+          return user.isCustomer;
         default:
           return false;
       }
