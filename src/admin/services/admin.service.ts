@@ -399,17 +399,23 @@ export class AdminService {
   }
 
   async getAllAppointments() {
-    return this.appointmentRepo.find();
+    return this.appointmentRepo.find({
+      relations: ['client', 'businessClient', 'business', 'staff', 'service'],
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async getAppointmentById(appointmentId: string) {
-    return this.appointmentRepo.findOne({ where: { id: appointmentId } });
+    return this.appointmentRepo.findOne({
+      where: { id: appointmentId },
+      relations: ['client', 'businessClient', 'business', 'staff', 'service'],
+    });
   }
 
   async rescheduleAppointment(body) {
     const appointment = await this.appointmentRepo.findOne({
       where: { id: body.id },
-      relations: ['client', 'businessClient', 'business'],
+      relations: ['client', 'businessClient', 'business', 'service'],
     });
     if (!appointment) {
       throw new Error('Appointment not found');
@@ -420,12 +426,23 @@ export class AdminService {
 
     const recipientEmail =
       appointment.client?.email ?? appointment.businessClient?.email;
+    const clientName =
+      appointment.client?.firstName ||
+      appointment.businessClient?.firstName ||
+      'Valued Customer';
+    const businessName =
+      appointment.business?.businessName || 'KHS Partner Salon';
+    const serviceName =
+      appointment.service?.name || appointment.serviceName || 'Hair Service';
+
     if (recipientEmail) {
-      await this.emailService.sendEmail(
+      this.emailService.sendRescheduleConfirmationEmail(
         recipientEmail,
-        `Appointment with ${appointment.business.businessName} `,
-        `your appointment has been rescheduled to ${appointment.date} at ${appointment.time}`,
-        '',
+        clientName,
+        businessName,
+        serviceName,
+        appointment.date,
+        appointment.time,
       );
     }
     return this.appointmentRepo.save(appointment);
@@ -460,16 +477,90 @@ export class AdminService {
     return 'done!';
   }
 
-  async getAllBusinesses() {
+  async updateUserRole(id: string, role?: 'ADMIN' | 'CLIENT' | 'CUSTOMER') {
+  const user = await this.userRepo.findOne({ where: { id } });
+  if (!user) {
+    throw new BadRequestException('User not found');
+  }
+
+  if (user.isMerchant && !user.isStaff) {
+    throw new BadRequestException('Role update is not supported for merchant/business accounts.');
+  }
+
+  if (role === 'ADMIN' || (role === undefined && !user.isStaff)) {
+    user.isStaff = true;
+    user.adminRole = AdminRole.ADMIN;
+    user.isCustomer = false;
+  } else {
+    user.isStaff = false;
+    user.adminRole = null;
+    user.isCustomer = true;
+  }
+
+  await this.userRepo.save(user);
+
+  return {
+    message: user.isStaff
+      ? `User ${user.firstName ?? user.email} updated to Admin role.`
+      : `Admin role removed for ${user.firstName ?? user.email}.`,
+    user: {
+      id: user.id,
+      isStaff: Boolean(user.isStaff),
+      isMerchant: Boolean(user.isMerchant),
+      isCustomer: Boolean(user.isCustomer),
+      persona: user.isStaff ? 'Admin' : user.isMerchant ? 'Merchant' : 'Customer',
+    },
+  };
+}
+
+async getAllBusinesses() {
     const businesses = await this.businessRepo
       .createQueryBuilder('business')
       .leftJoinAndSelect('business.staff', 'staff')
       .getMany();
 
-    // Map to include staff count
+    // Staff count per business (existing behavior)
+    const staffCounts = new Map(
+      businesses.map((business) => [
+        business.id,
+        business.staff ? business.staff.length : 0,
+      ]),
+    );
+
+    // Real revenue + bookings from completed + paid appointments
+    const statsByBusinessId = new Map<
+      string,
+      { revenue: number; bookings: number }
+    >();
+
+    const rawStats = await this.businessRepo
+      .createQueryBuilder('business')
+      .leftJoin('business.appointments', 'appointment')
+      .select('business.id', 'businessId')
+      .addSelect(
+        `COALESCE(SUM(CASE WHEN appointment.status = 'Completed' AND appointment."paymentStatus" = 'Paid' THEN appointment.amount ELSE 0 END), 0)`,
+        'revenue',
+      )
+      .addSelect(
+        `COALESCE(SUM(CASE WHEN appointment.status = 'Completed' AND appointment."paymentStatus" = 'Paid' THEN 1 ELSE 0 END), 0)`,
+        'bookings',
+      )
+      .where('appointment.id IS NOT NULL')
+      .groupBy('business.id')
+      .getRawMany<{ businessId: string; revenue: string; bookings: string }>();
+
+    for (const stat of rawStats) {
+      statsByBusinessId.set(stat.businessId, {
+        revenue: parseFloat(stat.revenue) || 0,
+        bookings: parseInt(stat.bookings, 10) || 0,
+      });
+    }
+
     return businesses.map((business) => ({
       ...business,
-      staff: business.staff ? business.staff.length : 0,
+      staff: staffCounts.get(business.id) ?? 0,
+      revenue: statsByBusinessId.get(business.id)?.revenue ?? business.revenue ?? 0,
+      bookings: statsByBusinessId.get(business.id)?.bookings ?? business.bookings ?? 0,
     }));
   }
 
@@ -852,42 +943,6 @@ export class AdminService {
           statusColor: 'bg-blue-100 text-blue-800',
         })),
       ],
-    };
-  }
-
-  async updateUserRole(id: string, role?: 'ADMIN' | 'CLIENT' | 'CUSTOMER') {
-    const user = await this.userRepo.findOne({ where: { id } });
-    if (!user) {
-      throw new BadRequestException('User not found');
-    }
-
-    if (user.isMerchant && !user.isStaff) {
-      throw new BadRequestException('Role update is not supported for merchant/business accounts.');
-    }
-
-    if (role === 'ADMIN' || (role === undefined && !user.isStaff)) {
-      user.isStaff = true;
-      user.adminRole = AdminRole.ADMIN;
-      user.isCustomer = false;
-    } else {
-      user.isStaff = false;
-      user.adminRole = null;
-      user.isCustomer = true;
-    }
-
-    await this.userRepo.save(user);
-
-    return {
-      message: user.isStaff
-        ? `User ${user.firstName ?? user.email} updated to Admin role.`
-        : `Admin role removed for ${user.firstName ?? user.email}.`,
-      user: {
-        id: user.id,
-        isStaff: Boolean(user.isStaff),
-        isMerchant: Boolean(user.isMerchant),
-        isCustomer: Boolean(user.isCustomer),
-        persona: user.isStaff ? 'Admin' : user.isMerchant ? 'Merchant' : 'Customer',
-      },
     };
   }
 }

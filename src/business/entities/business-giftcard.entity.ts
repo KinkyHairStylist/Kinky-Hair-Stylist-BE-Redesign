@@ -71,7 +71,7 @@ export class BusinessGiftCard {
   @Column({ type: 'varchar', length: 50, unique: true })
   code: string;
 
-  @ManyToOne(() => Card, { eager: true, nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => Card, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'cardId' })
   card: Card;
   
