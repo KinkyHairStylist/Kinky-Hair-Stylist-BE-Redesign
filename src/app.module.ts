@@ -27,6 +27,7 @@ import { CardModule } from './user/modules/card.module';
 import { ModerationModule } from './admin/moderation/moderation.module';
 import { ChatModule } from './admin/live-chat/chat.module';
 import { PlatformSettingsModule } from './admin/platform-settings/platform-settings.module';
+import { GuidelinesModule } from './admin/guidelines/guidelines.module';
 import { NotificationSettingsModule } from './user/modules/notification-settings.module';
 import { NotificationModule } from './notifications/notification.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -112,6 +113,7 @@ import { LandingModule } from './landing/landing.module';
     ModerationModule,
     ChatModule,
     PlatformSettingsModule,
+    GuidelinesModule,
     NotificationSettingsModule,
     NotificationModule,
     ProductModule,
