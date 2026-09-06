@@ -399,17 +399,23 @@ export class AdminService {
   }
 
   async getAllAppointments() {
-    return this.appointmentRepo.find();
+    return this.appointmentRepo.find({
+      relations: ['client', 'businessClient', 'business', 'staff', 'service'],
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async getAppointmentById(appointmentId: string) {
-    return this.appointmentRepo.findOne({ where: { id: appointmentId } });
+    return this.appointmentRepo.findOne({
+      where: { id: appointmentId },
+      relations: ['client', 'businessClient', 'business', 'staff', 'service'],
+    });
   }
 
   async rescheduleAppointment(body) {
     const appointment = await this.appointmentRepo.findOne({
       where: { id: body.id },
-      relations: ['client', 'businessClient', 'business'],
+      relations: ['client', 'businessClient', 'business', 'service'],
     });
     if (!appointment) {
       throw new Error('Appointment not found');
@@ -420,12 +426,23 @@ export class AdminService {
 
     const recipientEmail =
       appointment.client?.email ?? appointment.businessClient?.email;
+    const clientName =
+      appointment.client?.firstName ||
+      appointment.businessClient?.firstName ||
+      'Valued Customer';
+    const businessName =
+      appointment.business?.businessName || 'KHS Partner Salon';
+    const serviceName =
+      appointment.service?.name || appointment.serviceName || 'Hair Service';
+
     if (recipientEmail) {
-      await this.emailService.sendEmail(
+      this.emailService.sendRescheduleConfirmationEmail(
         recipientEmail,
-        `Appointment with ${appointment.business.businessName} `,
-        `your appointment has been rescheduled to ${appointment.date} at ${appointment.time}`,
-        '',
+        clientName,
+        businessName,
+        serviceName,
+        appointment.date,
+        appointment.time,
       );
     }
     return this.appointmentRepo.save(appointment);
