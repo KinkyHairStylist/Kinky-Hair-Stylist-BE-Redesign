@@ -316,6 +316,27 @@ export class EmailService {
     );
   }
 
+  sendMerchantSubscriptionLapsedEmail(
+    to: string,
+    businessName: string,
+    reason: string,
+  ) {
+    const html = this.templateService.render('merchant-subscription-lapsed', {
+      businessName,
+      reason,
+      frontendUrl: this.frontendUrl,
+      year: new Date().getFullYear(),
+    });
+    const text = `Hi ${businessName}, your merchant subscription has lapsed (${reason}) and your account has been temporarily suspended. Add or update your payment method to reactivate.`;
+    this.sendEmail(
+      to,
+      'Your merchant subscription has lapsed',
+      text,
+      html,
+      this.deliveryTeamEmail,
+    );
+  }
+
   sendLoginNotificationEmail(to: string, userName: string, timestamp?: string) {
     const now =
       timestamp ||

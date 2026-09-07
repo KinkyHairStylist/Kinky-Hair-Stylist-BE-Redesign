@@ -14,6 +14,7 @@ import { Public } from 'src/business/middlewares/public.decorator';
 import { WebhookService } from '../services/webhook.service';
 import { StripeService } from 'src/payment/stripe.service';
 import { BookingService } from 'src/user/services/booking.service';
+import { MerchantSubscriptionService } from 'src/business/services/merchant-subscription.service';
 
 @Controller('webhook')
 export class WebhookController {
@@ -23,6 +24,7 @@ export class WebhookController {
     private readonly webhookService: WebhookService,
     private readonly stripeService: StripeService,
     private readonly bookingService: BookingService,
+    private readonly merchantSubscriptionService: MerchantSubscriptionService,
   ) {}
 
   /**
@@ -70,6 +72,43 @@ export class WebhookController {
           await this.bookingService.handleStripePaymentFailed(
             paymentIntent.id,
           );
+          break;
+        }
+        case 'customer.subscription.deleted': {
+          const subscription = event.data.object as { id: string };
+          await this.merchantSubscriptionService.handleSubscriptionDeleted(
+            subscription.id,
+          );
+          break;
+        }
+        case 'invoice.payment_failed': {
+          const invoice = event.data.object as {
+            subscription: string | null;
+            parent?: { subscription_details?: { subscription: string | null } | null } | null;
+          };
+          // Stripe moved this field under `parent.subscription_details` in
+          // newer API versions; the flat field is kept as a fallback.
+          const subscriptionId =
+            invoice.parent?.subscription_details?.subscription ?? invoice.subscription;
+          if (subscriptionId) {
+            await this.merchantSubscriptionService.handlePaymentFailed(subscriptionId);
+          }
+          break;
+        }
+        case 'invoice.payment_succeeded': {
+          const invoice = event.data.object as {
+            subscription: string | null;
+            parent?: { subscription_details?: { subscription: string | null } | null } | null;
+            period_end: number;
+          };
+          const subscriptionId =
+            invoice.parent?.subscription_details?.subscription ?? invoice.subscription;
+          if (subscriptionId) {
+            await this.merchantSubscriptionService.handlePaymentSucceeded(
+              subscriptionId,
+              new Date(invoice.period_end * 1000),
+            );
+          }
           break;
         }
         default:

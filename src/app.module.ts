@@ -31,6 +31,7 @@ import { GuidelinesModule } from './admin/guidelines/guidelines.module';
 import { NotificationSettingsModule } from './user/modules/notification-settings.module';
 import { NotificationModule } from './notifications/notification.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD } from '@nestjs/core';
 
 import { ClientModule } from './business/client.module';
@@ -84,6 +85,7 @@ import { LandingModule } from './landing/landing.module';
         limit: 40,
       },
     ]),
+    ScheduleModule.forRoot(),
 
     EmailModule,
     SlackModule,

@@ -113,6 +113,91 @@ export class StripeService {
     );
   }
 
+  /** Creates a Stripe Customer for a business — done at admin-approval time,
+   * before any card exists, so there's a stable ID to attach a payment
+   * method and a subscription to later. */
+  async createCustomerForBusiness(payload: {
+    businessId: string;
+    email?: string;
+    name?: string;
+  }): Promise<Stripe.Customer> {
+    try {
+      return await this.stripe.customers.create({
+        email: payload.email,
+        name: payload.name,
+        metadata: { businessId: payload.businessId },
+      });
+    } catch (error) {
+      throw new BadRequestException(
+        `Unable to create Stripe customer: ${error.message}`,
+      );
+    }
+  }
+
+  /** Returns a SetupIntent's client_secret — the frontend uses this with
+   * Stripe Elements to collect and save a card without charging it yet. */
+  async createSetupIntent(customerId: string): Promise<Stripe.SetupIntent> {
+    try {
+      return await this.stripe.setupIntents.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+      });
+    } catch (error) {
+      throw new BadRequestException(
+        `Unable to create Stripe setup intent: ${error.message}`,
+      );
+    }
+  }
+
+  async attachPaymentMethodAsDefault(
+    customerId: string,
+    paymentMethodId: string,
+  ): Promise<void> {
+    try {
+      await this.stripe.paymentMethods.attach(paymentMethodId, {
+        customer: customerId,
+      });
+      await this.stripe.customers.update(customerId, {
+        invoice_settings: { default_payment_method: paymentMethodId },
+      });
+    } catch (error) {
+      throw new BadRequestException(
+        `Unable to attach Stripe payment method: ${error.message}`,
+      );
+    }
+  }
+
+  /** trialEnd: a Unix timestamp (seconds) to delay the first real charge
+   * until, or the literal string 'now' to charge immediately (used for a
+   * merchant re-subscribing after their trial already lapsed). */
+  async createSubscription(
+    customerId: string,
+    priceId: string,
+    trialEnd: number | 'now',
+  ): Promise<Stripe.Subscription> {
+    try {
+      return await this.stripe.subscriptions.create({
+        customer: customerId,
+        items: [{ price: priceId }],
+        trial_end: trialEnd,
+      });
+    } catch (error) {
+      throw new BadRequestException(
+        `Unable to create Stripe subscription: ${error.message}`,
+      );
+    }
+  }
+
+  async cancelSubscription(subscriptionId: string): Promise<void> {
+    try {
+      await this.stripe.subscriptions.cancel(subscriptionId);
+    } catch (error) {
+      throw new BadRequestException(
+        `Unable to cancel Stripe subscription: ${error.message}`,
+      );
+    }
+  }
+
   /** Verifies and parses a webhook payload — requires the raw request body, not parsed JSON */
   constructWebhookEvent(rawBody: Buffer, signature: string): Stripe.Event {
     if (!this.webhookSecret) {

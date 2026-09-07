@@ -9,16 +9,35 @@ import { BusinessFirebaseModule } from './business-firebase.module';
 import { User } from 'src/all_user_entities/user.entity';
 import { FormidableMiddleware } from './middlewares/formidable.middleware';
 import { UserProfileValidationMiddleware } from './middlewares/user-profile.middleware';
+import { MerchantSubscription } from './entities/merchant-subscription.entity';
+import { MerchantSubscriptionController } from './controllers/merchant-subscription.controller';
+import { MerchantSubscriptionService } from './services/merchant-subscription.service';
+import { StripeService } from 'src/payment/stripe.service';
+import { PlatformSettingsEntity } from 'src/admin/platform-settings/entities/platform-settings.entity';
+import { PlatformSettingsService } from 'src/admin/platform-settings/platform-settings.service';
+import { EmailModule } from 'src/email/email.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([BusinessOwnerSettings, Business, User]),
+    TypeOrmModule.forFeature([
+      BusinessOwnerSettings,
+      Business,
+      User,
+      MerchantSubscription,
+      PlatformSettingsEntity,
+    ]),
     UserModule,
     // BusinessCloudinaryModule,
     BusinessFirebaseModule,
+    EmailModule,
   ],
-  controllers: [BusinessOwnerSettingsController],
-  providers: [BusinessOwnerSettingsService],
+  controllers: [BusinessOwnerSettingsController, MerchantSubscriptionController],
+  providers: [
+    BusinessOwnerSettingsService,
+    MerchantSubscriptionService,
+    StripeService,
+    PlatformSettingsService,
+  ],
   exports: [BusinessOwnerSettingsService],
 })
 export class BusinessOwnerSettingsModule {
