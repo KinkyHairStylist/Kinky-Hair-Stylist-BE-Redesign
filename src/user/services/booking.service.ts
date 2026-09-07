@@ -441,7 +441,10 @@ export class BookingService {
       });
     }
 
-    // Handle pay at venue - no online payment needed
+    // Pay-at-venue disabled — no longer an offered payment option. Kept
+    // commented out (not deleted) rather than removing payAtVenue from the
+    // DTO, since the frontend still always sends payAtVenue: false.
+    /*
     if (payAtVenue && remainingToPay > 0) {
       return await this.dataSource.manager.transaction(async (manager) => {
         // Deduct from gift card if provided
@@ -620,6 +623,7 @@ export class BookingService {
         };
       });
     }
+    */
 
     // If remaining amount exists and no card ID provided, throw error —
     // Stripe doesn't use a pre-saved cardId the way Paystack does, so this
