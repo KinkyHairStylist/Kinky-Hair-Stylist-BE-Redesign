@@ -26,6 +26,9 @@ import { Transaction } from 'src/business/entities/transaction.entity';
 import { StripePaymentIntent } from 'src/payment/entities/stripe-payment-intent.entity';
 import { Refund } from 'src/user/user_entities/refund.entity';
 import { StripeService } from 'src/payment/stripe.service';
+import { MerchantSubscription } from '../business/entities/merchant-subscription.entity';
+import { MerchantSubscriptionService } from '../business/services/merchant-subscription.service';
+import { MerchantSubscriptionCronService } from '../business/services/merchant-subscription-cron.service';
 
 @Module({
   imports: [
@@ -41,6 +44,7 @@ import { StripeService } from 'src/payment/stripe.service';
     TypeOrmModule.forFeature([Transaction]),
     TypeOrmModule.forFeature([StripePaymentIntent]),
     TypeOrmModule.forFeature([Refund]),
+    TypeOrmModule.forFeature([MerchantSubscription]),
     CloudinaryModule,
     BusinessWalletModule,
     EmailModule,
@@ -50,6 +54,8 @@ import { StripeService } from 'src/payment/stripe.service';
     AdminService,
     PaymentService,
     StripeService,
+    MerchantSubscriptionService,
+    MerchantSubscriptionCronService,
     ArticleService,
     AdminAuthService,
     AdminAuthStrategy,

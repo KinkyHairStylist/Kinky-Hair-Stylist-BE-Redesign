@@ -5,13 +5,15 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
+import { MerchantSubscriptionService } from '../../business/services/merchant-subscription.service';
 import { EmailService } from '../../email/email.service';
 import { invalidateCache } from '../../cache/cache.interceptor';
 import { User } from '../../all_user_entities/user.entity';
 import {
   Business,
   BusinessStatus,
+  BusinessPlanTier,
 } from '../../business/entities/business.entity';
 import { ApplicationStatus } from '../../business/types/constants';
 import {
@@ -58,6 +60,8 @@ export class AdminService {
     private transactionRepo: Repository<Transaction>,
     private emailService: EmailService,
     private paymentService: PaymentService,
+    private readonly merchantSubscriptionService: MerchantSubscriptionService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async getNearbySalons(body: { latitude: number; longitude: number }) {
@@ -588,8 +592,19 @@ async getAllBusinesses() {
     if (!application) {
       throw new UnauthorizedException('Application not found');
     }
-    application.status = BusinessStatus.APPROVED;
-    const saved = await this.businessRepo.save(application);
+
+    // "Approved" must always imply a subscription record exists (the
+    // 14-day Starter trial) — wrapped in one DB transaction so the two
+    // writes are never left half-true. The Stripe Customer API call
+    // itself can't participate in a Postgres transaction; an orphaned
+    // Stripe Customer if the transaction later fails is an accepted,
+    // low-cost edge case (see merchant-subscription plan notes).
+    const saved = await this.dataSource.transaction(async (manager) => {
+      application.status = BusinessStatus.APPROVED;
+      const savedBusiness = await manager.save(Business, application);
+      await this.merchantSubscriptionService.startTrialForBusiness(savedBusiness);
+      return savedBusiness;
+    });
 
     try {
       this.emailService.sendMerchantVerifiedEmail(
@@ -682,6 +697,19 @@ async getAllBusinesses() {
       throw new BadRequestException('Business not found');
     }
 
+    // Uniform gate, regardless of why this business was suspended:
+    // "approved" must always imply an active subscription. A business
+    // suspended for an unrelated cause can't be unsuspended if its
+    // subscription has separately lapsed in the meantime — billing has
+    // to be fixed first.
+    const hasActiveSubscription =
+      await this.merchantSubscriptionService.hasActiveOrTrialingSubscription(id);
+    if (!hasActiveSubscription) {
+      throw new BadRequestException(
+        'Cannot unsuspend: business has no active subscription. Merchant must add or update a payment method first.',
+      );
+    }
+
     business.status = BusinessStatus.APPROVED;
     await this.businessRepo.save(business);
 
@@ -727,6 +755,28 @@ async getAllBusinesses() {
     await invalidateCache('/api/salons');
 
     return { message: `Business has been removed from luxury.` };
+  }
+
+  // Sets a business's acquisition-fee tier (drives the % in booking.service.ts).
+  // No merchant self-serve upgrade path exists yet — this is the only lever.
+  async setBusinessPlanTier(id: string, planTier: BusinessPlanTier) {
+    if (!Object.values(BusinessPlanTier).includes(planTier)) {
+      throw new BadRequestException(
+        `Invalid planTier "${planTier}" — must be one of: ${Object.values(BusinessPlanTier).join(', ')}`,
+      );
+    }
+
+    const business = await this.businessRepo.findOne({ where: { id } });
+    if (!business) {
+      throw new BadRequestException('Business not found');
+    }
+
+    business.planTier = planTier;
+
+    await this.businessRepo.save(business);
+    await invalidateCache('/api/salons');
+
+    return { message: `Business plan tier set to ${planTier}.` };
   }
 
   async getDashboardStats() {
