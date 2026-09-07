@@ -46,6 +46,7 @@ import { User } from 'src/all_user_entities/user.entity';
 import { ReviewService } from 'src/business/services/review.service';
 import { BusinessWalletService } from 'src/business/services/wallet.service';
 import { ClientSchema, ClientType } from 'src/business/entities/client.entity';
+import { BusinessClientAcquisition } from 'src/business/entities/business-client-acquisition.entity';
 
 @Injectable()
 export class BookingService {
@@ -72,6 +73,8 @@ export class BookingService {
     private stripePaymentIntentRepository: Repository<StripePaymentIntent>,
     @InjectRepository(Refund)
     private refundRepository: Repository<Refund>,
+    @InjectRepository(BusinessClientAcquisition)
+    private businessClientAcquisitionRepository: Repository<BusinessClientAcquisition>,
     private platformSettingsService: PlatformSettingsService,
     private reviewService: ReviewService,
     private readonly dataSource: DataSource,
@@ -90,6 +93,44 @@ export class BookingService {
   private async shouldSendBookingConfirmationEmail(user: User): Promise<boolean> {
     const settings = await this.notificationSettingsService.getSettings(user);
     return settings.emailBookingConfirmations;
+  }
+
+  // Computes the acquisition fee (tier %, one-time per business+client pair)
+  // and the flat commission for a booking. Does NOT compute the Stripe
+  // passthrough — that's charge-method-specific and handled separately in
+  // the Stripe branch of confirmBooking, on the post-gift-card remainder.
+  private async calculateBookingFees(
+    business: Business,
+    clientId: string,
+    orderId: string,
+    bookingAmount: number,
+  ): Promise<{ acquisitionFeeAmount: number; commissionAmount: number }> {
+    const payments = await this.platformSettingsService.getPayments();
+
+    const claimResult = await this.dataSource
+      .createQueryBuilder()
+      .insert()
+      .into(BusinessClientAcquisition)
+      .values({ businessId: business.id, clientId, orderId })
+      .orIgnore()
+      .returning(['id'])
+      .execute();
+    // NOT claimResult.identifiers — TypeORM populates that from the input
+    // values regardless of whether Postgres actually inserted the row or
+    // silently skipped it via ON CONFLICT DO NOTHING. `.raw` reflects the
+    // real RETURNING rows: empty when the insert was skipped (row already
+    // existed), one row when it genuinely inserted.
+    const isFirstBookingWithBusiness = claimResult.raw.length > 0;
+
+    const acquisitionRate = isFirstBookingWithBusiness
+      ? Number(payments.acquisitionFeeTiers?.[business.planTier]) || 0
+      : 0;
+    const commissionRate = Number(payments.commissionRate) || 0;
+
+    return {
+      acquisitionFeeAmount: bookingAmount * (acquisitionRate / 100),
+      commissionAmount: bookingAmount * (commissionRate / 100),
+    };
   }
 
   private isUuid(value: string): boolean {
@@ -196,16 +237,23 @@ export class BookingService {
       throw new BadRequestException('Booking is already confirmed');
     }
 
-    // Get platform fee percentage
-    const paymentsSettings = await this.platformSettingsService.getPayments();
-    const platformFeePercent = Number(paymentsSettings.platformFee) || 0;
-
     // Calculate amounts
     const bookingAmount = appointments.reduce(
       (sum, appt) => sum + Number(appt.amount),
       0,
     );
-    const feeAmount = bookingAmount * (platformFeePercent / 100);
+
+    // Acquisition fee (tier %, one-time per business+client) + flat
+    // commission — replaces the old single flat platformFee. See
+    // calculateBookingFees for the race-safe first-booking detection.
+    const { acquisitionFeeAmount, commissionAmount } =
+      await this.calculateBookingFees(
+        appointments[0].business,
+        user.id,
+        orderId,
+        bookingAmount,
+      );
+    const feeAmount = acquisitionFeeAmount + commissionAmount;
     const totalAmount = bookingAmount + feeAmount;
 
     // Round to 2 decimal places
@@ -279,14 +327,15 @@ export class BookingService {
         });
         await manager.save(Transaction, bookingTx);
 
-        // Create platform fee transaction
-        if (feeAmount > 0) {
-          const feeTx = manager.create(Transaction, {
+        // Create acquisition + commission fee transactions
+        if (acquisitionFeeAmount > 0) {
+          const acqTx = manager.create(Transaction, {
             senderId: user.id,
-            amount: feeAmount,
+            amount: acquisitionFeeAmount,
             type: TransactionType.FEE,
+            feeSubtype: 'Acquisition',
             currency: WalletCurrency.USD,
-            description: `Platform fee for appointment order ${orderId}`,
+            description: `Acquisition fee for appointment order ${orderId}`,
             mode: 'Web',
             referenceId: orderId,
             status: TxnStatus.COMPLETED,
@@ -294,7 +343,24 @@ export class BookingService {
             service: 'Booking-Fee',
             customerName: `${user.firstName} ${user.surname}`,
           });
-          await manager.save(Transaction, feeTx);
+          await manager.save(Transaction, acqTx);
+        }
+        if (commissionAmount > 0) {
+          const commTx = manager.create(Transaction, {
+            senderId: user.id,
+            amount: commissionAmount,
+            type: TransactionType.FEE,
+            feeSubtype: 'Commission',
+            currency: WalletCurrency.USD,
+            description: `Commission for appointment order ${orderId}`,
+            mode: 'Web',
+            referenceId: orderId,
+            status: TxnStatus.COMPLETED,
+            method: PaymentMethod.GIFTCARD,
+            service: 'Booking-Fee',
+            customerName: `${user.firstName} ${user.surname}`,
+          });
+          await manager.save(Transaction, commTx);
         }
 
         // Add funds to business wallet for gift card payment
@@ -367,7 +433,7 @@ export class BookingService {
         return {
           message: 'Booking confirmed successfully with gift card',
           bookingAmount,
-          platformFee: feeAmount,
+          fees: { acquisitionFee: acquisitionFeeAmount, commission: commissionAmount },
           totalAmount,
           giftCardAmountUsed: totalAmount,
           success: true,
@@ -439,14 +505,15 @@ export class BookingService {
         });
         await manager.save(Transaction, venueTx);
 
-        // Create platform fee transaction
-        if (feeAmount > 0) {
-          const feeTx = manager.create(Transaction, {
+        // Create acquisition + commission fee transactions
+        if (acquisitionFeeAmount > 0) {
+          const acqTx = manager.create(Transaction, {
             senderId: user.id,
-            amount: feeAmount,
+            amount: acquisitionFeeAmount,
             type: TransactionType.FEE,
+            feeSubtype: 'Acquisition',
             currency: WalletCurrency.USD,
-            description: `Platform fee for appointment order ${orderId}`,
+            description: `Acquisition fee for appointment order ${orderId}`,
             mode: 'Web',
             referenceId: orderId,
             status: TxnStatus.PENDING,
@@ -454,7 +521,24 @@ export class BookingService {
             service: 'Booking-Fee',
             customerName: `${user.firstName} ${user.surname}`,
           });
-          await manager.save(Transaction, feeTx);
+          await manager.save(Transaction, acqTx);
+        }
+        if (commissionAmount > 0) {
+          const commTx = manager.create(Transaction, {
+            senderId: user.id,
+            amount: commissionAmount,
+            type: TransactionType.FEE,
+            feeSubtype: 'Commission',
+            currency: WalletCurrency.USD,
+            description: `Commission for appointment order ${orderId}`,
+            mode: 'Web',
+            referenceId: orderId,
+            status: TxnStatus.PENDING,
+            method: PaymentMethod.CASH,
+            service: 'Booking-Fee',
+            customerName: `${user.firstName} ${user.surname}`,
+          });
+          await manager.save(Transaction, commTx);
         }
 
         if (user.email && (await this.shouldSendBookingConfirmationEmail(user))) {
@@ -528,7 +612,7 @@ export class BookingService {
           message: 'Booking confirmed. Payment will be collected at venue.',
           user,
           bookingAmount,
-          platformFee: feeAmount,
+          fees: { acquisitionFee: acquisitionFeeAmount, commission: commissionAmount },
           totalAmount: roundedTotalAmount,
           giftCardAmountUsed: giftCardPayment,
           payAtVenueAmount: remainingToPay + payAtVenueSurcharge,
@@ -566,8 +650,23 @@ export class BookingService {
     // Completed, unlike Paystack's immediate-credit-on-payment model.
     if (paymentProvider === 'stripe' && remainingToPay > 0) {
       const businessId = appointments[0].business.id;
+
+      // Stripe passthrough is computed on the post-gift-card remainder —
+      // the amount actually going through Stripe — and added on top of the
+      // charge, not subtracted from anything. This is the one fee that's
+      // genuinely new charge-side logic (acquisition/commission just
+      // replace the old single flat fee, computed the same additive way).
+      const passthroughPayments = await this.platformSettingsService.getPayments();
+      const stripePassthroughAmount =
+        Math.round(
+          (remainingToPay * (Number(passthroughPayments.stripePassthroughRate) || 0) / 100 +
+            (Number(passthroughPayments.stripePassthroughFixedFee) || 0)) *
+            100,
+        ) / 100;
+      const stripeChargeAmount = remainingToPay + stripePassthroughAmount;
+
       const paymentIntent = await this.stripeService.createPaymentIntent({
-        amount: Math.round(remainingToPay * 100), // Convert to cents
+        amount: Math.round(stripeChargeAmount * 100), // Convert to cents
         currency: 'usd',
         customerEmail: user.email,
         metadata: {
@@ -576,6 +675,7 @@ export class BookingService {
           businessId,
           bookingAmount,
           feeAmount,
+          stripePassthroughAmount,
         },
       });
 
@@ -584,10 +684,12 @@ export class BookingService {
         businessId,
         userId: user.id,
         stripePaymentIntentId: paymentIntent.id,
-        amount: remainingToPay,
+        amount: stripeChargeAmount,
         currency: 'usd',
         bookingAmount,
-        feeAmount,
+        acquisitionFeeAmount,
+        commissionFeeAmount: commissionAmount,
+        stripePassthroughFeeAmount: stripePassthroughAmount,
         status: StripeEscrowStatus.PENDING,
       });
       await this.stripePaymentIntentRepository.save(stripePaymentIntent);
@@ -630,14 +732,53 @@ export class BookingService {
         }),
       );
 
-      if (feeAmount > 0) {
+      if (acquisitionFeeAmount > 0) {
         stripeTransactions.push(
           this.transactionRepository.create({
             senderId: user.id,
-            amount: feeAmount,
+            amount: acquisitionFeeAmount,
             type: TransactionType.FEE,
+            feeSubtype: 'Acquisition',
             currency: WalletCurrency.USD,
-            description: `Platform fee for appointment order ${orderId}`,
+            description: `Acquisition fee for appointment order ${orderId}`,
+            mode: 'Web',
+            referenceId: paymentIntent.id,
+            status: TxnStatus.PENDING,
+            method: PaymentMethod.STRIPE,
+            service: 'Booking-Fee',
+            customerName: `${user.firstName} ${user.surname}`,
+          }),
+        );
+      }
+
+      if (commissionAmount > 0) {
+        stripeTransactions.push(
+          this.transactionRepository.create({
+            senderId: user.id,
+            amount: commissionAmount,
+            type: TransactionType.FEE,
+            feeSubtype: 'Commission',
+            currency: WalletCurrency.USD,
+            description: `Commission for appointment order ${orderId}`,
+            mode: 'Web',
+            referenceId: paymentIntent.id,
+            status: TxnStatus.PENDING,
+            method: PaymentMethod.STRIPE,
+            service: 'Booking-Fee',
+            customerName: `${user.firstName} ${user.surname}`,
+          }),
+        );
+      }
+
+      if (stripePassthroughAmount > 0) {
+        stripeTransactions.push(
+          this.transactionRepository.create({
+            senderId: user.id,
+            amount: stripePassthroughAmount,
+            type: TransactionType.FEE,
+            feeSubtype: 'StripePassthrough',
+            currency: WalletCurrency.USD,
+            description: `Stripe processing fee passthrough for appointment order ${orderId}`,
             mode: 'Web',
             referenceId: paymentIntent.id,
             status: TxnStatus.PENDING,
@@ -655,10 +796,14 @@ export class BookingService {
       return {
         message: 'Payment initialized',
         bookingAmount,
-        platformFee: feeAmount,
+        fees: {
+          acquisitionFee: acquisitionFeeAmount,
+          commission: commissionAmount,
+          stripePassthrough: stripePassthroughAmount,
+        },
         totalAmount: roundedTotalAmount,
         giftCardAmountUsed: giftCardPayment,
-        cardAmountToPay: remainingToPay,
+        cardAmountToPay: stripeChargeAmount,
         clientSecret: paymentIntent.client_secret,
         paymentIntentId: paymentIntent.id,
       };
@@ -681,7 +826,8 @@ export class BookingService {
           giftCard,
           giftCardAmount: giftCardPayment,
           bookingAmount,
-          feeAmount,
+          acquisitionFeeAmount,
+          commissionAmount,
           reference,
         },
       });
@@ -732,14 +878,17 @@ export class BookingService {
       transactions.push(cardTx);
     }
 
-    // Transaction for platform fee
-    if (feeAmount > 0) {
-      const feeTx = this.transactionRepository.create({
+    // Transaction for acquisition + commission fees (no Stripe passthrough
+    // on Paystack — that's Stripe-specific, Paystack has its own fee
+    // structure not addressed by this ticket)
+    if (acquisitionFeeAmount > 0) {
+      const acqTx = this.transactionRepository.create({
         senderId: user.id,
-        amount: feeAmount,
+        amount: acquisitionFeeAmount,
         type: TransactionType.FEE,
+        feeSubtype: 'Acquisition',
         currency: WalletCurrency.USD,
-        description: `Platform fee for appointment order ${orderId}`,
+        description: `Acquisition fee for appointment order ${orderId}`,
         mode: 'Web',
         referenceId: reference,
         status: TxnStatus.PENDING,
@@ -747,7 +896,24 @@ export class BookingService {
         service: 'Booking-Fee',
         customerName: `${user.firstName} ${user.surname}`,
       });
-      transactions.push(feeTx);
+      transactions.push(acqTx);
+    }
+    if (commissionAmount > 0) {
+      const commTx = this.transactionRepository.create({
+        senderId: user.id,
+        amount: commissionAmount,
+        type: TransactionType.FEE,
+        feeSubtype: 'Commission',
+        currency: WalletCurrency.USD,
+        description: `Commission for appointment order ${orderId}`,
+        mode: 'Web',
+        referenceId: reference,
+        status: TxnStatus.PENDING,
+        method: PaymentMethod.PAYSTACK,
+        service: 'Booking-Fee',
+        customerName: `${user.firstName} ${user.surname}`,
+      });
+      transactions.push(commTx);
     }
 
     await this.transactionRepository.save(transactions);
@@ -755,7 +921,7 @@ export class BookingService {
     return {
       message: 'Payment initialized',
       bookingAmount,
-      platformFee: feeAmount,
+      fees: { acquisitionFee: acquisitionFeeAmount, commission: commissionAmount },
       totalAmount: roundedTotalAmount,
       giftCardAmountUsed: giftCardPayment,
       cardAmountToPay: remainingToPay,
@@ -783,7 +949,9 @@ export class BookingService {
 
     const meta = verification.metadata;
     const bookingAmount = Number(meta.bookingAmount) || 0;
-    const feeAmount = Number(meta.feeAmount) || 0;
+    const acquisitionFeeAmount = Number(meta.acquisitionFeeAmount) || 0;
+    const commissionAmount = Number(meta.commissionAmount) || 0;
+    const feeAmount = acquisitionFeeAmount + commissionAmount;
     const giftCardAmount = Number(meta.giftCardAmount) || 0;
     const orderId = meta.orderId;
 
@@ -887,7 +1055,7 @@ export class BookingService {
           appointments,
           user,
           bookingAmount,
-          platformFee: feeAmount,
+          fees: { acquisitionFee: acquisitionFeeAmount, commission: commissionAmount },
           giftCardAmountUsed: giftCardAmount,
           cardAmountUsed: verification.amount / 100, // Convert from kobo
           totalPaid: verification.amount / 100 + giftCardAmount,
@@ -1231,7 +1399,17 @@ export class BookingService {
       spi.stripeChargeId,
     );
     const bookingAmountCents = Math.round(spi.bookingAmount * 100);
-    const platformFeeCents = Math.round(spi.feeAmount * 100);
+    // Acquisition + commission are withheld from the refund (KHS keeps
+    // them); the Stripe passthrough is NOT withheld here — it's withheld
+    // via the real Stripe fee below instead (see file header comment on
+    // this method: the real charge-level fee, not the passthrough
+    // estimate, is what KHS actually loses on a refund).
+    // Postgres numeric/decimal columns come back from the driver as
+    // strings, not numbers — Number(...) each individually before adding,
+    // since '4.00' + '4.80' is string concatenation ('4.004.80'), not 8.80.
+    const platformFeeCents = Math.round(
+      (Number(spi.acquisitionFeeAmount) + Number(spi.commissionFeeAmount)) * 100,
+    );
 
     return bookingAmountCents - platformFeeCents - stripeFeeCents;
   }
@@ -1307,7 +1485,8 @@ export class BookingService {
     refund?: {
       amount: number;
       currency: string;
-      platformFeeWithheld: number;
+      acquisitionFeeWithheld: number;
+      commissionWithheld: number;
       stripeFeeWithheld: number;
     };
   }> {
@@ -1414,7 +1593,13 @@ export class BookingService {
     // HELD time, so unlike Paystack there's no wallet balance to reverse
     // here — only the Stripe-side charge itself needs refunding.
     let refundSummary:
-      | { amount: number; currency: string; platformFeeWithheld: number; stripeFeeWithheld: number }
+      | {
+          amount: number;
+          currency: string;
+          acquisitionFeeWithheld: number;
+          commissionWithheld: number;
+          stripeFeeWithheld: number;
+        }
       | undefined;
 
     try {
@@ -1429,14 +1614,19 @@ export class BookingService {
         await this.stripePaymentIntentRepository.save(spi);
 
         const bookingAmountCents = Math.round(spi.bookingAmount * 100);
-        const platformFeeCents = Math.round(spi.feeAmount * 100);
+        const acquisitionFeeCents = Math.round(spi.acquisitionFeeAmount * 100);
+        const commissionFeeCents = Math.round(spi.commissionFeeAmount * 100);
         const stripeFeeCents =
-          bookingAmountCents - platformFeeCents - refundAmountCents;
+          bookingAmountCents -
+          acquisitionFeeCents -
+          commissionFeeCents -
+          refundAmountCents;
 
         refundSummary = {
           amount: refundAmountCents / 100,
           currency: spi.currency.toUpperCase(),
-          platformFeeWithheld: platformFeeCents / 100,
+          acquisitionFeeWithheld: acquisitionFeeCents / 100,
+          commissionWithheld: commissionFeeCents / 100,
           stripeFeeWithheld: stripeFeeCents / 100,
         };
 
@@ -1710,10 +1900,55 @@ export class BookingService {
     };
   }
 
-  // Get Booking Fees
-  async getBookingFees(): Promise<{ platformFee: number }> {
+  // Get Booking Fees — read-only preview of what confirmBooking would
+  // charge. Deliberately does NOT perform the atomic acquisition-fee claim
+  // (that only happens for real inside confirmBooking) — this just checks
+  // whether a claim row already exists, so repeatedly viewing this preview
+  // can never itself consume a client's one-time acquisition-fee status.
+  async getBookingFees(
+    businessId?: string,
+    clientId?: string,
+  ): Promise<{
+    acquisitionFeeRate: number | null;
+    commissionRate: number;
+    stripePassthroughRate: number;
+    stripePassthroughFixedFee: number;
+  }> {
     const payments = await this.platformSettingsService.getPayments();
-    return { platformFee: payments.platformFee };
+    const commissionRate = Number(payments.commissionRate) || 0;
+    const stripePassthroughRate = Number(payments.stripePassthroughRate) || 0;
+    const stripePassthroughFixedFee = Number(payments.stripePassthroughFixedFee) || 0;
+
+    if (!businessId) {
+      return {
+        acquisitionFeeRate: null,
+        commissionRate,
+        stripePassthroughRate,
+        stripePassthroughFixedFee,
+      };
+    }
+
+    const business = await this.businessRepository.findOne({ where: { id: businessId } });
+    if (!business) {
+      throw new NotFoundException('Business not found');
+    }
+
+    let acquisitionFeeRate: number | null = null;
+    if (clientId) {
+      const existingClaim = await this.businessClientAcquisitionRepository.findOne({
+        where: { businessId, clientId },
+      });
+      acquisitionFeeRate = existingClaim
+        ? 0
+        : Number(payments.acquisitionFeeTiers?.[business.planTier]) || 0;
+    }
+
+    return {
+      acquisitionFeeRate,
+      commissionRate,
+      stripePassthroughRate,
+      stripePassthroughFixedFee,
+    };
   }
 
   // Rate Business
