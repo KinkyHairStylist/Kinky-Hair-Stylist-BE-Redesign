@@ -5,7 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Not, Repository } from 'typeorm';
+import { DataSource, Not, Repository } from 'typeorm';
 import { BusinessGiftCard } from '../entities/business-giftcard.entity';
 import {
   BusinessGiftCardFiltersDto,
@@ -19,6 +19,15 @@ import {
   BusinessSentStatus,
 } from '../enum/gift-card.enum';
 import { Business } from '../entities/business.entity';
+import {
+  Transaction,
+  TransactionType,
+  PaymentMethod,
+  TransactionStatus as TxnStatus,
+} from '../entities/transaction.entity';
+import { WalletCurrency } from '../../admin/payment/enums/wallet.enum';
+import { PlatformSettingsService } from '../../admin/platform-settings/platform-settings.service';
+import { BusinessWalletService } from './wallet.service';
 
 @Injectable()
 export class BusinessGiftCardsService {
@@ -27,6 +36,11 @@ export class BusinessGiftCardsService {
     private giftCardRepository: Repository<BusinessGiftCard>,
     @InjectRepository(Business)
     private businessRepository: Repository<Business>,
+    @InjectRepository(Transaction)
+    private transactionRepository: Repository<Transaction>,
+    private readonly dataSource: DataSource,
+    private readonly platformSettingsService: PlatformSettingsService,
+    private readonly walletService: BusinessWalletService,
   ) {}
 
   async create(
@@ -317,14 +331,86 @@ export class BusinessGiftCardsService {
       );
     }
 
-    giftCard.remainingAmount -= amountToRedeem;
+    // Commission (flat rate) is skimmed here, on redemption — not at
+    // purchase, when the full value just enters the pre-paid pool. The
+    // business gets the net share credited to their wallet; KHS's cut is
+    // recorded as its own Transaction row for the ledger.
+    const payments = await this.platformSettingsService.getPayments();
+    const commissionRate = Number(payments.commissionRate) || 0;
+    const commissionAmount = amountToRedeem * (commissionRate / 100);
+    const netToBusiness = amountToRedeem - commissionAmount;
 
-    if (giftCard.remainingAmount === 0) {
-      giftCard.status = BusinessGiftCardStatus.USED;
-      giftCard.redeemedAt = new Date();
+    const business = await this.businessRepository.findOne({
+      where: { id: giftCard.businessId },
+      relations: ['owner'],
+    });
+
+    const savedGiftCard = await this.dataSource.manager.transaction(
+      async (manager) => {
+        giftCard.remainingAmount -= amountToRedeem;
+        if (giftCard.remainingAmount === 0) {
+          giftCard.status = BusinessGiftCardStatus.USED;
+          giftCard.redeemedAt = new Date();
+        }
+        const saved = await manager.save(BusinessGiftCard, giftCard);
+
+        if (commissionAmount > 0) {
+          const commissionTx = manager.create(Transaction, {
+            recipientId: business?.owner?.id,
+            amount: commissionAmount,
+            type: TransactionType.FEE,
+            feeSubtype: 'Commission',
+            currency: WalletCurrency.USD,
+            description: `Commission for gift card redemption (${giftCard.code})`,
+            mode: 'Web',
+            referenceId: giftCard.code,
+            status: TxnStatus.COMPLETED,
+            method: PaymentMethod.GIFTCARD,
+            service: 'GiftCard-Redemption-Fee',
+          });
+          await manager.save(Transaction, commissionTx);
+        }
+
+        return saved;
+      },
+    );
+
+    // Credit the business's net share — mirrors how a booking's
+    // bookingAmount (never the fee) gets credited via addFunds.
+    if (netToBusiness > 0 && business?.id && business?.owner?.id) {
+      try {
+        // Mirrors booking.service.ts's own fallback: a business that's
+        // never had a paid booking (only ever sold prepaid gift cards)
+        // may genuinely have no wallet row yet.
+        try {
+          await this.walletService.getWalletByBusinessId(business.id);
+        } catch {
+          await this.walletService.createWalletForBusiness({
+            businessId: business.id,
+            ownerId: business.owner.id,
+            currency: WalletCurrency.USD,
+            description: 'Business wallet - auto-created from gift card redemption',
+          });
+        }
+
+        await this.walletService.addFunds({
+          businessId: business.id,
+          recipientId: business.owner.id,
+          senderId: business.owner.id,
+          amount: netToBusiness,
+          type: TransactionType.EARNING,
+          description: `Gift card redemption (${giftCard.code})`,
+          referenceId: giftCard.code,
+          currency: WalletCurrency.USD,
+          mode: 'Web',
+          method: PaymentMethod.GIFTCARD,
+        });
+      } catch (walletError) {
+        console.error('Failed to credit business wallet for gift card redemption:', walletError);
+      }
     }
 
-    return await this.giftCardRepository.save(giftCard);
+    return savedGiftCard;
   }
 
   async markAsSent(id: string): Promise<BusinessGiftCard> {
