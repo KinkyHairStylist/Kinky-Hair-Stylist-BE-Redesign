@@ -33,6 +33,8 @@ export class PlatformSettingsEntity {
 
   @Column('jsonb', { default: {} })
   payments: {
+    // Deprecated — superseded by acquisitionFeeTiers/commissionRate below
+    // (Phase 1 fee-model split). Left in place so old rows still parse.
     platformFee: number;
     minWithdrawal: number;
     methods: {
@@ -41,6 +43,22 @@ export class PlatformSettingsEntity {
       bankTransfers: boolean;
     };
     payoutSchedule: 'Weekly' | 'Bi-Weekly' | 'Monthly';
+    acquisitionFeeTiers: {
+      Starter: number;
+      Growth: number;
+      Pro: number;
+    };
+    commissionRate: number;
+    stripePassthroughRate: number;
+    stripePassthroughFixedFee: number;
+    // priceId is the only value ever sent to Stripe — displayAmount is
+    // read-only UI sugar so the settings screen can show "$29.99" without
+    // a live Stripe round-trip. Never compute a charge from displayAmount.
+    subscriptionPrices: {
+      Starter: { priceId: string; displayAmount: number };
+      Growth: { priceId: string; displayAmount: number };
+      Pro: { priceId: string; displayAmount: number };
+    };
   };
 
   @Column('jsonb', { default: {} })

@@ -51,7 +51,7 @@ export class PlatformSettingsService {
       },
     };
     settings.payments = {
-      platformFee: 5, // Default 5% platform fee
+      platformFee: 5, // Deprecated — see acquisitionFeeTiers/commissionRate
       minWithdrawal: 10,
       methods: {
         creditCard: true,
@@ -59,6 +59,21 @@ export class PlatformSettingsService {
         bankTransfers: true,
       },
       payoutSchedule: 'Weekly',
+      acquisitionFeeTiers: {
+        Starter: 10,
+        Growth: 5,
+        Pro: 0,
+      },
+      commissionRate: 12,
+      stripePassthroughRate: 1.75,
+      stripePassthroughFixedFee: 0.30,
+      // priceId is blank until scripts/create-subscription-stripe-prices.ts
+      // is run and an admin pastes the real Stripe Price IDs in.
+      subscriptionPrices: {
+        Starter: { priceId: '', displayAmount: 29.99 },
+        Growth: { priceId: '', displayAmount: 59.99 },
+        Pro: { priceId: '', displayAmount: 99.99 },
+      },
     };
     settings.features = {
       user: {
@@ -108,6 +123,14 @@ export class PlatformSettingsService {
       dirty = true;
     }
     if (!settings.payments?.methods) {
+      settings.payments = { ...defaults.payments, ...settings.payments };
+      dirty = true;
+    }
+    if (!settings.payments?.acquisitionFeeTiers) {
+      settings.payments = { ...defaults.payments, ...settings.payments };
+      dirty = true;
+    }
+    if (!settings.payments?.subscriptionPrices) {
       settings.payments = { ...defaults.payments, ...settings.payments };
       dirty = true;
     }
@@ -163,6 +186,15 @@ export class PlatformSettingsService {
       ...s.payments,
       ...dto,
       methods: { ...s.payments.methods, ...(dto.methods || {}) },
+      acquisitionFeeTiers: {
+        ...s.payments.acquisitionFeeTiers,
+        ...(dto.acquisitionFeeTiers || {}),
+      },
+      subscriptionPrices: {
+        Starter: { ...s.payments.subscriptionPrices.Starter, ...(dto.subscriptionPrices?.Starter || {}) },
+        Growth: { ...s.payments.subscriptionPrices.Growth, ...(dto.subscriptionPrices?.Growth || {}) },
+        Pro: { ...s.payments.subscriptionPrices.Pro, ...(dto.subscriptionPrices?.Pro || {}) },
+      },
     };
     return this.repo.save(s);
   }
