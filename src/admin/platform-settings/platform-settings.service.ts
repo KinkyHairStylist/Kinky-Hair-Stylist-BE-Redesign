@@ -134,6 +134,24 @@ export class PlatformSettingsService {
       settings.payments = { ...defaults.payments, ...settings.payments };
       dirty = true;
     }
+    // Scalar fields — `!settings.payments?.methods` above only catches a
+    // row from before ANY of these fields existed. A row that already had
+    // `methods` (e.g. from before the fee-model ticket) never re-triggers
+    // that check, so these three need their own presence check or they
+    // silently stay missing forever, and every fee computation reading
+    // them falls back to 0.
+    if (settings.payments?.commissionRate == null) {
+      settings.payments.commissionRate = defaults.payments.commissionRate;
+      dirty = true;
+    }
+    if (settings.payments?.stripePassthroughRate == null) {
+      settings.payments.stripePassthroughRate = defaults.payments.stripePassthroughRate;
+      dirty = true;
+    }
+    if (settings.payments?.stripePassthroughFixedFee == null) {
+      settings.payments.stripePassthroughFixedFee = defaults.payments.stripePassthroughFixedFee;
+      dirty = true;
+    }
     if (!settings.features?.user) {
       settings.features = defaults.features;
       dirty = true;
