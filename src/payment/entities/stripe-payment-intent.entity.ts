@@ -57,8 +57,19 @@ export class StripePaymentIntent {
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   bookingAmount: number;
 
+  // Deprecated — kept so historical rows stay readable. New rows use the
+  // three itemized columns below instead (Phase 1 fee-model split).
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   feeAmount: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  acquisitionFeeAmount: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  commissionFeeAmount: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  stripePassthroughFeeAmount: number;
 
   @Column({
     type: 'enum',

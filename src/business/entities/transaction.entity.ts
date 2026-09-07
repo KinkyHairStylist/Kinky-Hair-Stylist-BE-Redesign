@@ -135,6 +135,13 @@ export class Transaction {
   })
   method: PaymentMethod;
 
+  // Only meaningful when type = FEE — disambiguates which of the three
+  // Phase 1 fee legs this row is. Plain varchar, not a nested enum, so
+  // existing `type = FEE` queries (platform-revenue aggregates, exclusion
+  // filters) keep working unchanged — see khs Phase 1 fee-model plan.
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  feeSubtype: 'Acquisition' | 'Commission' | 'StripePassthrough' | null;
+
 
   // --------------------------
   // Timestamps
