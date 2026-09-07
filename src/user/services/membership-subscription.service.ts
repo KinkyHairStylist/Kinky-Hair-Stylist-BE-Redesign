@@ -112,15 +112,16 @@ export class MembershipService {
       );
     }
 
-    // Get platform fee percentage
+    // Commission — flat rate, replaces the old platformFee (Phase 1
+    // fee-model split). No acquisition fee here: that's booking-specific.
     const paymentsSettings = await this.platformSettingsService.getPayments();
-    const platformFeePercent = Number(paymentsSettings.platformFee) || 0;
+    const commissionRatePercent = Number(paymentsSettings.commissionRate) || 0;
 
     // Calculate subscription amount and fee (diff amount for unexpired upgrade)
     const subscriptionAmount = isUpgrade
       ? Math.max(0, newPlanPrice - currentPlanPrice)
       : newPlanPrice;
-    const feeAmount = subscriptionAmount * (platformFeePercent / 100);
+    const feeAmount = subscriptionAmount * (commissionRatePercent / 100);
     const totalAmount = subscriptionAmount + feeAmount;
 
     // Round to 2 decimal places to ensure amount is integer when converted to kobo
@@ -228,15 +229,16 @@ export class MembershipService {
 
           await manager.save(Transaction, giftCardTx);
 
-          // Create transaction for platform fee
+          // Create transaction for commission
           if (feeAmount > 0) {
             const feeTx = manager.create(Transaction, {
               senderId: user.id,
               recipientId: undefined, // Platform fee
               amount: feeAmount,
               type: TransactionType.FEE,
+              feeSubtype: 'Commission',
               currency: WalletCurrency.AUD,
-              description: `Platform fee for membership subscription ${tier.name}`,
+              description: `Commission for membership subscription ${tier.name}`,
               mode: 'Web',
               referenceId: reference,
               status: TransactionStatus.COMPLETED,
@@ -385,15 +387,16 @@ export class MembershipService {
       transactions.push(cardTx);
     }
 
-    // Transaction for platform fee
+    // Transaction for commission
     if (feeAmount > 0) {
       const feeTx = this.transactionRepo.create({
         senderId: user.id,
         recipientId: undefined,
         amount: feeAmount,
         type: TransactionType.FEE,
+        feeSubtype: 'Commission',
         currency: WalletCurrency.AUD,
-        description: `Platform fee for membership subscription ${tier.name}`,
+        description: `Commission for membership subscription ${tier.name}`,
         mode: 'Web',
         referenceId: reference,
         status: TransactionStatus.PENDING,
