@@ -81,6 +81,29 @@ export class MerchantSubscriptionService {
     return false;
   }
 
+  // Read-only status for the merchant's own billing/trial-banner UI.
+  async getStatusForBusiness(business: Business): Promise<{
+    status: MerchantSubscriptionStatus | null;
+    trialEndsAt: Date | null;
+    currentPeriodEnd: Date | null;
+    planTier: string;
+    // A card can be attached mid-trial (status stays TRIALING until the
+    // trial actually ends) — without this, the frontend can't tell "no
+    // card yet" from "already subscribed, still trialing" from status alone.
+    hasPaymentMethod: boolean;
+  }> {
+    const sub = await this.merchantSubscriptionRepo.findOne({
+      where: { businessId: business.id },
+    });
+    return {
+      status: sub?.status ?? null,
+      trialEndsAt: sub?.trialEndsAt ?? null,
+      currentPeriodEnd: sub?.currentPeriodEnd ?? null,
+      hasPaymentMethod: !!sub?.stripeSubscriptionId,
+      planTier: business.planTier,
+    };
+  }
+
   // ---- Merchant-facing: attach a card and start real Stripe billing ----
 
   async createSetupIntentForBusiness(businessId: string) {

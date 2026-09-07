@@ -39,6 +39,13 @@ export class MerchantSubscriptionController {
     return business;
   }
 
+  // Read-only status for the merchant dashboard's trial banner / billing page.
+  @Get('status')
+  async getStatus(@Request() req) {
+    const business = await this.getOwnedBusiness(req);
+    return this.merchantSubscriptionService.getStatusForBusiness(business);
+  }
+
   // Issues a SetupIntent client_secret for the frontend to collect a card
   // via Stripe Elements — collecting the card itself is out of scope here.
   @Post('setup-intent')
