@@ -57,14 +57,21 @@ export class GiftcardService {
   // -------------------------------------------------------------
   // GET ALL
   // -------------------------------------------------------------
-  async findAll() {
-    const cards = await this.giftCardRepo.find();
-    return {
-      message: `Found ${cards.length} gift card(s).`,
-      total: cards.length,
-      data: cards,
-    };
-  }
+      async findAll() {
+        const cards = await this.giftCardRepo.find({
+          relations: { business: true },
+          order: { createdAt: 'DESC' },
+        });
+        const data = cards.map(({ business, ...card }) => ({
+          ...card,
+          businessName: business?.businessName ?? null,
+        }));
+        return {
+          message: `Found ${data.length} gift card(s).`,
+          total: data.length,
+          data,
+        };
+      }
 
   // -------------------------------------------------------------
   // GET ONE (by id or code)
