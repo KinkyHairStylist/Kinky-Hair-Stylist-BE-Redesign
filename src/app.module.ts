@@ -46,6 +46,7 @@ import { WebhookModule } from './webhook/webhook.module';
 import { InventoryModule } from './marketplace/inventory.module';
 import { ProductModule } from './marketplace/product.module';
 import { BusinessGiftCardsModule } from './business/business-giftcard.module';
+import { MerchantMembershipModule } from './business/merchant-membership.module';
 import { BusinessOwnerSettingsModule } from './business/business-owner-settings.module';
 import { BusinessSettingsModule } from './business/business-settings.module';
 import { GoogleCalendarModule } from './integration/google-calendar.module';
@@ -121,6 +122,7 @@ import { LandingModule } from './landing/landing.module';
     ProductModule,
     InventoryModule,
     BusinessGiftCardsModule,
+    MerchantMembershipModule,
     BusinessOwnerSettingsModule,
     BusinessSettingsModule,
     GoogleCalendarModule,

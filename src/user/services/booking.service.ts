@@ -47,6 +47,13 @@ import { ReviewService } from 'src/business/services/review.service';
 import { BusinessWalletService } from 'src/business/services/wallet.service';
 import { ClientSchema, ClientType } from 'src/business/entities/client.entity';
 import { BusinessClientAcquisition } from 'src/business/entities/business-client-acquisition.entity';
+import { Wallet } from 'src/business/entities/wallet.entity';
+import { WalletStatus } from 'src/admin/payment/enums/wallet.enum';
+import { MerchantMembershipPackage } from 'src/business/entities/merchant-membership-package.entity';
+import {
+  MerchantMembershipPurchase,
+  MerchantMembershipPurchaseStatus,
+} from 'src/business/entities/merchant-membership-purchase.entity';
 
 @Injectable()
 export class BookingService {
@@ -75,6 +82,10 @@ export class BookingService {
     private refundRepository: Repository<Refund>,
     @InjectRepository(BusinessClientAcquisition)
     private businessClientAcquisitionRepository: Repository<BusinessClientAcquisition>,
+    @InjectRepository(MerchantMembershipPackage)
+    private membershipPackageRepository: Repository<MerchantMembershipPackage>,
+    @InjectRepository(MerchantMembershipPurchase)
+    private membershipPurchaseRepository: Repository<MerchantMembershipPurchase>,
     private platformSettingsService: PlatformSettingsService,
     private reviewService: ReviewService,
     private readonly dataSource: DataSource,
@@ -130,6 +141,177 @@ export class BookingService {
     return {
       acquisitionFeeAmount: bookingAmount * (acquisitionRate / 100),
       commissionAmount: bookingAmount * (commissionRate / 100),
+    };
+  }
+
+  // Redeems session(s) from a MerchantMembershipPurchase to pay for a
+  // booking instead of a card/gift card. The client already paid in full
+  // at purchase time (see MembershipPackagePurchaseService.completePurchase)
+  // — no commission was taken then. Commission is only taken here, per
+  // session redeemed, same rate + calculation as gift-card redemption
+  // (business-giftcard.service.ts's redeem()). Everything — the session
+  // decrement, the fee Transaction, and the business wallet credit — runs
+  // inside one transaction, unlike that gift-card precedent (whose wallet
+  // credit runs outside its own transaction, a known gap not repeated here).
+  private async redeemMembershipForBooking(
+    membershipPurchaseId: string,
+    appointments: Appointment[],
+    orderId: string,
+    user: User,
+  ): Promise<any> {
+    const purchase = await this.membershipPurchaseRepository.findOne({
+      where: { id: membershipPurchaseId },
+      relations: ['package', 'package.business', 'package.business.owner'],
+    });
+    if (!purchase) throw new NotFoundException('Membership purchase not found');
+    if (purchase.clientId !== user.id) {
+      throw new ForbiddenException('This membership purchase does not belong to you');
+    }
+    if (purchase.status !== MerchantMembershipPurchaseStatus.ACTIVE) {
+      throw new BadRequestException('Membership purchase is not active');
+    }
+    if (purchase.expiresAt < new Date()) {
+      throw new BadRequestException('Membership purchase has expired');
+    }
+
+    const pkg = purchase.package;
+    if (!pkg || !pkg.business) {
+      throw new NotFoundException('Membership package not found');
+    }
+
+    const sessionsNeeded = appointments.length;
+    if (purchase.remainingSessions < sessionsNeeded) {
+      throw new BadRequestException(
+        `Only ${purchase.remainingSessions} session(s) remaining on this membership — this booking needs ${sessionsNeeded}`,
+      );
+    }
+    if (pkg.business.id !== appointments[0].business.id) {
+      throw new BadRequestException('This membership is not valid for this business');
+    }
+    if (appointments.some((a) => a.service?.id !== pkg.serviceId)) {
+      throw new BadRequestException(
+        'This membership only covers a specific service, which does not match this booking',
+      );
+    }
+
+    const business = pkg.business;
+    const ownerId = business.ownerId || business.owner?.id;
+    if (!ownerId) {
+      throw new BadRequestException('This business has no owner on record — cannot process membership redemption');
+    }
+
+    const pricePerSession = Number(pkg.pricePerSession);
+    const payments = await this.platformSettingsService.getPayments();
+    const commissionRate = Number(payments.commissionRate) || 0;
+    const commissionPerSession = pricePerSession * (commissionRate / 100);
+    const totalDebit = Math.round(pricePerSession * sessionsNeeded * 100) / 100;
+    const totalCommission = Math.round(commissionPerSession * sessionsNeeded * 100) / 100;
+    const totalNet = Math.round((totalDebit - totalCommission) * 100) / 100;
+
+    await this.dataSource.manager.transaction(async (manager) => {
+      purchase.remainingSessions -= sessionsNeeded;
+      if (purchase.remainingSessions === 0) {
+        purchase.status = MerchantMembershipPurchaseStatus.FULLY_REDEEMED;
+      }
+      await manager.save(MerchantMembershipPurchase, purchase);
+
+      for (const appointment of appointments) {
+        appointment.status = AppointmentStatus.CONFIRMED;
+        appointment.paymentStatus = PaymentStatus.PAID;
+        this.applyPendingRebookDate(appointment);
+      }
+      await manager.save(Appointment, appointments);
+
+      await manager.save(
+        Transaction,
+        manager.create(Transaction, {
+          senderId: user.id,
+          recipientId: ownerId,
+          amount: totalDebit,
+          type: TransactionType.DEBIT,
+          currency: WalletCurrency.USD,
+          description: `Membership session redemption for appointment order ${orderId}`,
+          mode: 'Web',
+          referenceId: orderId,
+          status: TxnStatus.COMPLETED,
+          method: PaymentMethod.STRIPE,
+          service: 'Booking-MembershipRedemption',
+          customerName: `${user.firstName} ${user.surname}`,
+        }),
+      );
+
+      if (totalCommission > 0) {
+        await manager.save(
+          Transaction,
+          manager.create(Transaction, {
+            senderId: user.id,
+            amount: totalCommission,
+            type: TransactionType.FEE,
+            feeSubtype: 'Commission',
+            currency: WalletCurrency.USD,
+            description: `Commission for membership redemption on order ${orderId}`,
+            mode: 'Web',
+            referenceId: orderId,
+            status: TxnStatus.COMPLETED,
+            method: PaymentMethod.STRIPE,
+            service: 'Booking-Fee',
+            customerName: `${user.firstName} ${user.surname}`,
+          }),
+        );
+      }
+
+      if (totalNet > 0) {
+        let wallet = await manager.findOne(Wallet, { where: { businessId: business.id } });
+        if (!wallet) {
+          wallet = manager.create(Wallet, {
+            businessId: business.id,
+            ownerId,
+            currency: WalletCurrency.USD,
+            description: 'Business wallet - auto-created from membership redemption',
+            balance: 0,
+            totalIncome: 0,
+            totalExpenses: 0,
+            pendingBalance: 0,
+            status: WalletStatus.ACTIVE,
+          });
+        }
+        if (wallet.status !== WalletStatus.ACTIVE) {
+          throw new BadRequestException('Business wallet is not active');
+        }
+        wallet = await manager.save(Wallet, wallet);
+
+        const availableAt = new Date();
+        availableAt.setHours(availableAt.getHours() + 48);
+
+        await manager.save(
+          Transaction,
+          manager.create(Transaction, {
+            walletId: wallet.id,
+            senderId: user.id,
+            recipientId: ownerId,
+            amount: totalNet,
+            type: TransactionType.EARNING,
+            currency: WalletCurrency.USD,
+            description: `Membership session redemption for order ${orderId}`,
+            mode: 'Web',
+            referenceId: orderId,
+            status: TxnStatus.COMPLETED,
+            method: PaymentMethod.STRIPE,
+            availableAt,
+          }),
+        );
+
+        wallet.pendingBalance = Number(wallet.pendingBalance) + totalNet;
+        wallet.totalIncome = Number(wallet.totalIncome) + totalNet;
+        await manager.save(Wallet, wallet);
+      }
+    });
+
+    return {
+      message: 'Booking confirmed successfully using membership',
+      sessionsUsed: sessionsNeeded,
+      remainingSessions: purchase.remainingSessions,
+      success: true,
     };
   }
 
@@ -238,6 +420,18 @@ export class BookingService {
       )
     ) {
       throw new BadRequestException('Booking is already confirmed');
+    }
+
+    // Membership redemption is a standalone payment path — the client
+    // already paid in full at purchase time, so this bypasses card/gift
+    // card/Stripe entirely and just consumes session(s) from the purchase.
+    if (confirmBookingDto.membershipPurchaseId) {
+      return this.redeemMembershipForBooking(
+        confirmBookingDto.membershipPurchaseId,
+        appointments,
+        orderId,
+        user,
+      );
     }
 
     // Calculate amounts

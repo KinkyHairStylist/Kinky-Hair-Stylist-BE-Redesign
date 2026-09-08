@@ -148,6 +148,8 @@ export class Transaction {
     | 'StripePassthrough'
     | 'LateCancellationForfeiture'
     | 'ChargebackFee'
+    | 'MembershipExpirySplit'
+    | 'GiftCardExpirySplit'
     | null;
 
   // Only meaningful on a Stripe-escrow-release EARNING row — set to

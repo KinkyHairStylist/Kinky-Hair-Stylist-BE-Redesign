@@ -21,13 +21,15 @@ import { StripeService } from 'src/payment/stripe.service';
 import { StripePaymentIntent } from 'src/payment/entities/stripe-payment-intent.entity';
 import { Refund } from 'src/user/user_entities/refund.entity';
 import { BusinessClientAcquisition } from 'src/business/entities/business-client-acquisition.entity';
+import { MerchantMembershipPackage } from 'src/business/entities/merchant-membership-package.entity';
+import { MerchantMembershipPurchase } from 'src/business/entities/merchant-membership-purchase.entity';
 import { NotificationSettingsModule } from './notification-settings.module';
 import { NotificationModule } from 'src/notifications/notification.module';
 import { SlackModule } from 'src/slack/slack.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Appointment, Business, Service, Staff, Transaction, BusinessGiftCard, PlatformSettingsEntity, Review, ClientSchema, Card, StripePaymentIntent, Refund, BusinessClientAcquisition]),
+    TypeOrmModule.forFeature([Appointment, Business, Service, Staff, Transaction, BusinessGiftCard, PlatformSettingsEntity, Review, ClientSchema, Card, StripePaymentIntent, Refund, BusinessClientAcquisition, MerchantMembershipPackage, MerchantMembershipPurchase]),
     ReviewModule,
     BusinessWalletModule,
     EmailModule,
