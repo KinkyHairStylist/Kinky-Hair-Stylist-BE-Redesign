@@ -34,6 +34,7 @@ import { BlockedTimeSlot } from '../entities/blocked-time-slot.entity';
 import { CreateBlockedTimeDto } from '../dtos/requests/CreateBlockedTimeDto';
 import { CreateServiceDto } from '../dtos/requests/CreateServiceDto';
 import { UpdateServiceDto } from '../dtos/update-service.dto';
+import { PriceType } from '../types/price-type.enum';
 import { DeleteServiceDto } from '../dtos/delete-service.dto';
 import { AssignStaffToServiceDto } from '../dtos/assign-staff-to-service.dto';
 import { AssignStaffToBookingDto } from '../dtos/assign-staff-to-booking.dto';
@@ -1190,6 +1191,17 @@ async getBooking(id: string) {
 
     // Check if user has permission to update this service (business owner or staff)
     // This would typically be handled by the controller with user context
+
+    // Object.assign only overwrites keys present on the DTO — switching
+    // priceType without also clearing the now-irrelevant fields would leave
+    // a stale minPrice/maxPrice (or price) behind, which the service card's
+    // display logic reads before priceType and shows instead of the update.
+    if (updateServiceDto.priceType === PriceType.FIXED) {
+      service.minPrice = null as any;
+      service.maxPrice = null as any;
+    } else if (updateServiceDto.priceType === PriceType.VARIABLE) {
+      service.price = null as any;
+    }
 
     Object.assign(service, updateServiceDto);
 

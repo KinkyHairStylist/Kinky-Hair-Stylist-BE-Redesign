@@ -2190,6 +2190,19 @@ export class BookingService {
       throw new NotFoundException('Appointment not found');
     }
 
+    if (!newTime) {
+      throw new BadRequestException('A time must be selected');
+    }
+    const requestedDateTime = this.parseAppointmentDateTime(
+      newDate.toISOString().split('T')[0],
+      newTime,
+    );
+    if (isNaN(requestedDateTime.getTime()) || requestedDateTime <= new Date()) {
+      throw new BadRequestException(
+        'Cannot reschedule to a past date/time',
+      );
+    }
+
     // Rebooking a previously-cancelled appointment onto a new date must go
     // through real payment again — any earlier payment was already
     // refunded (Stripe) or never taken (pay-at-venue) at cancellation
