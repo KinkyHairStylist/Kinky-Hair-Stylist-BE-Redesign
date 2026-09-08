@@ -284,7 +284,11 @@ async getBooking(id: string) {
           ? spi.bookingAmount - Number(spi.acquisitionFeeAmount) - Number(spi.commissionFeeAmount)
           : spi.bookingAmount;
 
-        await this.walletService.addFunds({
+        // Goes to pendingBalance, not balance — held for 48h so a
+        // chargeback landing in that window is recovered from money never
+        // handed out, rather than clawing back an already-released
+        // balance (see WalletReleaseCronService).
+        await this.walletService.addFundsPending({
           businessId,
           recipientId: ownerId,
           senderId: spi.userId,

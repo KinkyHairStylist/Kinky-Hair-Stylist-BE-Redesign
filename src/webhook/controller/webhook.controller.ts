@@ -15,6 +15,7 @@ import { WebhookService } from '../services/webhook.service';
 import { StripeService } from 'src/payment/stripe.service';
 import { BookingService } from 'src/user/services/booking.service';
 import { MerchantSubscriptionService } from 'src/business/services/merchant-subscription.service';
+import { BusinessWalletService } from 'src/business/services/wallet.service';
 
 @Controller('webhook')
 export class WebhookController {
@@ -25,6 +26,7 @@ export class WebhookController {
     private readonly stripeService: StripeService,
     private readonly bookingService: BookingService,
     private readonly merchantSubscriptionService: MerchantSubscriptionService,
+    private readonly businessWalletService: BusinessWalletService,
   ) {}
 
   /**
@@ -107,6 +109,24 @@ export class WebhookController {
             await this.merchantSubscriptionService.handlePaymentSucceeded(
               subscriptionId,
               new Date(invoice.period_end * 1000),
+            );
+          }
+          break;
+        }
+        case 'charge.dispute.closed': {
+          const dispute = event.data.object as {
+            status: string;
+            charge: string;
+            amount: number;
+          };
+          // Only a permanently lost dispute recovers anything from the
+          // business — a "won" dispute (or any other closed status) means
+          // nothing was actually taken from KHS, so nothing needs to be
+          // recovered.
+          if (dispute.status === 'lost') {
+            await this.businessWalletService.handleChargeback(
+              dispute.charge,
+              dispute.amount / 100,
             );
           }
           break;

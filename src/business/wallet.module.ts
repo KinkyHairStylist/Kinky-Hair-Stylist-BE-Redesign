@@ -5,8 +5,10 @@ import { WalletPaymentMethod } from './entities/payment-method.entity';
 import { Transaction } from './entities/transaction.entity';
 import { BusinessWalletController } from './controllers/wallet.controller';
 import { BusinessWalletService } from './services/wallet.service';
+import { WalletReleaseCronService } from './services/wallet-release-cron.service';
 import { Business } from './entities/business.entity';
 import { Withdrawal } from 'src/admin/withdrawal/entities/withdrawal.entity';
+import { StripePaymentIntent } from 'src/payment/entities/stripe-payment-intent.entity';
 
 @Module({
   imports: [
@@ -16,10 +18,11 @@ import { Withdrawal } from 'src/admin/withdrawal/entities/withdrawal.entity';
       WalletPaymentMethod,
       Business,
       Withdrawal,
+      StripePaymentIntent,
     ]),
   ],
   controllers: [BusinessWalletController],
-  providers: [BusinessWalletService],
+  providers: [BusinessWalletService, WalletReleaseCronService],
   exports: [BusinessWalletService],
 })
 export class BusinessWalletModule {}

@@ -147,7 +147,17 @@ export class Transaction {
     | 'Commission'
     | 'StripePassthrough'
     | 'LateCancellationForfeiture'
+    | 'ChargebackFee'
     | null;
+
+  // Only meaningful on a Stripe-escrow-release EARNING row — set to
+  // now()+48h at completion, nulled out by WalletReleaseCronService once
+  // matured (also what marks it as already processed, preventing the
+  // sweep from double-releasing it). Null for every other transaction —
+  // this is the "still in the payout hold" marker, not a general-purpose
+  // field.
+  @Column({ type: 'timestamptz', nullable: true })
+  availableAt: Date | null;
 
 
   // --------------------------
