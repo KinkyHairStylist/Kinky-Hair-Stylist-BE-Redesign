@@ -5,11 +5,14 @@ import { ReminderService } from './services/reminder.service';
 import { ReminderController } from './controllers/reminder.controller';
 import { ClientModule } from './client.module';
 import { ClientSchema } from './entities/client.entity';
+import { Business } from './entities/business.entity';
+import { EmailModule } from 'src/email/email.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Reminder, ClientSchema]), // ✅ Load Reminder repository
+    TypeOrmModule.forFeature([Reminder, ClientSchema, Business]), // ✅ Load Reminder repository
     ClientModule,
+    EmailModule,
   ],
   controllers: [ReminderController], // ✅ Expose controller
   providers: [ReminderService], // ✅ Provide service

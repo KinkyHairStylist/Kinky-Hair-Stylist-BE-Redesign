@@ -74,6 +74,10 @@ export class Wallet {
   })
   status: WalletStatus;
 
+  // Stripe-sourced booking earnings sit here for 48h after completion
+  // (see WalletReleaseCronService) before moving to balance — a payout
+  // hold so a chargeback landing in that window is recovered from money
+  // never handed out, instead of clawing back an already-released balance.
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   pendingBalance: number;
 

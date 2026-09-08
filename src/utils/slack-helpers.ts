@@ -1,4 +1,4 @@
-import { NODE_ENV, SLACK_USERS_TOKEN } from "../config/env.validation";
+import { SLACK_USERS_TOKEN } from "../config/env.validation";
 import { getConnectedRedis } from "../config/redis";
 import { getSlackClient } from "../config/slack";
 import { StandardSlackNotification } from "../types/slack.types";
@@ -41,18 +41,23 @@ export const sendStandardSlackNotification = async (
   try {
     const formattedMessage = formatStandardNotification(params);
 
-    // Routing is driven by the ACTUAL running environment (NODE_ENV), not the
-    // request host — host-based detection was unreliable and let staging
-    // noise drown out real production alerts.
-    const isProductionEnv = NODE_ENV === "production";
+    // Unlike c2c (NODE_ENV = rat|iat|sit|uat|prod, one value per deployed
+    // environment), KHS only has a binary NODE_ENV = development|production
+    // — every deployed environment, including IAT/SIT/UAT, plausibly runs
+    // with NODE_ENV=production for the usual build/runtime optimizations.
+    // That means an `isProductionEnv` check here can't actually tell a
+    // staging deploy apart from real production, so every Slack call in
+    // KHS is routed to #test-notifications unconditionally for now — see
+    // src/slack/slack.service.ts, which already does this for the
+    // booking/membership/gift-card/live-chat notifications. Flip this back
+    // to environment-based routing once KHS has a real per-environment
+    // signal (e.g. a dedicated APP_ENV) and real destination channels are
+    // provisioned.
+    const isProductionEnv = false;
 
-    // Outside of true production, EVERYTHING is forced into Cry Wolf —
-    // even calls that pass an explicit channel — so pre-prod noise never
-    // leaks into channels meant for real alerts. Only in production does
-    // the caller's explicit channel (or the Town Crier default) apply.
     let channel: SlackChannel | string;
     if (!isProductionEnv) {
-      channel = params.channel ?? SlackChannel.TEST_NOTIFICATIONS;
+      channel = SlackChannel.TEST_NOTIFICATIONS;
     } else {
       channel = params.channel ?? SlackChannel.TOWN_CRIER;
     }

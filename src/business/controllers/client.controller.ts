@@ -247,6 +247,28 @@ export class ClientController {
     return result;
   }
 
+  @Get('/client/:clientId/appointments')
+  async getClientAppointments(@Request() req, @Param('clientId') clientId: string) {
+    const ownerId = req.user.id || req.user.sub;
+    if (!ownerId) {
+      throw new HttpException(
+        'User not authenticated',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    const result = await this.clientService.getClientAppointments(clientId, ownerId);
+
+    if (!result.success) {
+      throw new HttpException(
+        { message: result.message, error: result.error },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return result;
+  }
+
   @Delete('/client/:clientId')
   async deleteClient(@Request() req, @Param('clientId') clientId: string) {
     // const ownerId = req.user._id || req.user.userId;

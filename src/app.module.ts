@@ -10,6 +10,7 @@ import { GiftcardModule } from './admin/giftcard/admin_giftcard.module';
 import { PaymentModule } from './admin/payment/payment.module';
 import { TransactionFeeModule } from './admin/transaction-fee/transaction-fee.module';
 import { WithdrawalModule } from './admin/withdrawal/withdrawal.module';
+import { AlertsModule } from './admin/alerts/alerts.module';
 import { WalletModule } from './admin/wallet/wallet.module';
 import { SalonModule } from './user/modules/salon.module';
 import { BookingModule } from './user/modules/booking.module';
@@ -31,6 +32,7 @@ import { GuidelinesModule } from './admin/guidelines/guidelines.module';
 import { NotificationSettingsModule } from './user/modules/notification-settings.module';
 import { NotificationModule } from './notifications/notification.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD } from '@nestjs/core';
 
 import { ClientModule } from './business/client.module';
@@ -45,6 +47,7 @@ import { WebhookModule } from './webhook/webhook.module';
 import { InventoryModule } from './marketplace/inventory.module';
 import { ProductModule } from './marketplace/product.module';
 import { BusinessGiftCardsModule } from './business/business-giftcard.module';
+import { MerchantMembershipModule } from './business/merchant-membership.module';
 import { BusinessOwnerSettingsModule } from './business/business-owner-settings.module';
 import { BusinessSettingsModule } from './business/business-settings.module';
 import { GoogleCalendarModule } from './integration/google-calendar.module';
@@ -84,6 +87,7 @@ import { LandingModule } from './landing/landing.module';
         limit: 40,
       },
     ]),
+    ScheduleModule.forRoot(),
 
     EmailModule,
     SlackModule,
@@ -93,6 +97,7 @@ import { LandingModule } from './landing/landing.module';
     PaymentModule,
     TransactionFeeModule,
     WithdrawalModule,
+    AlertsModule,
     WalletModule,
     ClientModule,
     ReminderModule,
@@ -119,6 +124,7 @@ import { LandingModule } from './landing/landing.module';
     ProductModule,
     InventoryModule,
     BusinessGiftCardsModule,
+    MerchantMembershipModule,
     BusinessOwnerSettingsModule,
     BusinessSettingsModule,
     GoogleCalendarModule,

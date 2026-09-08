@@ -20,6 +20,7 @@ import {
 import { BusinessWalletService } from 'src/business/services/wallet.service';
 import { WalletCurrency } from 'src/admin/payment/enums/wallet.enum';
 import { PaystackService } from 'src/payment/paystack.service';
+import { StripeService } from 'src/payment/stripe.service';
 import {
   PurchaseBusinessGiftCardDto,
   RedeemGiftCardDto,
@@ -48,13 +49,20 @@ export class GiftCardService {
     private readonly dataSource: DataSource,
     private readonly walletService: BusinessWalletService,
     private readonly paystack: PaystackService,
+    private readonly stripeService: StripeService,
     private readonly platformSettingsService: PlatformSettingsService,
     private readonly emailService: EmailService,
     private readonly slackService: SlackService,
   ) {}
 
   // ------------------------------------------------------
-  // Step 1 — Initialize Purchase (Creates PENDING transaction)
+  // Step 1 — Initialize Purchase via Stripe (Creates PaymentIntent + PENDING transactions)
+  //
+  // No money moves and no ownership changes here — the gift card stays
+  // AVAILABLE until the client actually confirms the PaymentIntent via
+  // Stripe Elements. completeGiftCardPurchase() (below) is what flips
+  // ownership, credits the wallet, and sends the emails, and it is only
+  // called after Stripe reports the intent as succeeded.
   // ------------------------------------------------------
   async purchaseGiftCard(dto: PurchaseBusinessGiftCardDto, purchaser: User) {
     const giftCard = await this.giftCardRepo.findOne({
@@ -68,15 +76,6 @@ export class GiftCardService {
     if (giftCard.soldStatus !== BusinessGiftCardSoldStatus.AVAILABLE)
       throw new BadRequestException('Gift card already purchased');
 
-    const card = await this.cardRepo.findOne({
-      where: { id: dto.cardId },
-      relations: ['user'],
-    });
-
-    if (!card) throw new NotFoundException('Payment card not found');
-    if (card.user.id !== purchaser.id)
-      throw new ForbiddenException('You cannot use this payment method');
-
     // Get platform fee percentage
     const paymentsSettings = await this.platformSettingsService.getPayments();
     const platformFeePercent = Number(paymentsSettings.platformFee) || 0;
@@ -87,11 +86,7 @@ export class GiftCardService {
     const totalAmount = giftCardAmount + feeAmount;
     const roundedTotalAmount = Math.round(totalAmount * 100) / 100;
 
-    // Calculate expiry date
-    const expiry = new Date();
-    expiry.setDate(expiry.getDate() + (giftCard.expiryInDays || 365));
-
-    // Ensure purchaser profile is fully loaded
+    // Ensure purchaser profile is fully loaded (for receipt_email / metadata)
     const buyer =
       (await this.dataSource.getRepository(User).findOne({
         where: { id: purchaser.id },
@@ -101,26 +96,31 @@ export class GiftCardService {
       `${buyer.firstName ?? purchaser.firstName ?? ''} ${buyer.surname ?? purchaser.surname ?? ''}`.trim() ||
       'Valued Customer';
 
-    // UPDATE GIFT CARD OWNERSHIP & DETAILS
-    giftCard.soldStatus = BusinessGiftCardSoldStatus.PURCHASED;
-    giftCard.status = BusinessGiftCardStatus.ACTIVE;
-    giftCard.remainingAmount = giftCardAmount;
-    giftCard.recipientName = dto.recipientName ?? 'No name provided';
-    giftCard.recipientEmail = dto.recipientEmail ?? 'No Email provided';
-    giftCard.message = dto.message ?? '';
-    giftCard.senderName =
-      dto.fullName ?? buyerFullName;
-    giftCard.ownerId = purchaser.id;
-    giftCard.ownerEmail = buyerEmail;
-    giftCard.ownerFullName = buyerFullName;
-    giftCard.cardId = dto.cardId ?? undefined;
-    giftCard.expiresAt = expiry;
+    // Create Stripe PaymentIntent — client confirms it via Stripe Elements.
+    // Recipient/sender/message ride on the metadata so the complete step
+    // can assign them without another API call from the client.
+    const paymentIntent = await this.stripeService.createPaymentIntent({
+      amount: Math.round(roundedTotalAmount * 100), // cents
+      currency: (giftCard.currency || 'usd').toLowerCase(),
+      customerEmail: buyerEmail,
+      metadata: {
+        giftCardId: giftCard.id,
+        giftCardCode: giftCard.code,
+        purchaserId: purchaser.id,
+        cardId: dto.cardId ?? '',
+        giftCardAmount,
+        feeAmount,
+        recipientName: dto.recipientName ?? '',
+        recipientEmail: dto.recipientEmail ?? '',
+        senderName: dto.fullName ?? buyerFullName,
+        message: dto.message ?? '',
+      },
+    });
 
-    await this.giftCardRepo.save(giftCard);
+    const reference = paymentIntent.id;
 
-    const reference = `GC-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-
-    // Save completed gift card purchase transaction
+    // Save PENDING transactions keyed by the PaymentIntent id — completion
+    // flips these to COMPLETED (or FAILED if the intent never succeeds).
     const giftCardTx = this.transactionRepo.create({
       senderId: purchaser.id,
       recipientId: giftCard.business?.ownerId,
@@ -130,122 +130,67 @@ export class GiftCardService {
       description: `Purchase of gift card "${giftCard.title}"`,
       mode: 'Web',
       referenceId: reference,
-      status: TransactionStatus.COMPLETED,
-      method: PaymentMethod.CARD,
+      status: TransactionStatus.PENDING,
+      method: PaymentMethod.STRIPE,
       service: 'GiftCard-Purchase',
       customerName: `${purchaser.firstName} ${purchaser.surname}`,
     });
     await this.transactionRepo.save(giftCardTx);
 
-    // Save completed platform fee transaction
     if (feeAmount > 0) {
       const feeTx = this.transactionRepo.create({
         senderId: purchaser.id,
-        recipientId: undefined, // Platform fee goes to system
         amount: feeAmount,
         type: TransactionType.FEE,
         currency: (giftCard.currency as any) || WalletCurrency.USD,
         description: `Platform fee for gift card "${giftCard.title}" purchase`,
         mode: 'Web',
         referenceId: reference,
-        status: TransactionStatus.COMPLETED,
-        method: PaymentMethod.CARD,
+        status: TransactionStatus.PENDING,
+        method: PaymentMethod.STRIPE,
         service: 'GiftCard-Fee',
         customerName: `${purchaser.firstName} ${purchaser.surname}`,
       });
       await this.transactionRepo.save(feeTx);
     }
 
-    // Update business wallet
-    try {
-      const ownerId = giftCard.business?.ownerId || giftCard.business?.owner?.id;
-      if (giftCard.businessId && ownerId) {
-        await this.walletService.addFunds({
-          businessId: giftCard.businessId,
-          recipientId: ownerId,
-          senderId: purchaser.id,
-          amount: giftCardAmount,
-          type: TransactionType.EARNING,
-          description: `Business Gift card purchase`,
-          referenceId: reference,
-        });
-      }
-    } catch (walletError) {
-      console.error('Failed to add funds to business wallet:', walletError);
-    }
-
-    // Send confirmation email to purchaser (buyer)
-    if (giftCard.ownerEmail) {
-      this.emailService.sendGiftCardEmail(
-        giftCard.ownerEmail,
-        giftCard.ownerFullName || 'Valued Customer',
-        'purchased',
-        giftCard.code,
-        giftCardAmount,
-        giftCard.recipientName || undefined,
-        giftCard.senderName || undefined,
-        undefined,
-        giftCard.message || undefined,
-      );
-    }
-
-    // Send gift card email to recipient if provided and different from purchaser
-    if (
-      giftCard.recipientEmail &&
-      giftCard.recipientEmail !== giftCard.ownerEmail &&
-      giftCard.recipientEmail !== 'No Email provided'
-    ) {
-      this.emailService.sendGiftCardEmail(
-        giftCard.recipientEmail,
-        giftCard.recipientName || 'Valued Friend',
-        'received',
-        giftCard.code,
-        giftCardAmount,
-        giftCard.recipientName || undefined,
-        giftCard.senderName || giftCard.ownerFullName || undefined,
-        undefined,
-        giftCard.message || undefined,
-      );
-    }
-
-    // Send Slack notification
-    try {
-      this.slackService.notify(
-        `🎁 *Gift Card Purchased*\n` +
-        `• *Card*: "${giftCard.title}" (\`${giftCard.code}\`)\n` +
-        `• *Purchaser*: ${giftCard.ownerFullName || 'Customer'} (${giftCard.ownerEmail || 'N/A'})\n` +
-        `• *Recipient*: ${giftCard.recipientName || 'N/A'} (${giftCard.recipientEmail || 'N/A'})\n` +
-        `• *Amount*: $${giftCardAmount.toFixed(2)}`
-      );
-    } catch (slackErr) {
-      console.error('Failed to send Slack gift card purchase notification:', slackErr);
-    }
-
     return {
-      message: 'Gift card purchase completed successfully',
-      giftCard,
+      message: 'Payment initialized',
       giftCardAmount,
       platformFee: feeAmount,
       totalAmount: roundedTotalAmount,
-      authorizationUrl: null,
+      clientSecret: paymentIntent.client_secret,
       reference,
+      // Kept for FE backwards compatibility — a null authorizationUrl
+      // tells the FE to use the inline Stripe form flow instead of the
+      // hosted-redirect flow (the old Paystack path).
+      authorizationUrl: null,
     };
   }
 
   // ------------------------------------------------------
-  // Step — Complete Purchase (Verify Payment & Save Transaction)
+  // Step — Complete Purchase (Verify Stripe PaymentIntent + assign ownership)
+  //
+  // `reference` here is a Stripe PaymentIntent id (pi_...). We only mutate
+  // state once the intent is confirmed succeeded — this is safe to call
+  // more than once (the PURCHASED short-circuit below makes it idempotent
+  // so a duplicate FE retry, or a webhook + FE both calling, won't
+  // double-credit the wallet or double-send the emails).
   // ------------------------------------------------------
   async completeGiftCardPurchase(reference: string) {
-    // Verify payment
-    const verification = await this.paystack.verifyPayment(reference);
+    // Verify the intent via Stripe
+    const intent = await this.stripeService.retrievePaymentIntent(reference);
 
-    if (!verification || verification.status !== 'success') {
-      const meta = verification.metadata;
+    const meta = (intent?.metadata ?? {}) as Record<string, string>;
+
+    if (!intent || intent.status !== 'succeeded') {
       const giftCardId = meta.giftCardId;
-      await this.giftCardRepo.update(
-        { id: giftCardId },
-        { soldStatus: BusinessGiftCardSoldStatus.AVAILABLE },
-      );
+      if (giftCardId) {
+        await this.giftCardRepo.update(
+          { id: giftCardId },
+          { soldStatus: BusinessGiftCardSoldStatus.AVAILABLE },
+        );
+      }
       await this.transactionRepo.update(
         { referenceId: reference },
         { status: TransactionStatus.FAILED },
@@ -253,7 +198,6 @@ export class GiftCardService {
       throw new BadRequestException('Payment verification failed');
     }
 
-    const meta = verification.metadata;
     const giftCardAmount = Number(meta.giftCardAmount) || 0;
     const feeAmount = Number(meta.feeAmount) || 0;
 
@@ -265,10 +209,19 @@ export class GiftCardService {
           where: { id: meta.giftCardId },
         });
         if (!giftCard) throw new NotFoundException('Gift card not found');
-        if (!giftCard.ownerId)
-          throw new NotFoundException('Gift card business owner not found');
-        if (giftCard.soldStatus === BusinessGiftCardSoldStatus.PURCHASED)
-          throw new BadRequestException('Gift card already purchased');
+
+        // Idempotency: if already PURCHASED (e.g. FE retry or webhook +
+        // FE both firing), return the current state instead of erroring
+        // or double-mutating.
+        if (giftCard.soldStatus === BusinessGiftCardSoldStatus.PURCHASED) {
+          return {
+            giftCard,
+            giftCardAmount,
+            platformFee: feeAmount,
+            totalPaid: giftCardAmount + feeAmount,
+            alreadyCompleted: true,
+          };
+        }
 
         // Find purchaser
         const purchaser = await manager.findOne(User, {
@@ -281,18 +234,32 @@ export class GiftCardService {
           where: { id: meta.giftCardId },
           relations: ['business', 'owner'],
         });
-        if (!giftCardWithRelations?.owner)
-          throw new NotFoundException('Gift card business owner not found');
+        if (!giftCardWithRelations?.business)
+          throw new NotFoundException('Gift card business not found');
 
-        // Assign gift card
+        // Assign gift card ownership + recipient details (which we
+        // deliberately did not persist at init time, since we might have
+        // needed to release the card back to AVAILABLE if the payment
+        // never confirmed).
+        const buyerEmail = purchaser.email;
+        const buyerFullName =
+          `${purchaser.firstName ?? ''} ${purchaser.surname ?? ''}`.trim() ||
+          'Valued Customer';
+
         const expiry = new Date();
-        expiry.setDate(expiry.getDate() + giftCard.expiryInDays);
+        expiry.setDate(expiry.getDate() + (giftCard.expiryInDays || 365));
 
         giftCard.ownerId = purchaser.id;
-        giftCard.ownerEmail = purchaser.email;
-        giftCard.ownerFullName = `${purchaser.firstName} ${purchaser.surname}`;
-        giftCard.cardId = meta.cardId ?? null;
+        giftCard.ownerEmail = buyerEmail;
+        giftCard.ownerFullName = buyerFullName;
+        giftCard.cardId = meta.cardId || undefined;
         giftCard.soldStatus = BusinessGiftCardSoldStatus.PURCHASED;
+        giftCard.status = BusinessGiftCardStatus.ACTIVE;
+        giftCard.remainingAmount = giftCardAmount;
+        giftCard.recipientName = meta.recipientName || 'No name provided';
+        giftCard.recipientEmail = meta.recipientEmail || 'No Email provided';
+        giftCard.message = meta.message || '';
+        giftCard.senderName = meta.senderName || buyerFullName;
         giftCard.expiresAt = expiry;
 
         await manager.save(BusinessGiftCard, giftCard);
@@ -332,6 +299,19 @@ export class GiftCardService {
       },
     );
 
+    // Idempotency short-circuit — if the DB transaction saw the card was
+    // already PURCHASED we've already credited the wallet + sent emails
+    // on the first successful call; do not repeat.
+    if (result.alreadyCompleted) {
+      return {
+        message: 'Gift card purchase already completed',
+        giftCard: result.giftCard,
+        giftCardAmount: result.giftCardAmount,
+        platformFee: result.platformFee,
+        totalPaid: result.totalPaid,
+      };
+    }
+
     // Update business wallet outside the transaction to avoid deadlock
     try {
       await this.walletService.addFunds({
@@ -340,7 +320,7 @@ export class GiftCardService {
         senderId: meta.purchaserId,
         amount: result.giftCardAmount, // Convert to minor units
         type: TransactionType.EARNING,
-        description: `Business Gift card purchase via Paystack`,
+        description: `Business Gift card purchase via Stripe`,
         referenceId: reference,
       });
     } catch (walletError) {

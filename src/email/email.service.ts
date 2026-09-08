@@ -57,7 +57,7 @@ export class EmailService {
       );
     }
 
-    void this.sendWithRetry(msg, 1);
+    this.scheduleEmailSend(msg);
     return { success: true };
   }
 
@@ -178,7 +178,7 @@ export class EmailService {
       text,
     };
 
-    void this.sendWithRetry(msg, 1);
+    this.scheduleEmailSend(msg);
   }
 
   sendMerchantWelcomeEmail(
@@ -233,7 +233,7 @@ export class EmailService {
         text: teamText,
       };
 
-      void this.sendWithRetry(teamMsg, 1);
+      this.scheduleEmailSend(teamMsg);
     } else {
       this.logger.warn(
         'DELIVERY_TEAM_EMAIL is not set — skipping delivery team notification',
@@ -288,7 +288,7 @@ export class EmailService {
         text: teamText,
       };
 
-      void this.sendWithRetry(teamMsg, 1);
+      this.scheduleEmailSend(teamMsg);
     } else {
       this.logger.warn(
         'DELIVERY_TEAM_EMAIL is not set — skipping delivery team notification',
@@ -310,6 +310,27 @@ export class EmailService {
     this.sendEmail(
       to,
       'Welcome to your verified merchant dashboard',
+      text,
+      html,
+      this.deliveryTeamEmail,
+    );
+  }
+
+  sendMerchantSubscriptionLapsedEmail(
+    to: string,
+    businessName: string,
+    reason: string,
+  ) {
+    const html = this.templateService.render('merchant-subscription-lapsed', {
+      businessName,
+      reason,
+      frontendUrl: this.frontendUrl,
+      year: new Date().getFullYear(),
+    });
+    const text = `Hi ${businessName}, your merchant subscription has lapsed (${reason}) and your account has been temporarily suspended. Add or update your payment method to reactivate.`;
+    this.sendEmail(
+      to,
+      'Your merchant subscription has lapsed',
       text,
       html,
       this.deliveryTeamEmail,
@@ -676,6 +697,7 @@ export class EmailService {
     serviceName: string,
     date: string,
     time: string,
+    moneyNote?: string,
   ) {
     const html = this.templateService.render('cancellation-confirmation', {
       name,
@@ -683,10 +705,13 @@ export class EmailService {
       serviceName,
       date,
       time,
+      moneyNote,
       frontendUrl: this.frontendUrl,
       year: new Date().getFullYear(),
     });
-    const text = `Hi ${name}, your appointment at ${businessName} for ${serviceName} on ${date} at ${time} has been cancelled.`;
+    const text = moneyNote
+      ? `Hi ${name}, your appointment at ${businessName} for ${serviceName} on ${date} at ${time} has been cancelled. ${moneyNote}`
+      : `Hi ${name}, your appointment at ${businessName} for ${serviceName} on ${date} at ${time} has been cancelled.`;
     this.sendEmail(
       to,
       'Your appointment has been cancelled',
@@ -714,6 +739,25 @@ export class EmailService {
     const subject = `Address ${action === 'added' ? 'Added' : 'Updated'} – Kinky Hairstylist`;
     const text = `Hi ${name}, your ${addressType} address (${fullAddress}) has been ${action}. If this wasn't you, contact support immediately.`;
     this.sendEmail(to, subject, text, html, this.deliveryTeamEmail);
+  }
+
+  // Schedules an email send on the next event-loop tick instead of firing
+  // it inline — matches the c2c-iat-staff-backend convention (never await
+  // sendMail/notify calls directly in the request path; always defer via
+  // setImmediate) so a slow/failing SendGrid call can never add latency to
+  // (or, via a synchronous throw before the first await, ever affect) the
+  // response the caller already returned.
+  private scheduleEmailSend(msg: any) {
+    setImmediate(async () => {
+      try {
+        await this.sendWithRetry(msg, 1);
+      } catch (err: any) {
+        this.logger.error(
+          `Background email send crashed for ${msg.to}: ${err.message}`,
+          err.stack,
+        );
+      }
+    });
   }
 
   private async sendWithRetry(msg: any, attempt: number) {

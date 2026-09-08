@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class ConfirmBookingDto {
   @ApiProperty({
@@ -42,4 +42,22 @@ export class ConfirmBookingDto {
   @IsString()
   @IsOptional()
   giftCard?: string;
+
+  @ApiProperty({
+    example: true,
+    description: 'Pay a 50% deposit now via Stripe, the rest directly to the merchant at the venue (Stripe only)',
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  depositOnly?: boolean;
+
+  @ApiProperty({
+    example: 'b5a4b2a0-1a9c-4c2f-b3a4-73a1b5ad5f87',
+    description: 'A MerchantMembershipPurchase id to redeem session(s) from instead of paying by card/gift card',
+    required: false,
+  })
+  @IsOptional()
+  @IsUUID()
+  membershipPurchaseId?: string;
 }

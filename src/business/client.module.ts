@@ -16,6 +16,7 @@ import { ClientProfileValidationMiddleware } from './middlewares/validate-client
 import { FormidableMiddleware } from './middlewares/formidable.middleware';
 import { BusinessCloudinaryModule } from './business-cloudinary.module';
 import { User } from 'src/all_user_entities/user.entity';
+import { Appointment } from './entities/appointment.entity';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { User } from 'src/all_user_entities/user.entity';
       Business,
       User,
       Review,
+      Appointment,
     ]),
     BusinessCloudinaryModule,
   ],

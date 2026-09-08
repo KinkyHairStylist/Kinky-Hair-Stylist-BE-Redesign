@@ -4,13 +4,14 @@ import { Repository } from 'typeorm';
 import { Review } from '../entities/review.entity';
 import { ApiResponse } from '../types/client.types';
 import { ClientSchema } from '../entities/client.entity';
+import { Business } from '../entities/business.entity';
 import { ReviewResponseDto } from '../dtos/requests/ReviewDto';
 import { User } from 'src/all_user_entities/user.entity';
-import sgMail from '@sendgrid/mail';
+import { EmailService } from 'src/email/email.service';
+import { TemplateService } from 'src/email/template.service';
 
 @Injectable()
 export class ReviewService {
-  private fromEmail: string;
   constructor(
     @InjectRepository(Review)
     private readonly reviewRepo: Repository<Review>,
@@ -20,17 +21,13 @@ export class ReviewService {
 
     @InjectRepository(User)
     private userRepository: Repository<User>,
-  ) {
-    const apiKey = process.env.SENDGRID_API_KEY;
-    const fromEmail = process.env.SENDGRID_FROM_EMAIL;
 
-    if (!apiKey || !fromEmail) {
-      throw new Error('SENDGRID_API_KEY and SENDGRID_FROM_EMAIL must be set');
-    }
+    @InjectRepository(Business)
+    private readonly businessRepo: Repository<Business>,
 
-    sgMail.setApiKey(apiKey);
-    this.fromEmail = fromEmail;
-  }
+    private readonly emailService: EmailService,
+    private readonly templateService: TemplateService,
+  ) {}
 
   async clientReviewList(
     ownerId: string,
@@ -276,9 +273,14 @@ export class ReviewService {
       // 4️⃣ Save the updated review
       await this.reviewRepo.save(clientReview);
 
+      const business = await this.businessRepo.findOne({
+        where: { id: clientReview.businessId ?? undefined },
+      });
+
       const emailData = {
         clientEmail: client.email,
         clientName: client.firstName + ' ' + client.lastName,
+        businessName: business?.businessName ?? 'Kinky Hairstylist',
         message: clientReview.comment,
       };
 
@@ -298,8 +300,38 @@ export class ReviewService {
     }
   }
 
+  // Batch existence check — lets a caller (e.g. the booking list/details
+  // endpoints) know which of these orderIds already have a review, so the
+  // "Review" action can be hidden/disabled instead of allowing a second
+  // review of the same completed booking.
+  async getReviewedOrderIds(orderIds: string[]): Promise<Set<string>> {
+    if (orderIds.length === 0) return new Set();
+    const rows = await this.reviewRepo
+      .createQueryBuilder('review')
+      .select('DISTINCT review.orderId', 'orderId')
+      .where('review.orderId IN (:...orderIds)', { orderIds })
+      .getRawMany();
+    return new Set(rows.map((r) => r.orderId));
+  }
+
   async createReview(payload: any): Promise<ApiResponse<any>> {
     try {
+      // A booking can only be reviewed once — nothing enforced this
+      // before (no existence check on either layer), so the same
+      // completed booking could be rated repeatedly.
+      if (payload.orderId) {
+        const existing = await this.reviewRepo.findOne({
+          where: { orderId: payload.orderId },
+        });
+        if (existing) {
+          return {
+            success: false,
+            error: 'Already reviewed',
+            message: 'You have already reviewed this booking',
+          };
+        }
+      }
+
       const review = this.reviewRepo.create(payload);
       const newReview = await this.reviewRepo.save(review);
 
@@ -336,46 +368,32 @@ export class ReviewService {
   }
 
   //   EMAILS
+  // Uses the same shared communication-bulk template every other
+  // business-to-client message on the platform uses (see
+  // communication.service.ts's sendDirectMessageEmail), instead of
+  // building its own raw HTML string. Message content/semantics kept
+  // exactly as they were — data.message is the client's original review
+  // comment, not the merchant's reply text, which looks like a
+  // pre-existing content bug but is out of scope here (flagged
+  // separately, not fixed as part of this template swap).
   private async sendReviewNotificationMail(data: any): Promise<void> {
-    const emailText = `Dear ${data.clientName ?? 'Valued Client'},
+    const frontendUrl = process.env.FRONTEND_URL || 'https://kinkyhairstylists.com';
+    const html = this.templateService.render('communication-bulk', {
+      businessName: data.businessName ?? 'Kinky Hairstylist',
+      subject: "We've Responded to Your Review",
+      clientName: data.clientName ?? 'Valued Client',
+      message: `We've responded to your review:\n\n"${data.message}"\n\nPlease visit our platform to view our full response.`,
+      closingRemarks: data.closingRemarks ?? null,
+      frontendUrl,
+      year: new Date().getFullYear(),
+    });
+    const text = `We've responded to your review: "${data.message}". Please visit our platform to view our full response.`;
 
-Thank you for taking the time to share your feedback with us.
-
-Your Review:
-"${data.message}"
-
-We have responded to your review on our platform. Please log in to view our complete response and continue the conversation.
-
-We value your feedback and look forward to serving you better.
-
-${data.closingRemarks ?? 'Best regards,'}
-Kinky Hair Stylist Team`;
-
-    const msg = {
-      to: data.clientEmail,
-      from: this.fromEmail,
-      subject: `We've Responded to Your Review`,
-      text: emailText,
-      html: `
-    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px;">
-      <p>Dear <strong>${data.clientName ?? 'Valued Client'}</strong>,</p>
-      
-      <p>We've responded to your review:</p>
-      
-      <blockquote style="background: #f5f5f5; border-left: 3px solid #007bff; margin: 15px 0; padding: 12px 15px; font-style: italic;">
-        "${data.message}"
-      </blockquote>
-      
-      <p><strong>Please visit our platform to view our response.</strong></p>
-      
-      <p>
-        ${data.closingRemarks ?? 'Thank you,'}<br>
-        Kinky Hair Stylist
-      </p>
-    </div>
-  `,
-    };
-
-    const [response] = await sgMail.send(msg);
+    this.emailService.sendEmail(
+      data.clientEmail,
+      "We've Responded to Your Review",
+      text,
+      html,
+    );
   }
 }

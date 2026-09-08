@@ -24,6 +24,13 @@ export class Review {
   @Column({ type: 'varchar', nullable: true })
   orderId: string | null;
 
+  // Which staff member this review is about — auto-attributed from the
+  // appointment's assigned staff at review time. Nullable since older
+  // reviews (and reviews of appointments with no staff assigned) predate
+  // this column and only ever rated the business as a whole.
+  @Column({ type: 'uuid', nullable: true })
+  staffId: string | null;
+
   @Column({ type: 'decimal', precision: 2, scale: 1 })
   rating: number;
 
