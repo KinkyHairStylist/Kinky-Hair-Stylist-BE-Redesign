@@ -1,32 +1,25 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import sgMail from '@sendgrid/mail';
 import { ClientSchema } from '../entities/client.entity';
-import { capitalizeString } from '../utils/client.utils';
+import { Business } from '../entities/business.entity';
 import { Promotion } from '../entities/promotion.entity';
 import { SendPromotionDto } from '../dtos/requests/PromotionDto';
+import { EmailService } from 'src/email/email.service';
+import { TemplateService } from 'src/email/template.service';
 
 @Injectable()
 export class PromotionService {
-  private fromEmail: string;
-
   constructor(
     @InjectRepository(Promotion)
     private promotionRepo: Repository<Promotion>,
     @InjectRepository(ClientSchema)
     private readonly clientRepo: Repository<ClientSchema>,
-  ) {
-    const apiKey = process.env.SENDGRID_API_KEY;
-    const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-
-    if (!apiKey || !fromEmail) {
-      throw new Error('SENDGRID_API_KEY and SENDGRID_FROM_EMAIL must be set');
-    }
-
-    sgMail.setApiKey(apiKey);
-    this.fromEmail = fromEmail;
-  }
+    @InjectRepository(Business)
+    private readonly businessRepo: Repository<Business>,
+    private readonly emailService: EmailService,
+    private readonly templateService: TemplateService,
+  ) {}
 
   async sendPromotion(payload: SendPromotionDto) {
     try {
@@ -45,7 +38,11 @@ export class PromotionService {
         };
       }
 
-      await this.sendEmailPromotion(payload);
+      const business = payload.businessId
+        ? await this.businessRepo.findOne({ where: { id: payload.businessId } })
+        : null;
+
+      await this.sendEmailPromotion(payload, business?.businessName ?? 'Kinky Hairstylist');
 
       promotion.sent = true;
       await this.promotionRepo.save(promotion);
@@ -64,26 +61,28 @@ export class PromotionService {
     }
   }
 
-  private async sendEmailPromotion(data: SendPromotionDto): Promise<void> {
-    let emailText = data.description;
+  private async sendEmailPromotion(
+    data: SendPromotionDto,
+    businessName: string,
+  ): Promise<void> {
+    const frontendUrl = process.env.FRONTEND_URL || 'https://kinkyhairstylists.com';
+    const message = `${data.discount}${data.discountType} OFF!\n\n${data.description}\n\nUse code ${data.promotionCode} — offer ends ${data.expiryDate} midnight. Hurry!`;
 
-    emailText = `Dear ${data.clientName},
+    const html = this.templateService.render('communication-bulk', {
+      businessName,
+      subject: data.promotionTitle.toUpperCase(),
+      clientName: data.clientName,
+      message,
+      closingRemarks: null,
+      frontendUrl,
+      year: new Date().getFullYear(),
+    });
 
-${data.discount}${data.discountType} OFF !!
-  
-  ${data.description}
-        
-  Offers last till ${data.expiryDate} midnight. Hurry Now!!.
-  
-  Thank you.`;
-
-    const msg = {
-      to: data.clientEmail,
-      from: this.fromEmail,
-      subject: `${data.promotionTitle.toUpperCase()}`,
-      text: emailText,
-    };
-
-    await sgMail.send(msg);
+    this.emailService.sendEmail(
+      data.clientEmail,
+      data.promotionTitle.toUpperCase(),
+      message,
+      html,
+    );
   }
 }
