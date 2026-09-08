@@ -28,6 +28,7 @@ import {
 } from '../entities/appointment.entity';
 import { CreateBookingDto } from '../dtos/requests/CreateBookingDto';
 import { Staff } from '../entities/staff.entity';
+import { StaffCommissionEarning } from '../entities/staff-commission-earning.entity';
 import { EmailService } from '../../email/email.service';
 import { BookingDay } from '../entities/booking-day.entity';
 import { BlockedTimeSlot } from '../entities/blocked-time-slot.entity';
@@ -84,6 +85,8 @@ export class BusinessService {
     private userRepo: Repository<User>,
     @InjectRepository(Staff)
     private staffRepo: Repository<Staff>,
+    @InjectRepository(StaffCommissionEarning)
+    private staffCommissionEarningRepo: Repository<StaffCommissionEarning>,
     @InjectRepository(Service)
     private serviceRepo: Repository<Service>,
     @InjectRepository(AdvertisementPlan)
@@ -284,6 +287,33 @@ async getBooking(id: string) {
         const netAmount = spi.isDeposit
           ? spi.bookingAmount - Number(spi.acquisitionFeeAmount) - Number(spi.commissionFeeAmount)
           : spi.bookingAmount;
+
+        // Informational staff commission — no staff wallet exists (staff
+        // have no working login yet), so this only ever records a number
+        // the merchant can see. Applied to netAmount (after KHS's own
+        // cut, matching what's actually credited to the business above),
+        // once per assigned staff member with a rate set.
+        try {
+          for (const staffMember of appointment.staff || []) {
+            const rate = Number(staffMember.commissionRate);
+            if (!rate || rate <= 0) continue;
+            const commissionAmount = Math.round(netAmount * (rate / 100) * 100) / 100;
+            await this.staffCommissionEarningRepo.save(
+              this.staffCommissionEarningRepo.create({
+                staffId: staffMember.id,
+                businessId: appointment.business.id,
+                orderId: appointment.orderId,
+                netAmount,
+                commissionRate: rate,
+                commissionAmount,
+              }),
+            );
+          }
+        } catch (commissionError) {
+          this.logger.error(
+            `Failed to record staff commission for order ${appointment.orderId}: ${commissionError.message}`,
+          );
+        }
 
         // Goes to pendingBalance, not balance — held for 48h so a
         // chargeback landing in that window is recovered from money never
@@ -1053,13 +1083,57 @@ async getBooking(id: string) {
       throw new NotFoundException('Business not found');
     }
 
-    return this.staffRepo.find({
+    const staff = await this.staffRepo.find({
       where: {
         business: { id: business.id },
         isActive: true,
       },
       relations: ['business', 'addresses', 'emergencyContacts', 'services'],
     });
+
+    // Informational commission-this-week per staff member — see
+    // Staff.commissionRate / StaffCommissionEarning. No staff wallet
+    // exists yet, this is purely for the merchant to see.
+    const startOfWeek = new Date();
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const commissionRows = staff.length
+      ? await this.staffCommissionEarningRepo
+          .createQueryBuilder('sce')
+          .select('sce.staffId', 'staffId')
+          .addSelect('SUM(sce.commissionAmount)', 'total')
+          .where('sce.staffId IN (:...staffIds)', { staffIds: staff.map((s) => s.id) })
+          .andWhere('sce.createdAt >= :startOfWeek', { startOfWeek })
+          .groupBy('sce.staffId')
+          .getRawMany()
+      : [];
+    const commissionMap = new Map(commissionRows.map((r) => [r.staffId, Number(r.total)]));
+
+    // Real per-staff rating — averaged from reviews now attributed to
+    // this staff member via Review.staffId (see BookingService.rateBusiness).
+    // Previously there was no such link at all, so this was always a
+    // hardcoded frontend fallback.
+    const ratingRows = staff.length
+      ? await this.reviewRepo
+          .createQueryBuilder('review')
+          .select('review.staffId', 'staffId')
+          .addSelect('AVG(review.rating)', 'avgRating')
+          .addSelect('COUNT(review.id)', 'reviewCount')
+          .where('review.staffId IN (:...staffIds)', { staffIds: staff.map((s) => s.id) })
+          .groupBy('review.staffId')
+          .getRawMany()
+      : [];
+    const ratingMap = new Map(
+      ratingRows.map((r) => [r.staffId, { rating: Number(r.avgRating), reviews: Number(r.reviewCount) }]),
+    );
+
+    return staff.map((s) => ({
+      ...s,
+      commissionEarnedThisWeek: commissionMap.get(s.id) ?? 0,
+      rating: ratingMap.get(s.id)?.rating ?? 0,
+      reviews: ratingMap.get(s.id)?.reviews ?? 0,
+    }));
   }
 
   async getAdvertisementPlans() {
@@ -1284,6 +1358,69 @@ async getBooking(id: string) {
       message: 'Staff assigned to service successfully',
       serviceId: service.id,
       assignedStaffCount: staffMembers.length,
+    };
+  }
+
+  // Sets ONE staff member's assigned services to exactly this list —
+  // deliberately separate from assignStaffToService above, which sets a
+  // SERVICE's whole staff roster and would silently unassign every other
+  // staff member from a service if called once per staff member (the bug
+  // the staff-management "Assign Task" flow was hitting: assigning staff
+  // A to a service any other staff member B was already on would wipe B
+  // off it, since assignStaffToService replaces the roster wholesale).
+  // This only ever adds/removes THIS staffId from each service's roster.
+  async setStaffServices(staffId: string, serviceIds: string[], ownerId: string) {
+    const staffMember = await this.staffRepo.findOne({
+      where: { id: staffId },
+      relations: ['business'],
+    });
+    if (!staffMember) {
+      throw new NotFoundException('Staff member not found');
+    }
+    if (staffMember.business.ownerId !== ownerId) {
+      throw new NotFoundException('Staff member not found');
+    }
+
+    const [currentlyAssigned, toAssign] = await Promise.all([
+      this.serviceRepo
+        .createQueryBuilder('service')
+        .innerJoin('service.assignedStaff', 'staff', 'staff.id = :staffId', { staffId })
+        .leftJoinAndSelect('service.assignedStaff', 'allStaff')
+        .where('service.businessId = :businessId', { businessId: staffMember.business.id })
+        .getMany(),
+      serviceIds.length
+        ? this.serviceRepo.find({
+            where: { id: In(serviceIds), business: { id: staffMember.business.id } },
+            relations: ['assignedStaff'],
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const wantedIds = new Set(serviceIds);
+    const currentIds = new Set(currentlyAssigned.map((s) => s.id));
+
+    // Remove this staff member from services no longer selected.
+    const toRemoveFrom = currentlyAssigned.filter((s) => !wantedIds.has(s.id));
+    for (const service of toRemoveFrom) {
+      service.assignedStaff = (service.assignedStaff || []).filter((s) => s.id !== staffId);
+      await this.serviceRepo.save(service);
+    }
+
+    // Add this staff member to newly-selected services (without touching
+    // whoever else is already assigned to them).
+    const toAddTo = toAssign.filter((s) => !currentIds.has(s.id));
+    for (const service of toAddTo) {
+      service.assignedStaff = [...(service.assignedStaff || []), staffMember];
+      await this.serviceRepo.save(service);
+    }
+
+    staffMember.servicesAssigned = serviceIds;
+    await this.staffRepo.save(staffMember);
+
+    return {
+      message: 'Staff services updated successfully',
+      staffId,
+      serviceIds,
     };
   }
 

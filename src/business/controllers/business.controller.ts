@@ -257,6 +257,23 @@ export class BusinessController {
     return this.businessService.assignStaffToService(body);
   }
 
+  // Sets ONE staff member's own list of assigned services — unlike
+  // assign-staff-to-service above (which sets a service's whole staff
+  // roster), this only ever adds/removes this one staff member from each
+  // service, leaving every other staff member's assignment untouched.
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(Role.Merchant, Role.Staff, Role.BusinessStaff)
+  @RequirePermission(Permission.MANAGE_STAFF)
+  @Post('staff/:staffId/services')
+  async setStaffServices(
+    @Req() req: RequestWithUser,
+    @Param('staffId') staffId: string,
+    @Body() body: { serviceIds: string[] },
+  ) {
+    return this.businessService.setStaffServices(staffId, body.serviceIds || [], req.user.id);
+  }
+
   // ── SERVICES ──────────────────────────────────────────────────────────────
 
   @ApiBearerAuth('access-token')
