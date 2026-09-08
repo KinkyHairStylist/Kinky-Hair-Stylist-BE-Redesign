@@ -32,6 +32,13 @@ import { WalletPaymentMethod } from '../entities/payment-method.entity';
 import { Withdrawal } from 'src/admin/withdrawal/entities/withdrawal.entity';
 import { Business } from '../entities/business.entity';
 import { StripePaymentIntent } from 'src/payment/entities/stripe-payment-intent.entity';
+import { SlackService } from 'src/services/slack.service';
+import {
+  SlackEventType,
+  SlackNode,
+  SlackProvider,
+  SlackSeverity,
+} from '../../utils/enum';
 
 @Injectable()
 export class BusinessWalletService {
@@ -374,27 +381,62 @@ export class BusinessWalletService {
     });
     if (!spi) {
       this.logger.warn(`No StripePaymentIntent found for disputed charge ${chargeId} — ignoring`);
+      SlackService.notify({
+        node: SlackNode.PAYMENT,
+        provider: SlackProvider.STRIPE,
+        severity: SlackSeverity.ERROR,
+        type: SlackEventType.ERROR_ALERT,
+        trigger: `Chargeback for charge ${chargeId}`,
+        body: `A Stripe dispute was lost for charge ${chargeId}, but no matching StripePaymentIntent exists — the disputed amount ($${disputedAmount}) could not be recovered from any business. KHS absorbs this loss.`,
+      });
       return;
     }
 
-    await this.debitWithPendingFallback({
-      businessId: spi.businessId,
-      amount: disputedAmount,
-      type: TransactionType.DEBIT,
-      referenceId: spi.stripePaymentIntentId,
-      description: `Chargeback recovered for order tied to charge ${chargeId}`,
-      senderId: spi.userId,
-    });
+    try {
+      await this.debitWithPendingFallback({
+        businessId: spi.businessId,
+        amount: disputedAmount,
+        type: TransactionType.DEBIT,
+        referenceId: spi.stripePaymentIntentId,
+        description: `Chargeback recovered for order tied to charge ${chargeId}`,
+        senderId: spi.userId,
+      });
 
-    await this.debitWithPendingFallback({
-      businessId: spi.businessId,
-      amount: BusinessWalletService.CHARGEBACK_FEE,
-      type: TransactionType.FEE,
-      feeSubtype: 'ChargebackFee',
-      referenceId: spi.stripePaymentIntentId,
-      description: `Chargeback fee for order tied to charge ${chargeId}`,
-      senderId: spi.userId,
-    });
+      await this.debitWithPendingFallback({
+        businessId: spi.businessId,
+        amount: BusinessWalletService.CHARGEBACK_FEE,
+        type: TransactionType.FEE,
+        feeSubtype: 'ChargebackFee',
+        referenceId: spi.stripePaymentIntentId,
+        description: `Chargeback fee for order tied to charge ${chargeId}`,
+        senderId: spi.userId,
+      });
+
+      SlackService.notify({
+        node: SlackNode.PAYMENT,
+        provider: SlackProvider.STRIPE,
+        severity: SlackSeverity.CRITICAL,
+        type: SlackEventType.PAYMENT_FAILURE,
+        trigger: `Chargeback for charge ${chargeId}`,
+        body: `A Stripe dispute was lost — $${disputedAmount} plus a $${BusinessWalletService.CHARGEBACK_FEE} chargeback fee were debited from business ${spi.businessId}'s wallet.
+• Charge: ${chargeId}
+• Order: ${spi.stripePaymentIntentId}
+• Business: ${spi.businessId}`,
+      });
+    } catch (err) {
+      SlackService.notify({
+        node: SlackNode.PAYMENT,
+        provider: SlackProvider.STRIPE,
+        severity: SlackSeverity.CRITICAL,
+        type: SlackEventType.ERROR_ALERT,
+        trigger: `Chargeback for charge ${chargeId}`,
+        body: `Failed to debit business ${spi.businessId} for a lost Stripe dispute — the $${disputedAmount} charge plus $${BusinessWalletService.CHARGEBACK_FEE} fee were NOT recovered. Manual intervention needed.
+• Charge: ${chargeId}
+• Order: ${spi.stripePaymentIntentId}
+• Error: ${err instanceof Error ? err.message : String(err)}`,
+      });
+      throw err;
+    }
   }
 
   /**

@@ -349,6 +349,20 @@ async getBooking(id: string) {
         `Failed to release Stripe escrow for order ${appointment.orderId}: ${escrowError.message}`,
         escrowError.stack,
       );
+      // The appointment is already saved COMPLETED + PAID above — if
+      // escrow release fails here, the merchant is never actually paid
+      // and nothing else in the system will retry it.
+      SlackService.notify({
+        node: SlackNode.PAYMENT,
+        provider: SlackProvider.STRIPE,
+        severity: SlackSeverity.CRITICAL,
+        type: SlackEventType.ERROR_ALERT,
+        trigger: `Escrow release failed for order ${appointment.orderId}`,
+        body: `An appointment was marked completed and paid, but releasing its Stripe escrow to the merchant's wallet failed — the merchant is not actually paid, with no automatic retry.
+• Order: ${appointment.orderId}
+• Business: ${appointment.business?.businessName || appointment.business?.id}
+• Error: ${escrowError instanceof Error ? escrowError.message : String(escrowError)}`,
+      });
     }
 
     const settings = await this.businessOwnerSettingsService.findByBusinessId(

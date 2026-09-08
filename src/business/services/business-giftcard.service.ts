@@ -28,6 +28,13 @@ import {
 import { WalletCurrency } from '../../admin/payment/enums/wallet.enum';
 import { PlatformSettingsService } from '../../admin/platform-settings/platform-settings.service';
 import { BusinessWalletService } from './wallet.service';
+import { SlackService } from 'src/services/slack.service';
+import {
+  SlackEventType,
+  SlackNode,
+  SlackProvider,
+  SlackSeverity,
+} from '../../utils/enum';
 
 @Injectable()
 export class BusinessGiftCardsService {
@@ -407,6 +414,20 @@ export class BusinessGiftCardsService {
         });
       } catch (walletError) {
         console.error('Failed to credit business wallet for gift card redemption:', walletError);
+        // The card is already saved USED/decremented inside the committed
+        // transaction above — if crediting the wallet fails here, the
+        // business is never paid for a redemption that already happened.
+        SlackService.notify({
+          node: SlackNode.PAYMENT,
+          provider: SlackProvider.SYSTEM,
+          severity: SlackSeverity.CRITICAL,
+          type: SlackEventType.ERROR_ALERT,
+          trigger: `Gift card redemption wallet credit failed (${giftCard.code})`,
+          body: `A business gift card was redeemed and its balance already decremented, but crediting the business's wallet for the net amount ($${netToBusiness}) failed.
+• Gift card: ${giftCard.code}
+• Business: ${business?.businessName || business?.id}
+• Error: ${walletError instanceof Error ? walletError.message : String(walletError)}`,
+        });
       }
     }
 

@@ -39,6 +39,13 @@ import {
 import { NotificationService } from 'src/notifications/notification.service';
 import { NotificationType } from 'src/notifications/notification.enum';
 import { SlackService } from 'src/slack/slack.service';
+import { SlackService as StructuredSlackService } from 'src/services/slack.service';
+import {
+  SlackEventType,
+  SlackNode,
+  SlackProvider,
+  SlackSeverity,
+} from '../../utils/enum';
 import { Card } from 'src/all_user_entities/card.entity';
 import { BusinessGiftCard } from 'src/business/entities/business-giftcard.entity';
 import { BusinessGiftCardStatus } from 'src/business/enum/gift-card.enum';
@@ -594,6 +601,19 @@ export class BookingService {
           }
         } catch (walletError) {
           console.error('Failed to add funds to business wallet:', walletError);
+          // Customer is already charged (via gift card) and the booking is
+          // confirmed below — if crediting the merchant fails here, the
+          // merchant is never paid, with nothing else set up to retry it.
+          StructuredSlackService.notify({
+            node: SlackNode.PAYMENT,
+            provider: SlackProvider.STRIPE,
+            severity: SlackSeverity.CRITICAL,
+            type: SlackEventType.ERROR_ALERT,
+            trigger: `Gift-card booking wallet credit failed for order ${orderId}`,
+            body: `A gift-card-paid booking was confirmed, but crediting the merchant's wallet for it failed — the merchant is not paid.
+• Order: ${orderId}
+• Error: ${walletError instanceof Error ? walletError.message : String(walletError)}`,
+          });
         }
 
         if (user.email && (await this.shouldSendBookingConfirmationEmail(user))) {
@@ -1386,6 +1406,20 @@ export class BookingService {
     } catch (walletError) {
       // Log the error but don't fail the entire operation since booking was confirmed successfully
       console.error('Failed to add funds to business wallet:', walletError);
+      // Customer is already charged via Paystack and the booking is
+      // confirmed — if crediting the merchant fails here, the merchant is
+      // never paid, with nothing else set up to retry it.
+      StructuredSlackService.notify({
+        node: SlackNode.PAYMENT,
+        provider: SlackProvider.STRIPE,
+        severity: SlackSeverity.CRITICAL,
+        type: SlackEventType.ERROR_ALERT,
+        trigger: `Paystack booking wallet credit failed for order ${orderId}`,
+        body: `A Paystack-paid booking was confirmed, but crediting the merchant's wallet for it failed — the merchant is not paid.
+• Order: ${orderId}
+• Reference: ${reference}
+• Error: ${walletError instanceof Error ? walletError.message : String(walletError)}`,
+      });
     }
 
     return {
@@ -1928,6 +1962,19 @@ export class BookingService {
           `Failed to refund Stripe escrow for order ${orderId}: ${refundError.message}`,
           refundError.stack,
         );
+        // The appointment is already saved CANCELLED above (:1868) — if the
+        // Stripe refund itself failed, the customer's money is now stranded
+        // with no automatic retry, so this needs a human, not just a log line.
+        StructuredSlackService.notify({
+          node: SlackNode.PAYMENT,
+          provider: SlackProvider.STRIPE,
+          severity: SlackSeverity.CRITICAL,
+          type: SlackEventType.ERROR_ALERT,
+          trigger: `Cancellation refund failed for order ${orderId}`,
+          body: `A booking was cancelled and marked as such, but the Stripe refund failed — the customer's money is stranded, not automatically retried.
+• Order: ${orderId}
+• Error: ${refundError instanceof Error ? refundError.message : String(refundError)}`,
+        });
       }
     } else {
       // Late cancellation (inside the 24h window) — no refund at all. No
@@ -2008,6 +2055,19 @@ export class BookingService {
           `Failed to process late-cancellation forfeiture for order ${orderId}: ${forfeitureError.message}`,
           forfeitureError.stack,
         );
+        // Escrow stays HELD forever if this fails — the business is never
+        // credited its 70% share and KHS's fee row is never written, with
+        // nothing else in the system positioned to retry it.
+        StructuredSlackService.notify({
+          node: SlackNode.PAYMENT,
+          provider: SlackProvider.STRIPE,
+          severity: SlackSeverity.CRITICAL,
+          type: SlackEventType.ERROR_ALERT,
+          trigger: `Late-cancellation forfeiture failed for order ${orderId}`,
+          body: `A late cancellation was processed, but crediting the stylist's 70% forfeiture share and recording KHS's fee failed — Stripe escrow is left HELD indefinitely with no automatic retry.
+• Order: ${orderId}
+• Error: ${forfeitureError instanceof Error ? forfeitureError.message : String(forfeitureError)}`,
+        });
       }
     }
     if (firstAppt?.client?.email) {

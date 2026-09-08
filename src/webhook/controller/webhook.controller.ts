@@ -16,6 +16,13 @@ import { StripeService } from 'src/payment/stripe.service';
 import { BookingService } from 'src/user/services/booking.service';
 import { MerchantSubscriptionService } from 'src/business/services/merchant-subscription.service';
 import { BusinessWalletService } from 'src/business/services/wallet.service';
+import { SlackService } from 'src/services/slack.service';
+import {
+  SlackEventType,
+  SlackNode,
+  SlackProvider,
+  SlackSeverity,
+} from 'src/utils/enum';
 
 @Controller('webhook')
 export class WebhookController {
@@ -141,6 +148,17 @@ export class WebhookController {
         `Error processing Stripe webhook event ${event.type} (${event.id}): ${error.message}`,
         error.stack,
       );
+      SlackService.notify({
+        node: SlackNode.PAYMENT,
+        provider: SlackProvider.STRIPE,
+        severity: SlackSeverity.CRITICAL,
+        type: SlackEventType.ERROR_ALERT,
+        trigger: `Stripe webhook handler failed: ${event.type}`,
+        body: `Processing a Stripe webhook event threw — this covers payment succeeded/failed, subscription deleted, invoice payment failed/succeeded, and dispute closed. Stripe has already acted on this event; KHS's side effects (payout, status change, etc.) may not have happened.
+• Event type: ${event.type}
+• Event ID: ${event.id}
+• Error: ${error instanceof Error ? error.message : String(error)}`,
+      });
     }
 
     return { received: true };
