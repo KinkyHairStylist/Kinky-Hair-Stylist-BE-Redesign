@@ -1385,37 +1385,46 @@ export class BookingService {
     );
   }
 
-  // Refund policy: the customer gets back the service amount minus KHS's
-  // own platform fee minus Stripe's real processing fee for that specific
-  // charge (looked up from Stripe, not estimated — the exact rate varies
-  // by card type/country). Returns the refundable amount in cents: 0 or
-  // negative means there's nothing left to refund after those deductions.
-  private async calculateStripeRefundAmountCents(
+  // Cancellation policy constants — see cancelBooking. A cancellation
+  // 24h+ before the (earliest) appointment is "early"; inside that window
+  // is "late" (treated the same as a no-show, since there's no separate
+  // no-show detection today).
+  private static readonly EARLY_CANCELLATION_WINDOW_HOURS = 24;
+  private static readonly EARLY_CANCELLATION_FEE = 10; // flat dollars
+  // No deposit concept exists yet — every Stripe booking is paid in full
+  // up front — so on a late cancellation the full amount already
+  // collected plays the role a deposit would: forfeited, split 70/30
+  // stylist/KHS, same as the eventual deposit-forfeiture rule will do.
+  private static readonly LATE_CANCELLATION_STYLIST_SHARE = 0.7;
+
+  // This codebase stores appointment date/time as two separate strings —
+  // date "2024-01-15", time "2:00 PM" (12-hour, not ISO) — so naively
+  // building `new Date(`${date}T${time}`)` silently produces Invalid
+  // Date. This mirrors the one existing correct precedent
+  // (parseDateTime in integration/services/google-calendar.service.ts).
+  private parseAppointmentDateTime(date: string, time: string): Date {
+    const [timePart, meridiem] = time.split(' ');
+    const [hoursRaw, minutes] = timePart.split(':').map(Number);
+    let hours = hoursRaw;
+    if (meridiem === 'PM' && hours !== 12) hours += 12;
+    else if (meridiem === 'AM' && hours === 12) hours = 0;
+
+    const dt = new Date(date);
+    dt.setHours(hours, minutes, 0, 0);
+    return dt;
+  }
+
+  // Refund policy — early cancellation (24h+ before): the customer gets
+  // back the full booking amount minus a flat $10 cancellation fee. This
+  // REPLACES the earlier acquisition/commission/real-Stripe-fee
+  // withholding for this path entirely; it does not stack with it.
+  // Returns cents: 0 or negative means nothing left to refund.
+  private calculateEarlyCancellationRefundCents(
     spi: StripePaymentIntent,
-  ): Promise<number> {
-    if (!spi.stripeChargeId) {
-      throw new BadRequestException(
-        `Stripe charge ID missing for payment intent ${spi.stripePaymentIntentId} — cannot compute refund`,
-      );
-    }
-
-    const stripeFeeCents = await this.stripeService.getChargeFee(
-      spi.stripeChargeId,
-    );
+  ): number {
     const bookingAmountCents = Math.round(spi.bookingAmount * 100);
-    // Acquisition + commission are withheld from the refund (KHS keeps
-    // them); the Stripe passthrough is NOT withheld here — it's withheld
-    // via the real Stripe fee below instead (see file header comment on
-    // this method: the real charge-level fee, not the passthrough
-    // estimate, is what KHS actually loses on a refund).
-    // Postgres numeric/decimal columns come back from the driver as
-    // strings, not numbers — Number(...) each individually before adding,
-    // since '4.00' + '4.80' is string concatenation ('4.004.80'), not 8.80.
-    const platformFeeCents = Math.round(
-      (Number(spi.acquisitionFeeAmount) + Number(spi.commissionFeeAmount)) * 100,
-    );
-
-    return bookingAmountCents - platformFeeCents - stripeFeeCents;
+    const feeCents = Math.round(BookingService.EARLY_CANCELLATION_FEE * 100);
+    return bookingAmountCents - feeCents;
   }
 
   // Get User Bookings
@@ -1486,12 +1495,18 @@ export class BookingService {
     message: string;
     cancelledCount: number;
     remainingCount: number;
+    // Early cancellation only — mutually exclusive with forfeiture below.
     refund?: {
       amount: number;
       currency: string;
-      acquisitionFeeWithheld: number;
-      commissionWithheld: number;
-      stripeFeeWithheld: number;
+      cancellationFeeWithheld: number;
+    };
+    // Late cancellation only — no refund happens on this path at all.
+    forfeiture?: {
+      amount: number;
+      currency: string;
+      stylistShare: number;
+      khsShare: number;
     };
   }> {
     if (!acceptedTerms) {
@@ -1551,25 +1566,49 @@ export class BookingService {
       );
     }
 
+    // Cancellation policy: 24h+ before the *earliest* appointment among
+    // the ones being cancelled is "early" (flat $10 fee); inside that
+    // window is "late" (full forfeiture, split 70/30 stylist/KHS — see
+    // the class constants above). Order-level Stripe escrow is one row
+    // per order, but appointments are per-service with their own date/
+    // time, so the earliest one governs the whole order-level refund.
+    let earliestAppointmentDateTime: Date | null = null;
+    for (const appt of appointmentsToCancel) {
+      const dt = this.parseAppointmentDateTime(appt.date, appt.time);
+      if (!isNaN(dt.getTime()) && (!earliestAppointmentDateTime || dt < earliestAppointmentDateTime)) {
+        earliestAppointmentDateTime = dt;
+      }
+    }
+    // No parseable date/time at all — don't penalize the customer for a
+    // data gap, treat as early (matches the existing fail-open convention
+    // used elsewhere in this file for missing data).
+    const hoursUntilAppointment = earliestAppointmentDateTime
+      ? (earliestAppointmentDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
+      : Infinity;
+    const isEarlyCancellation =
+      hoursUntilAppointment >= BookingService.EARLY_CANCELLATION_WINDOW_HOURS;
+
     // Pre-flight: work out the actual refund amount for any Stripe escrow
-    // held on this booking BEFORE cancelling anything. The customer gets
-    // back the service amount minus KHS's own platform fee minus Stripe's
-    // real processing fee (looked up from the charge, not estimated) — if
-    // that math goes to zero or negative, the whole cancellation is
-    // blocked rather than silently refunding nothing.
+    // held on this booking BEFORE cancelling anything, for the early-
+    // cancellation path only — if that math goes to zero or negative,
+    // the whole cancellation is blocked rather than silently refunding
+    // nothing. Late cancellation has no such check: the full amount is
+    // always forfeited, there's nothing to validate up front.
     const heldPaymentIntents = await this.stripePaymentIntentRepository.find({
       where: { orderId, status: StripeEscrowStatus.HELD },
     });
 
     const refundPlans: { spi: StripePaymentIntent; refundAmountCents: number }[] = [];
-    for (const spi of heldPaymentIntents) {
-      const refundAmountCents = await this.calculateStripeRefundAmountCents(spi);
-      if (refundAmountCents <= 0) {
-        throw new BadRequestException(
-          `Cannot cancel: after deducting the platform fee and Stripe's processing fee, no refundable amount remains for order ${orderId}. Contact an admin to review.`,
-        );
+    if (isEarlyCancellation) {
+      for (const spi of heldPaymentIntents) {
+        const refundAmountCents = this.calculateEarlyCancellationRefundCents(spi);
+        if (refundAmountCents <= 0) {
+          throw new BadRequestException(
+            `Cannot cancel: after the $${BookingService.EARLY_CANCELLATION_FEE} cancellation fee, no refundable amount remains for order ${orderId}. Contact an admin to review.`,
+          );
+        }
+        refundPlans.push({ spi, refundAmountCents });
       }
-      refundPlans.push({ spi, refundAmountCents });
     }
 
     // Update status and add cancellation note. paymentStatus is reset to
@@ -1591,80 +1630,149 @@ export class BookingService {
 
     await this.bookingRepository.save(appointmentsToCancel);
 
-    // Refund any Stripe escrow held for this booking — a no-op for
-    // Paystack/gift-card/cash appointments, which have no
-    // StripePaymentIntent row. Nothing was ever credited to the wallet at
-    // HELD time, so unlike Paystack there's no wallet balance to reverse
-    // here — only the Stripe-side charge itself needs refunding.
+    const firstAppt = appointmentsToCancel[0];
+
+    // Refund/forfeiture of any Stripe escrow held for this booking — a
+    // no-op for Paystack/gift-card/cash appointments, which have no
+    // StripePaymentIntent row (pre-existing gap, not addressed here).
     let refundSummary:
-      | {
-          amount: number;
-          currency: string;
-          acquisitionFeeWithheld: number;
-          commissionWithheld: number;
-          stripeFeeWithheld: number;
-        }
+      | { amount: number; currency: string; cancellationFeeWithheld: number }
+      | undefined;
+    let forfeitureSummary:
+      | { amount: number; currency: string; stylistShare: number; khsShare: number }
       | undefined;
 
-    try {
-      for (const { spi, refundAmountCents } of refundPlans) {
-        const stripeRefund = await this.stripeService.createRefund({
-          paymentIntentId: spi.stripePaymentIntentId,
-          amount: refundAmountCents,
-        });
+    if (isEarlyCancellation) {
+      try {
+        for (const { spi, refundAmountCents } of refundPlans) {
+          const stripeRefund = await this.stripeService.createRefund({
+            paymentIntentId: spi.stripePaymentIntentId,
+            amount: refundAmountCents,
+          });
 
-        spi.status = StripeEscrowStatus.REFUNDED;
-        spi.refundedAt = new Date();
-        await this.stripePaymentIntentRepository.save(spi);
+          spi.status = StripeEscrowStatus.REFUNDED;
+          spi.refundedAt = new Date();
+          await this.stripePaymentIntentRepository.save(spi);
 
-        const bookingAmountCents = Math.round(spi.bookingAmount * 100);
-        const acquisitionFeeCents = Math.round(spi.acquisitionFeeAmount * 100);
-        const commissionFeeCents = Math.round(spi.commissionFeeAmount * 100);
-        const stripeFeeCents =
-          bookingAmountCents -
-          acquisitionFeeCents -
-          commissionFeeCents -
-          refundAmountCents;
+          const bookingAmountCents = Math.round(spi.bookingAmount * 100);
+          const feeCents = bookingAmountCents - refundAmountCents;
 
-        refundSummary = {
-          amount: refundAmountCents / 100,
-          currency: spi.currency.toUpperCase(),
-          acquisitionFeeWithheld: acquisitionFeeCents / 100,
-          commissionWithheld: commissionFeeCents / 100,
-          stripeFeeWithheld: stripeFeeCents / 100,
-        };
+          refundSummary = {
+            amount: refundAmountCents / 100,
+            currency: spi.currency.toUpperCase(),
+            cancellationFeeWithheld: feeCents / 100,
+          };
 
-        const debitTx = await this.transactionRepository.findOne({
-          where: {
+          const debitTx = await this.transactionRepository.findOne({
+            where: {
+              referenceId: spi.stripePaymentIntentId,
+              service: 'Booking',
+              method: PaymentMethod.STRIPE,
+            },
+          });
+
+          if (debitTx) {
+            await this.refundRepository.save(
+              this.refundRepository.create({
+                transactionId: debitTx.id,
+                userId: spi.userId,
+                amount: refundAmountCents / 100,
+                currency: spi.currency.toUpperCase(),
+                reason: cancellationsNote || 'Booking cancelled before completion',
+                adminNote: `Stripe refund ${stripeRefund.id} ($${BookingService.EARLY_CANCELLATION_FEE} cancellation fee withheld)`,
+                status: RefundStatus.PROCESSED,
+                refundMethod: RefundMethod.CARD_REFUND,
+              }),
+            );
+          }
+        }
+      } catch (refundError) {
+        this.logger.error(
+          `Failed to refund Stripe escrow for order ${orderId}: ${refundError.message}`,
+          refundError.stack,
+        );
+      }
+    } else {
+      // Late cancellation (inside the 24h window) — no refund at all. No
+      // deposit concept exists yet, so the full amount already collected
+      // plays the role a deposit would once deposits ship: forfeited,
+      // split 70/30 stylist/KHS, mirroring completeBooking's own escrow-
+      // release-to-wallet mechanism (src/business/services/business.service.ts)
+      // exactly, just at a 70% share instead of 100%.
+      try {
+        for (const spi of heldPaymentIntents) {
+          const businessId = firstAppt?.business?.id;
+          // `ownerId` is a direct column, always populated; `.owner` is a
+          // non-eager relation that's frequently absent unless explicitly
+          // requested — prefer the column (see finding logged separately:
+          // several pre-existing call sites in this file rely on
+          // `.owner?.id` alone, which silently no-ops when unset).
+          const ownerId = firstAppt?.business?.ownerId || firstAppt?.business?.owner?.id;
+          if (!businessId || !ownerId) continue;
+
+          const stylistShareAmount =
+            Math.round(spi.bookingAmount * BookingService.LATE_CANCELLATION_STYLIST_SHARE * 100) / 100;
+          const khsShareAmount = Math.round((spi.bookingAmount - stylistShareAmount) * 100) / 100;
+
+          try {
+            await this.walletService.getWalletByBusinessId(businessId);
+          } catch {
+            await this.walletService.createWalletForBusiness({
+              businessId,
+              ownerId,
+              currency: WalletCurrency.USD,
+              description: 'Business wallet - auto-created from late-cancellation forfeiture',
+            });
+          }
+
+          await this.walletService.addFunds({
+            businessId,
+            recipientId: ownerId,
+            senderId: spi.userId,
+            amount: stylistShareAmount,
+            type: TransactionType.EARNING,
+            description: `Late-cancellation forfeiture payout for order ${orderId}`,
             referenceId: spi.stripePaymentIntentId,
-            service: 'Booking',
+            currency: WalletCurrency.USD,
+            mode: 'Web',
             method: PaymentMethod.STRIPE,
-          },
-        });
+          });
 
-        if (debitTx) {
-          await this.refundRepository.save(
-            this.refundRepository.create({
-              transactionId: debitTx.id,
-              userId: spi.userId,
-              amount: refundAmountCents / 100,
-              currency: spi.currency.toUpperCase(),
-              reason: cancellationsNote || 'Booking cancelled before completion',
-              adminNote: `Stripe refund ${stripeRefund.id} (platform fee + Stripe processing fee withheld)`,
-              status: RefundStatus.PROCESSED,
-              refundMethod: RefundMethod.CARD_REFUND,
+          await this.transactionRepository.save(
+            this.transactionRepository.create({
+              senderId: spi.userId,
+              amount: khsShareAmount,
+              type: TransactionType.FEE,
+              feeSubtype: 'LateCancellationForfeiture',
+              currency: WalletCurrency.USD,
+              description: `KHS share of late-cancellation forfeiture for order ${orderId}`,
+              mode: 'Web',
+              referenceId: orderId,
+              status: TxnStatus.COMPLETED,
+              method: PaymentMethod.STRIPE,
+              service: 'Booking-Fee',
+              customerName: `${firstAppt?.client?.firstName ?? ''} ${firstAppt?.client?.surname ?? ''}`.trim(),
             }),
           );
-        }
-      }
-    } catch (refundError) {
-      this.logger.error(
-        `Failed to refund Stripe escrow for order ${orderId}: ${refundError.message}`,
-        refundError.stack,
-      );
-    }
 
-    const firstAppt = appointmentsToCancel[0];
+          spi.status = StripeEscrowStatus.RELEASED;
+          spi.releasedAt = new Date();
+          await this.stripePaymentIntentRepository.save(spi);
+
+          forfeitureSummary = {
+            amount: spi.bookingAmount,
+            currency: spi.currency.toUpperCase(),
+            stylistShare: stylistShareAmount,
+            khsShare: khsShareAmount,
+          };
+        }
+      } catch (forfeitureError) {
+        this.logger.error(
+          `Failed to process late-cancellation forfeiture for order ${orderId}: ${forfeitureError.message}`,
+          forfeitureError.stack,
+        );
+      }
+    }
     if (firstAppt?.client?.email) {
       const serviceNames = [
         ...new Set(appointmentsToCancel.map((a) => a.serviceName)),
@@ -1709,6 +1817,7 @@ export class BookingService {
       cancelledCount: appointmentsToCancel.length,
       remainingCount,
       refund: refundSummary,
+      forfeiture: forfeitureSummary,
     };
   }
 
@@ -1744,8 +1853,13 @@ export class BookingService {
     // is still far enough out — a same-day-tomorrow slot may already be
     // unavailable/re-booked by someone else. Rebook (which picks a new
     // date/time) is the correct path once this close; Restore is not.
-    const appointmentDateTime = new Date(
-      `${appointment.date}T${appointment.time}`,
+    // (Was previously `new Date(`${date}T${time}`)`, which silently
+    // produced Invalid Date since `time` is "2:00 PM"-style, not ISO —
+    // this check never actually fired. parseAppointmentDateTime handles
+    // the real format correctly.)
+    const appointmentDateTime = this.parseAppointmentDateTime(
+      appointment.date,
+      appointment.time,
     );
     const hoursUntilAppointment =
       (appointmentDateTime.getTime() - Date.now()) / (1000 * 60 * 60);
