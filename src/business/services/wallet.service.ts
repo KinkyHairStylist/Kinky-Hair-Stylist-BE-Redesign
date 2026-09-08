@@ -253,6 +253,20 @@ export class BusinessWalletService {
       wallet.balance,
     );
 
+    // Largest outbound money movement in the system — same shape as the
+    // business "goes live" notification (business.service.ts:167).
+    SlackService.notify({
+      node: SlackNode.PAYMENT,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.PAYMENT_ATTEMPT,
+      trigger: `Payout requested: ${wallet.business.businessName}`,
+      body: `A merchant requested a payout.
+• Business: ${wallet.business.businessName}
+• Amount: $${debitWalletDto.transaction.amount}
+• Withdrawal ID: ${withdrawal.id}`,
+    });
+
     return {
       transaction,
       withdrawal,

@@ -8,6 +8,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { MerchantSubscriptionService } from '../../business/services/merchant-subscription.service';
 import { EmailService } from '../../email/email.service';
+import { SlackService } from '../../services/slack.service';
+import {
+  SlackEventType,
+  SlackNode,
+  SlackProvider,
+  SlackSeverity,
+} from '../../utils/enum';
 import { invalidateCache } from '../../cache/cache.interceptor';
 import { User } from '../../all_user_entities/user.entity';
 import {
@@ -455,6 +462,7 @@ export class AdminService {
   async cancelAppointment(appointmentId: string, reason: string) {
     const appointment = await this.appointmentRepo.findOne({
       where: { id: appointmentId },
+      relations: ['client', 'business'],
     });
     if (!appointment) {
       throw new UnauthorizedException('appointment does not exist');
@@ -478,6 +486,31 @@ export class AdminService {
     appointment.status = AppointmentStatus.CANCELLED;
     appointment.cancellationsNote = reason;
     await this.appointmentRepo.save(appointment);
+
+    SlackService.notify({
+      node: SlackNode.PAYMENT,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.ADMIN_ACTION,
+      trigger: `Admin cancelled appointment ${appointmentId}`,
+      body: `An admin cancelled an appointment${payment ? ' and issued a refund' : ''}.
+• Appointment: ${appointmentId}
+• Business: ${appointment.business?.businessName || appointment.business?.id}
+• Reason: ${reason}`,
+    });
+
+    if (appointment.client?.email) {
+      this.emailService.sendCancellationConfirmationEmail(
+        appointment.client.email,
+        appointment.client.firstName || 'Valued Customer',
+        appointment.business?.businessName || 'the salon',
+        appointment.serviceName || 'your service',
+        appointment.date,
+        appointment.time,
+        payment ? 'A refund for this appointment has been issued.' : undefined,
+      );
+    }
+
     return 'done!';
   }
 

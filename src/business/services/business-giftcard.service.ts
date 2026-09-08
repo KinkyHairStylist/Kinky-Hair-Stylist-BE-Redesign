@@ -35,6 +35,8 @@ import {
   SlackProvider,
   SlackSeverity,
 } from '../../utils/enum';
+import { EmailService } from 'src/email/email.service';
+import { TemplateService } from 'src/email/template.service';
 
 @Injectable()
 export class BusinessGiftCardsService {
@@ -48,6 +50,8 @@ export class BusinessGiftCardsService {
     private readonly dataSource: DataSource,
     private readonly platformSettingsService: PlatformSettingsService,
     private readonly walletService: BusinessWalletService,
+    private readonly emailService: EmailService,
+    private readonly templateService: TemplateService,
   ) {}
 
   async create(
@@ -429,6 +433,36 @@ export class BusinessGiftCardsService {
 • Error: ${walletError instanceof Error ? walletError.message : String(walletError)}`,
         });
       }
+    }
+
+    SlackService.notify({
+      node: SlackNode.PAYMENT,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.PAYMENT_SUCCESS,
+      trigger: `Gift card redeemed in-store (${giftCard.code})`,
+      body: `A business gift card was redeemed in-store by the merchant.
+• Gift card: ${giftCard.title} (${giftCard.code})
+• Business: ${business?.businessName || business?.id}
+• Amount redeemed: $${amountToRedeem.toFixed(2)}
+• Remaining balance: $${savedGiftCard.remainingAmount.toFixed(2)}`,
+    });
+
+    const holderEmail = giftCard.recipientEmail || giftCard.ownerEmail;
+    const holderName = giftCard.recipientName || giftCard.ownerFullName;
+    if (holderEmail) {
+      const frontendUrl = process.env.FRONTEND_URL || 'https://kinkyhairstylists.com';
+      const message = `$${amountToRedeem.toFixed(2)} was redeemed from your gift card "${giftCard.title}" (${giftCard.code}) at ${business?.businessName || 'the salon'}. Remaining balance: $${savedGiftCard.remainingAmount.toFixed(2)}.`;
+      const html = this.templateService.render('communication-bulk', {
+        businessName: business?.businessName || 'Kinky Hairstylist',
+        subject: 'Your gift card was redeemed',
+        clientName: holderName || 'there',
+        message,
+        closingRemarks: null,
+        frontendUrl,
+        year: new Date().getFullYear(),
+      });
+      this.emailService.sendEmail(holderEmail, 'Your gift card was redeemed', message, html);
     }
 
     return savedGiftCard;

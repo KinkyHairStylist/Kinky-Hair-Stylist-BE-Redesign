@@ -13,6 +13,7 @@ import { BusinessGiftCard } from 'src/business/entities/business-giftcard.entity
 import { Transaction } from 'src/business/entities/transaction.entity';
 import { MerchantMembershipPackage } from 'src/business/entities/merchant-membership-package.entity';
 import { MerchantMembershipPurchase } from 'src/business/entities/merchant-membership-purchase.entity';
+import { Business } from 'src/business/entities/business.entity';
 import { User } from '../../all_user_entities/user.entity';
 import { Referral } from '../user_entities/referrals.entity';
 import { Article } from 'src/all_user_entities/article.entity';
@@ -68,6 +69,7 @@ import { SlackModule } from 'src/slack/slack.module';
       PhoneVerification,
       MerchantMembershipPackage,
       MerchantMembershipPurchase,
+      Business,
     ]),
     forwardRef(() => BusinessModule),
     BusinessWalletModule,

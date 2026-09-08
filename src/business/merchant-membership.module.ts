@@ -10,6 +10,7 @@ import { MerchantMembershipController } from './controllers/merchant-membership.
 import { MerchantMembershipService } from './services/merchant-membership.service';
 import { PrepaidPoolExpiryCronService } from './services/prepaid-pool-expiry-cron.service';
 import { BusinessWalletModule } from './wallet.module';
+import { EmailModule } from 'src/email/email.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { BusinessWalletModule } from './wallet.module';
       Transaction,
     ]),
     BusinessWalletModule,
+    EmailModule,
   ],
   controllers: [MerchantMembershipController],
   providers: [MerchantMembershipService, PrepaidPoolExpiryCronService],

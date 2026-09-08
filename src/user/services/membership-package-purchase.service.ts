@@ -21,6 +21,10 @@ import {
 import { WalletCurrency } from 'src/admin/payment/enums/wallet.enum';
 import { StripeService } from 'src/payment/stripe.service';
 import { PurchaseMembershipPackageDto } from '../dtos/membership-package.dto';
+import { SlackService } from 'src/slack/slack.service';
+import { EmailService } from 'src/email/email.service';
+import { TemplateService } from 'src/email/template.service';
+import { Business } from 'src/business/entities/business.entity';
 
 @Injectable()
 export class MembershipPackagePurchaseService {
@@ -31,8 +35,13 @@ export class MembershipPackagePurchaseService {
     private readonly purchaseRepo: Repository<MerchantMembershipPurchase>,
     @InjectRepository(Transaction)
     private readonly transactionRepo: Repository<Transaction>,
+    @InjectRepository(Business)
+    private readonly businessRepo: Repository<Business>,
     private readonly dataSource: DataSource,
     private readonly stripeService: StripeService,
+    private readonly slackService: SlackService,
+    private readonly emailService: EmailService,
+    private readonly templateService: TemplateService,
   ) {}
 
   // ------------------------------------------------------
@@ -113,11 +122,21 @@ export class MembershipPackagePurchaseService {
         { referenceId: reference, service: 'Membership-Purchase' },
         { status: TransactionStatus.FAILED },
       );
+      this.slackService.notify(
+        `⚠️ *Membership Package Purchase Verification Failed*\n` +
+        `• *Purchaser*: ${purchaser.firstName || 'Customer'} ${purchaser.surname || ''} (${purchaser.email})\n` +
+        `• *Reference*: \`${reference}\`\n` +
+        `• *Stripe Status*: ${intent?.status || 'not found'}`,
+      );
       throw new BadRequestException('Payment verification failed');
     }
 
-    const pkg = await this.packageRepo.findOne({ where: { id: meta.packageId } });
+    const pkg = await this.packageRepo.findOne({
+      where: { id: meta.packageId },
+      relations: ['service'],
+    });
     if (!pkg) throw new NotFoundException('Membership package not found');
+    const packageName = pkg.service?.name || 'membership package';
 
     const purchasedAt = new Date();
     const expiresAt = new Date(purchasedAt);
@@ -144,6 +163,30 @@ export class MembershipPackagePurchaseService {
 
       return saved;
     });
+
+    this.slackService.notify(
+      `⭐ *Membership Package Purchased*\n` +
+      `• *Customer*: ${purchaser.firstName || 'Customer'} ${purchaser.surname || ''} (${purchaser.email})\n` +
+      `• *Package*: ${packageName} (${pkg.sessionCount} sessions)\n` +
+      `• *Amount*: $${(Number(pkg.pricePerSession) * pkg.sessionCount).toFixed(2)}\n` +
+      `• *Expires*: ${expiresAt.toLocaleDateString('en-US')}`,
+    );
+
+    if (purchaser.email) {
+      const business = await this.businessRepo.findOne({ where: { id: pkg.businessId } });
+      const frontendUrl = process.env.FRONTEND_URL || 'https://kinkyhairstylists.com';
+      const message = `Your purchase of "${packageName}" (${pkg.sessionCount} sessions) at ${business?.businessName || 'the salon'} is confirmed. Your sessions are valid until ${expiresAt.toLocaleDateString('en-US')}.`;
+      const html = this.templateService.render('communication-bulk', {
+        businessName: business?.businessName || 'Kinky Hairstylist',
+        subject: 'Your membership package purchase is confirmed',
+        clientName: purchaser.firstName || 'there',
+        message,
+        closingRemarks: null,
+        frontendUrl,
+        year: new Date().getFullYear(),
+      });
+      this.emailService.sendEmail(purchaser.email, 'Your membership package purchase is confirmed', message, html);
+    }
 
     return { message: 'Membership purchase completed successfully', purchase };
   }

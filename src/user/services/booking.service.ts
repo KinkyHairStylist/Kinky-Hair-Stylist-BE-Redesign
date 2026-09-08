@@ -24,6 +24,7 @@ import {
 import { WalletCurrency } from 'src/admin/payment/enums/wallet.enum';
 import { PlatformSettingsService } from 'src/admin/platform-settings/platform-settings.service';
 import { EmailService } from 'src/email/email.service';
+import { TemplateService } from 'src/email/template.service';
 import { NotificationSettingsService } from './notification-settings.service';
 import { PaystackService } from 'src/payment/paystack.service';
 import { StripeService } from 'src/payment/stripe.service';
@@ -93,6 +94,8 @@ export class BookingService {
     private membershipPackageRepository: Repository<MerchantMembershipPackage>,
     @InjectRepository(MerchantMembershipPurchase)
     private membershipPurchaseRepository: Repository<MerchantMembershipPurchase>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
     private platformSettingsService: PlatformSettingsService,
     private reviewService: ReviewService,
     private readonly dataSource: DataSource,
@@ -100,6 +103,7 @@ export class BookingService {
     private readonly stripeService: StripeService,
     private readonly walletService: BusinessWalletService,
     private readonly emailService: EmailService,
+    private readonly templateService: TemplateService,
     private readonly notificationSettingsService: NotificationSettingsService,
     private readonly notificationService: NotificationService,
     private readonly slackService: SlackService,
@@ -313,6 +317,31 @@ export class BookingService {
         await manager.save(Wallet, wallet);
       }
     });
+
+    // The only confirmBooking branch that previously sent neither a
+    // confirmation email nor a Slack notification.
+    const serviceNames = [...new Set(appointments.map((a) => a.serviceName))].join(', ');
+    this.slackService.notify(
+      `⭐ *Booking Confirmed via Membership Redemption*\n` +
+      `• *Order ID*: \`${orderId}\`\n` +
+      `• *Customer*: ${user.firstName || 'Customer'} ${user.surname || ''} (${user.email})\n` +
+      `• *Salon*: ${business.businessName || 'the salon'}\n` +
+      `• *Services*: ${serviceNames}\n` +
+      `• *Sessions Used*: ${sessionsNeeded} (${purchase.remainingSessions} remaining)`,
+    );
+    if (user.email) {
+      this.emailService.sendBookingConfirmationEmail(
+        user.email,
+        user.firstName || 'Customer',
+        business.businessName || 'the salon',
+        serviceNames,
+        appointments[0].date,
+        appointments[0].time,
+        orderId,
+        undefined,
+        'Membership Redemption',
+      );
+    }
 
     return {
       message: 'Booking confirmed successfully using membership',
@@ -1631,6 +1660,10 @@ export class BookingService {
 
   // Stripe — Handle payment_intent.payment_failed webhook
   async handleStripePaymentFailed(paymentIntentId: string): Promise<void> {
+    const spi = await this.stripePaymentIntentRepository.findOne({
+      where: { stripePaymentIntentId: paymentIntentId },
+    });
+
     await this.stripePaymentIntentRepository.update(
       { stripePaymentIntentId: paymentIntentId },
       { status: StripeEscrowStatus.FAILED },
@@ -1639,6 +1672,31 @@ export class BookingService {
       { referenceId: paymentIntentId },
       { status: TxnStatus.FAILED },
     );
+
+    if (!spi) return;
+
+    this.slackService.notify(
+      `❌ *Card Payment Declined*\n` +
+      `• *Order ID*: \`${spi.orderId}\`\n` +
+      `• *Payment Intent*: \`${paymentIntentId}\`\n` +
+      `• *Amount*: $${spi.amount}`,
+    );
+
+    const user = await this.userRepository.findOne({ where: { id: spi.userId } });
+    if (user?.email) {
+      const frontendUrl = process.env.FRONTEND_URL || 'https://kinkyhairstylists.com';
+      const message = `Your card payment for order ${spi.orderId} was declined and your booking could not be confirmed. Please try again with a different card.`;
+      const html = this.templateService.render('communication-bulk', {
+        businessName: 'Kinky Hairstylist',
+        subject: 'Your payment could not be processed',
+        clientName: user.firstName || 'there',
+        message,
+        closingRemarks: null,
+        frontendUrl,
+        year: new Date().getFullYear(),
+      });
+      this.emailService.sendEmail(user.email, 'Your payment could not be processed', message, html);
+    }
   }
 
   // Cancellation policy constants — see cancelBooking. A cancellation
@@ -1957,6 +2015,15 @@ export class BookingService {
             );
           }
         }
+
+        if (refundSummary) {
+          this.slackService.notify(
+            `↩️ *Booking Cancellation Refunded*\n` +
+            `• *Order ID*: \`${orderId}\`\n` +
+            `• *Refunded*: $${refundSummary.amount.toFixed(2)} ${refundSummary.currency}\n` +
+            `• *Cancellation Fee Withheld*: $${refundSummary.cancellationFeeWithheld.toFixed(2)}`,
+          );
+        }
       } catch (refundError) {
         this.logger.error(
           `Failed to refund Stripe escrow for order ${orderId}: ${refundError.message}`,
@@ -2050,6 +2117,21 @@ export class BookingService {
             khsShare: khsShareAmount,
           };
         }
+
+        if (forfeitureSummary) {
+          StructuredSlackService.notify({
+            node: SlackNode.PAYMENT,
+            provider: SlackProvider.STRIPE,
+            severity: SlackSeverity.INFO,
+            type: SlackEventType.PAYMENT_SUCCESS,
+            trigger: `Late-cancellation forfeiture for order ${orderId}`,
+            body: `A late cancellation forfeited the full amount already paid, split 70/30 stylist/KHS.
+• Order: ${orderId}
+• Total forfeited: $${forfeitureSummary.amount} ${forfeitureSummary.currency}
+• Stylist share: $${forfeitureSummary.stylistShare}
+• KHS share: $${forfeitureSummary.khsShare}`,
+          });
+        }
       } catch (forfeitureError) {
         this.logger.error(
           `Failed to process late-cancellation forfeiture for order ${orderId}: ${forfeitureError.message}`,
@@ -2074,6 +2156,12 @@ export class BookingService {
       const serviceNames = [
         ...new Set(appointmentsToCancel.map((a) => a.serviceName)),
       ].join(', ');
+      let moneyNote: string | undefined;
+      if (refundSummary) {
+        moneyNote = `A refund of $${refundSummary.amount.toFixed(2)} ${refundSummary.currency} has been issued to your original payment method${refundSummary.cancellationFeeWithheld > 0 ? ` ($${refundSummary.cancellationFeeWithheld.toFixed(2)} cancellation fee withheld)` : ''}.`;
+      } else if (forfeitureSummary) {
+        moneyNote = `As this cancellation was made within 24 hours of the appointment, the $${forfeitureSummary.amount.toFixed(2)} ${forfeitureSummary.currency} already paid is non-refundable per our late-cancellation policy.`;
+      }
       this.emailService.sendCancellationConfirmationEmail(
         firstAppt.client.email,
         firstAppt.client.firstName || 'Valued Customer',
@@ -2081,6 +2169,7 @@ export class BookingService {
         serviceNames,
         firstAppt.date,
         firstAppt.time,
+        moneyNote,
       );
     }
 

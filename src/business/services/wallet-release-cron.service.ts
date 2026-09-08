@@ -4,6 +4,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { LessThanOrEqual, Repository } from 'typeorm';
 import { Transaction, TransactionType } from '../entities/transaction.entity';
 import { Wallet } from '../entities/wallet.entity';
+import { SlackService } from 'src/services/slack.service';
+import {
+  SlackEventType,
+  SlackNode,
+  SlackProvider,
+  SlackSeverity,
+} from '../../utils/enum';
 
 // Moves matured Stripe-sourced booking earnings from pendingBalance to
 // balance once their 48h payout hold has passed — see
@@ -56,6 +63,20 @@ export class WalletReleaseCronService {
           `Failed to release matured transaction ${txn.id}: ${error.message}`,
           error.stack,
         );
+        // No automatic retry exists for a matured transaction that fails
+        // to release — it can sit in pendingBalance indefinitely with
+        // nobody alerted.
+        SlackService.notify({
+          node: SlackNode.PAYMENT,
+          provider: SlackProvider.SYSTEM,
+          severity: SlackSeverity.ERROR,
+          type: SlackEventType.ERROR_ALERT,
+          trigger: `Wallet release failed for transaction ${txn.id}`,
+          body: `A matured Stripe earning failed to release from pendingBalance to balance.
+• Wallet: ${txn.walletId}
+• Amount: $${txn.amount}
+• Error: ${error instanceof Error ? error.message : String(error)}`,
+        });
       }
     }
   }

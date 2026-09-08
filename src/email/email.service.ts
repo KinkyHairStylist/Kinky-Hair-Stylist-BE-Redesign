@@ -697,6 +697,7 @@ export class EmailService {
     serviceName: string,
     date: string,
     time: string,
+    moneyNote?: string,
   ) {
     const html = this.templateService.render('cancellation-confirmation', {
       name,
@@ -704,10 +705,13 @@ export class EmailService {
       serviceName,
       date,
       time,
+      moneyNote,
       frontendUrl: this.frontendUrl,
       year: new Date().getFullYear(),
     });
-    const text = `Hi ${name}, your appointment at ${businessName} for ${serviceName} on ${date} at ${time} has been cancelled.`;
+    const text = moneyNote
+      ? `Hi ${name}, your appointment at ${businessName} for ${serviceName} on ${date} at ${time} has been cancelled. ${moneyNote}`
+      : `Hi ${name}, your appointment at ${businessName} for ${serviceName} on ${date} at ${time} has been cancelled.`;
     this.sendEmail(
       to,
       'Your appointment has been cancelled',

@@ -17,6 +17,15 @@ import {
 } from '../entities/transaction.entity';
 import { WalletCurrency } from 'src/admin/payment/enums/wallet.enum';
 import { BusinessWalletService } from './wallet.service';
+import { SlackService } from 'src/services/slack.service';
+import {
+  SlackEventType,
+  SlackNode,
+  SlackProvider,
+  SlackSeverity,
+} from '../../utils/enum';
+import { EmailService } from 'src/email/email.service';
+import { TemplateService } from 'src/email/template.service';
 
 // Sweeps both merchant-created memberships and gift cards for expiry.
 // Unredeemed prepaid value is split 50/50 between the business and KHS —
@@ -37,21 +46,51 @@ export class PrepaidPoolExpiryCronService {
     @InjectRepository(Transaction)
     private readonly transactionRepo: Repository<Transaction>,
     private readonly walletService: BusinessWalletService,
+    private readonly emailService: EmailService,
+    private readonly templateService: TemplateService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_1AM)
   async handleDailySweep(): Promise<void> {
-    await this.sweepMemberships();
-    await this.sweepGiftCards();
+    const membershipCount = await this.sweepMemberships();
+    const giftCardCount = await this.sweepGiftCards();
+
+    if (membershipCount > 0 || giftCardCount > 0) {
+      SlackService.notify({
+        node: SlackNode.PAYMENT,
+        provider: SlackProvider.SYSTEM,
+        severity: SlackSeverity.INFO,
+        type: SlackEventType.CRON_EXECUTION,
+        trigger: 'Prepaid pool expiry sweep',
+        body: `Daily expiry sweep completed.
+• Memberships expired: ${membershipCount}
+• Gift cards expired: ${giftCardCount}`,
+      });
+    }
   }
 
-  private async sweepMemberships(): Promise<void> {
+  private sendExpiryEmail(to: string, name: string, message: string): void {
+    const frontendUrl = process.env.FRONTEND_URL || 'https://kinkyhairstylists.com';
+    const subject = 'Your prepaid balance has expired';
+    const html = this.templateService.render('communication-bulk', {
+      businessName: 'Kinky Hairstylist',
+      subject,
+      clientName: name || 'there',
+      message,
+      closingRemarks: null,
+      frontendUrl,
+      year: new Date().getFullYear(),
+    });
+    this.emailService.sendEmail(to, subject, message, html);
+  }
+
+  private async sweepMemberships(): Promise<number> {
     const expired = await this.purchaseRepo.find({
       where: {
         status: MerchantMembershipPurchaseStatus.ACTIVE,
         expiresAt: LessThan(new Date()),
       },
-      relations: ['package'],
+      relations: ['package', 'package.service', 'client'],
     });
 
     for (const purchase of expired) {
@@ -65,6 +104,14 @@ export class PrepaidPoolExpiryCronService {
             'MembershipExpirySplit',
             `expired membership (package ${purchase.packageId})`,
           );
+
+          if (purchase.client?.email) {
+            this.sendExpiryEmail(
+              purchase.client.email,
+              purchase.client.firstName,
+              `Your ${purchase.remainingSessions} remaining session(s) on your "${purchase.package.service?.name || 'membership'}" package have expired and are no longer redeemable.`,
+            );
+          }
         }
 
         purchase.status = MerchantMembershipPurchaseStatus.EXPIRED;
@@ -75,11 +122,22 @@ export class PrepaidPoolExpiryCronService {
           `Failed to sweep expired membership purchase ${purchase.id}: ${error.message}`,
           error.stack,
         );
+        SlackService.notify({
+          node: SlackNode.PAYMENT,
+          provider: SlackProvider.SYSTEM,
+          severity: SlackSeverity.ERROR,
+          type: SlackEventType.ERROR_ALERT,
+          trigger: `Membership expiry sweep failed (${purchase.id})`,
+          body: `Failed to sweep expired membership purchase ${purchase.id}.
+• Business: ${purchase.businessId}
+• Error: ${error instanceof Error ? error.message : String(error)}`,
+        });
       }
     }
+    return expired.length;
   }
 
-  private async sweepGiftCards(): Promise<void> {
+  private async sweepGiftCards(): Promise<number> {
     const expired = await this.giftCardRepo.find({
       where: {
         status: BusinessGiftCardStatus.ACTIVE,
@@ -98,6 +156,16 @@ export class PrepaidPoolExpiryCronService {
             'GiftCardExpirySplit',
             `expired gift card (${card.code})`,
           );
+
+          const holderEmail = card.recipientEmail || card.ownerEmail;
+          const holderName = card.recipientName || card.ownerFullName || 'there';
+          if (holderEmail) {
+            this.sendExpiryEmail(
+              holderEmail,
+              holderName,
+              `Your gift card "${card.title}" (${card.code}) with a remaining balance of $${unredeemedValue.toFixed(2)} has expired and is no longer redeemable.`,
+            );
+          }
         }
 
         card.status = BusinessGiftCardStatus.EXPIRED;
@@ -108,8 +176,19 @@ export class PrepaidPoolExpiryCronService {
           `Failed to sweep expired gift card ${card.id}: ${error.message}`,
           error.stack,
         );
+        SlackService.notify({
+          node: SlackNode.PAYMENT,
+          provider: SlackProvider.SYSTEM,
+          severity: SlackSeverity.ERROR,
+          type: SlackEventType.ERROR_ALERT,
+          trigger: `Gift card expiry sweep failed (${card.id})`,
+          body: `Failed to sweep expired gift card ${card.id} (${card.code}).
+• Business: ${card.businessId}
+• Error: ${error instanceof Error ? error.message : String(error)}`,
+        });
       }
     }
+    return expired.length;
   }
 
   private async splitAndCredit(
@@ -123,6 +202,18 @@ export class PrepaidPoolExpiryCronService {
     const ownerId = business?.ownerId || business?.owner?.id;
     if (!business || !ownerId) {
       this.logger.warn(`No business/owner found for ${businessId} — skipping expiry split for ${label}`);
+      // The caller still marks the purchase/card EXPIRED with its
+      // remaining value zeroed out regardless of this return — that value
+      // evaporates uncredited to either side.
+      SlackService.notify({
+        node: SlackNode.PAYMENT,
+        provider: SlackProvider.SYSTEM,
+        severity: SlackSeverity.ERROR,
+        type: SlackEventType.ERROR_ALERT,
+        trigger: `Expiry split skipped — no business/owner (${businessId})`,
+        body: `Prepaid value from a ${label} could not be split — no business or owner found for ${businessId}. This value ($${unredeemedValue}) is now uncredited to either side.
+• Reference: ${referenceId}`,
+      });
       return;
     }
 
