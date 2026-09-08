@@ -8,9 +8,19 @@ import { Repository } from 'typeorm';
 
 import { Wallet } from 'src/business/entities/wallet.entity';
 import { Transaction, TransactionType, TransactionStatus } from 'src/business/entities/transaction.entity';
+import { Business } from 'src/business/entities/business.entity';
 import { Withdrawal } from './entities/withdrawal.entity';
 import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
 import { BusinessGiftCard } from 'src/business/entities/business-giftcard.entity';
+import { SlackService } from 'src/services/slack.service';
+import {
+  SlackEventType,
+  SlackNode,
+  SlackProvider,
+  SlackSeverity,
+} from 'src/utils/enum';
+import { EmailService } from 'src/email/email.service';
+import { TemplateService } from 'src/email/template.service';
 
 @Injectable()
 export class WithdrawalService {
@@ -26,7 +36,34 @@ export class WithdrawalService {
 
     @InjectRepository(BusinessGiftCard)
     private readonly giftCardRepo: Repository<BusinessGiftCard>, // 👈 inject giftcard repo
+
+    @InjectRepository(Business)
+    private readonly businessRepo: Repository<Business>,
+
+    private readonly emailService: EmailService,
+    private readonly templateService: TemplateService,
   ) {}
+
+  private async sendWithdrawalEmail(
+    businessId: string,
+    subject: string,
+    message: string,
+  ): Promise<void> {
+    const business = await this.businessRepo.findOne({ where: { id: businessId } });
+    if (!business?.ownerEmail) return;
+
+    const frontendUrl = process.env.FRONTEND_URL || 'https://kinkyhairstylists.com';
+    const html = this.templateService.render('communication-bulk', {
+      businessName: business.businessName,
+      subject,
+      clientName: business.ownerName || 'there',
+      message,
+      closingRemarks: null,
+      frontendUrl,
+      year: new Date().getFullYear(),
+    });
+    this.emailService.sendEmail(business.ownerEmail, subject, message, html);
+  }
 
   // ✅ Get all withdrawals
   async findAll(): Promise<Withdrawal[]> {
@@ -78,6 +115,23 @@ export class WithdrawalService {
     withdrawal.status = 'Processing';
     await this.withdrawalRepo.save(withdrawal);
 
+    SlackService.notify({
+      node: SlackNode.PAYMENT,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.PAYMENT_SUCCESS,
+      trigger: `Payout approved: ${withdrawal.businessName}`,
+      body: `A merchant payout was approved and is processing.
+• Business: ${withdrawal.businessName}
+• Amount: $${withdrawal.amount}
+• Withdrawal ID: ${withdrawal.id}`,
+    });
+    this.sendWithdrawalEmail(
+      withdrawal.businessId,
+      'Your payout is on its way',
+      `Your withdrawal request for $${withdrawal.amount} has been approved and is now processing.`,
+    );
+
     // Simulate payout processing delay
     setTimeout(async () => {
       withdrawal.status = 'Completed';
@@ -125,6 +179,23 @@ export class WithdrawalService {
     description: `Refund for rejected withdrawal`,
     currency: wallet.currency,
   });
+
+  SlackService.notify({
+    node: SlackNode.PAYMENT,
+    provider: SlackProvider.SYSTEM,
+    severity: SlackSeverity.INFO,
+    type: SlackEventType.PAYMENT_FAILURE,
+    trigger: `Payout rejected: ${withdrawal.businessName}`,
+    body: `A merchant payout was rejected and the amount refunded back to the business's wallet.
+• Business: ${withdrawal.businessName}
+• Amount: $${amount}
+• Withdrawal ID: ${withdrawal.id}`,
+  });
+  this.sendWithdrawalEmail(
+    withdrawal.businessId,
+    'Your withdrawal request was declined',
+    `Your withdrawal request for $${amount} was declined, and the amount has been credited back to your wallet balance.`,
+  );
 
   return this.withdrawalRepo.save(withdrawal);
 }

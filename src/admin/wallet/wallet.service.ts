@@ -115,11 +115,16 @@ export class WalletService {
       .andWhere('txn.status = :completed', { completed: TransactionStatus.COMPLETED })
       .getRawOne();
 
+    // Stripe passthrough fee rows are excluded here: that money goes to
+    // Stripe, it was never platform revenue, so it shouldn't inflate
+    // "total expenses" any more than it should inflate "platform fees"
+    // below.
     const totalExpensesRaw = await this.transactionRepo
       .createQueryBuilder('txn')
       .select('SUM(txn.amount)', 'totalExpenses')
       .where('txn.type IN (:...types)', { types: [TransactionType.WITHDRAWAL, TransactionType.DEBIT, TransactionType.FEE] })
       .andWhere('txn.status = :completed', { completed: TransactionStatus.COMPLETED })
+      .andWhere("(txn.feeSubtype IS NULL OR txn.feeSubtype != :passthrough)", { passthrough: 'StripePassthrough' })
       .getRawOne();
 
     const totalBalance = Number(totalIncomeRaw.totalIncome ?? 0) - Number(totalExpensesRaw.totalExpenses ?? 0);
@@ -173,6 +178,7 @@ export class WalletService {
       .select('SUM(txn.amount)', 'totalFees')
       .where('txn.type = :fee', { fee: TransactionType.FEE })
       .andWhere('txn.status = :completed', { completed: TransactionStatus.COMPLETED })
+      .andWhere("(txn.feeSubtype IS NULL OR txn.feeSubtype != :passthrough)", { passthrough: 'StripePassthrough' })
       .getRawOne();
 
     const totalFees = Number(feesRaw.totalFees ?? 0);

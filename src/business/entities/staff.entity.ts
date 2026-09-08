@@ -78,6 +78,13 @@ export class Staff {
   @Column('simple-array', { nullable: true })
   servicesAssigned: string[];
 
+  // Informational only — no staff wallet/payout exists yet (staff have no
+  // working login of their own). Percentage applied to a completed
+  // booking's net-to-business amount, recorded as a StaffCommissionEarning
+  // row the merchant can see; never moves any money.
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  commissionRate: number | null;
+
   @ManyToMany(() => Service, (service) => service.assignedStaff)
   services: Service[];
 

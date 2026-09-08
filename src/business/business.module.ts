@@ -32,6 +32,7 @@ import { BusinessFirebaseModule } from './business-firebase.module';
 import { ZohoBooksModule } from 'src/integration/zohobooks.module';
 import { StripePaymentIntent } from 'src/payment/entities/stripe-payment-intent.entity';
 import { NotificationModule } from 'src/notifications/notification.module';
+import { StaffCommissionEarning } from './entities/staff-commission-earning.entity';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { NotificationModule } from 'src/notifications/notification.module';
       EmergencyContact,
       ClientSchema,
       StripePaymentIntent,
+      StaffCommissionEarning,
     ]),
     JwtModule.register({}),
     EmailModule,

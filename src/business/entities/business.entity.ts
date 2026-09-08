@@ -21,6 +21,7 @@ import { Wallet } from './wallet.entity';
 import { Product } from '../../marketplace/entity/product.entity';
 import { BusinessGiftCard } from './business-giftcard.entity';
 import { BusinessOwnerSettings } from './business-owner-settings.entity';
+import { MerchantSubscription } from './merchant-subscription.entity';
 import { Withdrawal } from 'src/admin/withdrawal/entities/withdrawal.entity';
 
 export enum BusinessStatus {
@@ -29,6 +30,16 @@ export enum BusinessStatus {
   REJECTED = 'rejected',
   UNDER_REVIEW = 'under_review',
   SUSPENDED = 'suspended',
+}
+
+// Drives the acquisition-fee percentage in booking.service.ts. Separate
+// from the legacy `plan` column (unused elsewhere) — see khs-iat-backend
+// Phase 1 fee-model plan for why a new column was added instead of
+// converting `plan`.
+export enum BusinessPlanTier {
+  STARTER = 'Starter',
+  GROWTH = 'Growth',
+  PRO = 'Pro',
 }
 
 @Entity('businesses')
@@ -141,6 +152,13 @@ export class Business {
   plan: string;
 
   @Column({
+    type: 'enum',
+    enum: BusinessPlanTier,
+    default: BusinessPlanTier.STARTER,
+  })
+  planTier: BusinessPlanTier;
+
+  @Column({
     type: 'jsonb',
     nullable: true,
     default: () =>
@@ -161,6 +179,9 @@ export class Business {
 
   @OneToOne(() => Wallet, (wallet) => wallet.business, { cascade: true })
   wallet: Wallet;
+
+  @OneToOne(() => MerchantSubscription, (ms) => ms.business, { cascade: true })
+  merchantSubscription: MerchantSubscription;
 
   @OneToOne(
     () => BusinessOwnerSettings,

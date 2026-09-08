@@ -10,6 +10,7 @@ import { StripePaymentIntent } from 'src/payment/entities/stripe-payment-intent.
 import { Appointment } from 'src/business/entities/appointment.entity';
 import { Refund } from 'src/user/user_entities/refund.entity';
 import { StripeService } from 'src/payment/stripe.service';
+import { EmailModule } from 'src/email/email.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { StripeService } from 'src/payment/stripe.service';
       Refund,
     ]),
     BusinessWalletModule,
+    EmailModule,
   ],
   controllers: [PaymentController],
   providers: [PaymentService, StripeService],

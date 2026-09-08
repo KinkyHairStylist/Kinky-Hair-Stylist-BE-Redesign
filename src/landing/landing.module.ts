@@ -22,6 +22,8 @@ import { FaqController } from './controllers/faq.controller';
 import { StoryController } from './controllers/story.controller';
 import { TestimonialController } from './controllers/testimonial.controller';
 import { LandingStatController } from './controllers/landing-stat.controller';
+import { PlatformSettingsEntity } from 'src/admin/platform-settings/entities/platform-settings.entity';
+import { PlatformSettingsService } from 'src/admin/platform-settings/platform-settings.service';
 
 @Module({
   imports: [
@@ -33,6 +35,7 @@ import { LandingStatController } from './controllers/landing-stat.controller';
       Story,
       Testimonial,
       LandingStat,
+      PlatformSettingsEntity,
     ]),
   ],
   controllers: [
@@ -51,6 +54,7 @@ import { LandingStatController } from './controllers/landing-stat.controller';
     StoryService,
     TestimonialService,
     LandingStatService,
+    PlatformSettingsService,
   ],
 })
 export class LandingModule {}

@@ -24,6 +24,7 @@ import {
 import { WalletCurrency } from 'src/admin/payment/enums/wallet.enum';
 import { PlatformSettingsService } from 'src/admin/platform-settings/platform-settings.service';
 import { EmailService } from 'src/email/email.service';
+import { TemplateService } from 'src/email/template.service';
 import { NotificationSettingsService } from './notification-settings.service';
 import { PaystackService } from 'src/payment/paystack.service';
 import { StripeService } from 'src/payment/stripe.service';
@@ -39,6 +40,13 @@ import {
 import { NotificationService } from 'src/notifications/notification.service';
 import { NotificationType } from 'src/notifications/notification.enum';
 import { SlackService } from 'src/slack/slack.service';
+import { SlackService as StructuredSlackService } from 'src/services/slack.service';
+import {
+  SlackEventType,
+  SlackNode,
+  SlackProvider,
+  SlackSeverity,
+} from '../../utils/enum';
 import { Card } from 'src/all_user_entities/card.entity';
 import { BusinessGiftCard } from 'src/business/entities/business-giftcard.entity';
 import { BusinessGiftCardStatus } from 'src/business/enum/gift-card.enum';
@@ -46,6 +54,14 @@ import { User } from 'src/all_user_entities/user.entity';
 import { ReviewService } from 'src/business/services/review.service';
 import { BusinessWalletService } from 'src/business/services/wallet.service';
 import { ClientSchema, ClientType } from 'src/business/entities/client.entity';
+import { BusinessClientAcquisition } from 'src/business/entities/business-client-acquisition.entity';
+import { Wallet } from 'src/business/entities/wallet.entity';
+import { WalletStatus } from 'src/admin/payment/enums/wallet.enum';
+import { MerchantMembershipPackage } from 'src/business/entities/merchant-membership-package.entity';
+import {
+  MerchantMembershipPurchase,
+  MerchantMembershipPurchaseStatus,
+} from 'src/business/entities/merchant-membership-purchase.entity';
 
 @Injectable()
 export class BookingService {
@@ -72,6 +88,14 @@ export class BookingService {
     private stripePaymentIntentRepository: Repository<StripePaymentIntent>,
     @InjectRepository(Refund)
     private refundRepository: Repository<Refund>,
+    @InjectRepository(BusinessClientAcquisition)
+    private businessClientAcquisitionRepository: Repository<BusinessClientAcquisition>,
+    @InjectRepository(MerchantMembershipPackage)
+    private membershipPackageRepository: Repository<MerchantMembershipPackage>,
+    @InjectRepository(MerchantMembershipPurchase)
+    private membershipPurchaseRepository: Repository<MerchantMembershipPurchase>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
     private platformSettingsService: PlatformSettingsService,
     private reviewService: ReviewService,
     private readonly dataSource: DataSource,
@@ -79,6 +103,7 @@ export class BookingService {
     private readonly stripeService: StripeService,
     private readonly walletService: BusinessWalletService,
     private readonly emailService: EmailService,
+    private readonly templateService: TemplateService,
     private readonly notificationSettingsService: NotificationSettingsService,
     private readonly notificationService: NotificationService,
     private readonly slackService: SlackService,
@@ -90,6 +115,240 @@ export class BookingService {
   private async shouldSendBookingConfirmationEmail(user: User): Promise<boolean> {
     const settings = await this.notificationSettingsService.getSettings(user);
     return settings.emailBookingConfirmations;
+  }
+
+  // Computes the acquisition fee (tier %, one-time per business+client pair)
+  // and the flat commission for a booking. Does NOT compute the Stripe
+  // passthrough — that's charge-method-specific and handled separately in
+  // the Stripe branch of confirmBooking, on the post-gift-card remainder.
+  private async calculateBookingFees(
+    business: Business,
+    clientId: string,
+    orderId: string,
+    bookingAmount: number,
+  ): Promise<{ acquisitionFeeAmount: number; commissionAmount: number }> {
+    const payments = await this.platformSettingsService.getPayments();
+
+    const claimResult = await this.dataSource
+      .createQueryBuilder()
+      .insert()
+      .into(BusinessClientAcquisition)
+      .values({ businessId: business.id, clientId, orderId })
+      .orIgnore()
+      .returning(['id'])
+      .execute();
+    // NOT claimResult.identifiers — TypeORM populates that from the input
+    // values regardless of whether Postgres actually inserted the row or
+    // silently skipped it via ON CONFLICT DO NOTHING. `.raw` reflects the
+    // real RETURNING rows: empty when the insert was skipped (row already
+    // existed), one row when it genuinely inserted.
+    const isFirstBookingWithBusiness = claimResult.raw.length > 0;
+
+    const acquisitionRate = isFirstBookingWithBusiness
+      ? Number(payments.acquisitionFeeTiers?.[business.planTier]) || 0
+      : 0;
+    const commissionRate = Number(payments.commissionRate) || 0;
+
+    return {
+      acquisitionFeeAmount: bookingAmount * (acquisitionRate / 100),
+      commissionAmount: bookingAmount * (commissionRate / 100),
+    };
+  }
+
+  // Redeems session(s) from a MerchantMembershipPurchase to pay for a
+  // booking instead of a card/gift card. The client already paid in full
+  // at purchase time (see MembershipPackagePurchaseService.completePurchase)
+  // — no commission was taken then. Commission is only taken here, per
+  // session redeemed, same rate + calculation as gift-card redemption
+  // (business-giftcard.service.ts's redeem()). Everything — the session
+  // decrement, the fee Transaction, and the business wallet credit — runs
+  // inside one transaction, unlike that gift-card precedent (whose wallet
+  // credit runs outside its own transaction, a known gap not repeated here).
+  private async redeemMembershipForBooking(
+    membershipPurchaseId: string,
+    appointments: Appointment[],
+    orderId: string,
+    user: User,
+  ): Promise<any> {
+    const purchase = await this.membershipPurchaseRepository.findOne({
+      where: { id: membershipPurchaseId },
+      relations: ['package', 'package.business', 'package.business.owner'],
+    });
+    if (!purchase) throw new NotFoundException('Membership purchase not found');
+    if (purchase.clientId !== user.id) {
+      throw new ForbiddenException('This membership purchase does not belong to you');
+    }
+    if (purchase.status !== MerchantMembershipPurchaseStatus.ACTIVE) {
+      throw new BadRequestException('Membership purchase is not active');
+    }
+    if (purchase.expiresAt < new Date()) {
+      throw new BadRequestException('Membership purchase has expired');
+    }
+
+    const pkg = purchase.package;
+    if (!pkg || !pkg.business) {
+      throw new NotFoundException('Membership package not found');
+    }
+
+    const sessionsNeeded = appointments.length;
+    if (purchase.remainingSessions < sessionsNeeded) {
+      throw new BadRequestException(
+        `Only ${purchase.remainingSessions} session(s) remaining on this membership — this booking needs ${sessionsNeeded}`,
+      );
+    }
+    if (pkg.business.id !== appointments[0].business.id) {
+      throw new BadRequestException('This membership is not valid for this business');
+    }
+    if (appointments.some((a) => a.service?.id !== pkg.serviceId)) {
+      throw new BadRequestException(
+        'This membership only covers a specific service, which does not match this booking',
+      );
+    }
+
+    const business = pkg.business;
+    const ownerId = business.ownerId || business.owner?.id;
+    if (!ownerId) {
+      throw new BadRequestException('This business has no owner on record — cannot process membership redemption');
+    }
+
+    const pricePerSession = Number(pkg.pricePerSession);
+    const payments = await this.platformSettingsService.getPayments();
+    const commissionRate = Number(payments.commissionRate) || 0;
+    const commissionPerSession = pricePerSession * (commissionRate / 100);
+    const totalDebit = Math.round(pricePerSession * sessionsNeeded * 100) / 100;
+    const totalCommission = Math.round(commissionPerSession * sessionsNeeded * 100) / 100;
+    const totalNet = Math.round((totalDebit - totalCommission) * 100) / 100;
+
+    await this.dataSource.manager.transaction(async (manager) => {
+      purchase.remainingSessions -= sessionsNeeded;
+      if (purchase.remainingSessions === 0) {
+        purchase.status = MerchantMembershipPurchaseStatus.FULLY_REDEEMED;
+      }
+      await manager.save(MerchantMembershipPurchase, purchase);
+
+      for (const appointment of appointments) {
+        appointment.status = AppointmentStatus.CONFIRMED;
+        appointment.paymentStatus = PaymentStatus.PAID;
+        this.applyPendingRebookDate(appointment);
+      }
+      await manager.save(Appointment, appointments);
+
+      await manager.save(
+        Transaction,
+        manager.create(Transaction, {
+          senderId: user.id,
+          recipientId: ownerId,
+          amount: totalDebit,
+          type: TransactionType.DEBIT,
+          currency: WalletCurrency.USD,
+          description: `Membership session redemption for appointment order ${orderId}`,
+          mode: 'Web',
+          referenceId: orderId,
+          status: TxnStatus.COMPLETED,
+          method: PaymentMethod.STRIPE,
+          service: 'Booking-MembershipRedemption',
+          customerName: `${user.firstName} ${user.surname}`,
+        }),
+      );
+
+      if (totalCommission > 0) {
+        await manager.save(
+          Transaction,
+          manager.create(Transaction, {
+            senderId: user.id,
+            amount: totalCommission,
+            type: TransactionType.FEE,
+            feeSubtype: 'Commission',
+            currency: WalletCurrency.USD,
+            description: `Commission for membership redemption on order ${orderId}`,
+            mode: 'Web',
+            referenceId: orderId,
+            status: TxnStatus.COMPLETED,
+            method: PaymentMethod.STRIPE,
+            service: 'Booking-Fee',
+            customerName: `${user.firstName} ${user.surname}`,
+          }),
+        );
+      }
+
+      if (totalNet > 0) {
+        let wallet = await manager.findOne(Wallet, { where: { businessId: business.id } });
+        if (!wallet) {
+          wallet = manager.create(Wallet, {
+            businessId: business.id,
+            ownerId,
+            currency: WalletCurrency.USD,
+            description: 'Business wallet - auto-created from membership redemption',
+            balance: 0,
+            totalIncome: 0,
+            totalExpenses: 0,
+            pendingBalance: 0,
+            status: WalletStatus.ACTIVE,
+          });
+        }
+        if (wallet.status !== WalletStatus.ACTIVE) {
+          throw new BadRequestException('Business wallet is not active');
+        }
+        wallet = await manager.save(Wallet, wallet);
+
+        const availableAt = new Date();
+        availableAt.setHours(availableAt.getHours() + 48);
+
+        await manager.save(
+          Transaction,
+          manager.create(Transaction, {
+            walletId: wallet.id,
+            senderId: user.id,
+            recipientId: ownerId,
+            amount: totalNet,
+            type: TransactionType.EARNING,
+            currency: WalletCurrency.USD,
+            description: `Membership session redemption for order ${orderId}`,
+            mode: 'Web',
+            referenceId: orderId,
+            status: TxnStatus.COMPLETED,
+            method: PaymentMethod.STRIPE,
+            availableAt,
+          }),
+        );
+
+        wallet.pendingBalance = Number(wallet.pendingBalance) + totalNet;
+        wallet.totalIncome = Number(wallet.totalIncome) + totalNet;
+        await manager.save(Wallet, wallet);
+      }
+    });
+
+    // The only confirmBooking branch that previously sent neither a
+    // confirmation email nor a Slack notification.
+    const serviceNames = [...new Set(appointments.map((a) => a.serviceName))].join(', ');
+    this.slackService.notify(
+      `⭐ *Booking Confirmed via Membership Redemption*\n` +
+      `• *Order ID*: \`${orderId}\`\n` +
+      `• *Customer*: ${user.firstName || 'Customer'} ${user.surname || ''} (${user.email})\n` +
+      `• *Salon*: ${business.businessName || 'the salon'}\n` +
+      `• *Services*: ${serviceNames}\n` +
+      `• *Sessions Used*: ${sessionsNeeded} (${purchase.remainingSessions} remaining)`,
+    );
+    if (user.email) {
+      this.emailService.sendBookingConfirmationEmail(
+        user.email,
+        user.firstName || 'Customer',
+        business.businessName || 'the salon',
+        serviceNames,
+        appointments[0].date,
+        appointments[0].time,
+        orderId,
+        undefined,
+        'Membership Redemption',
+      );
+    }
+
+    return {
+      message: 'Booking confirmed successfully using membership',
+      sessionsUsed: sessionsNeeded,
+      remainingSessions: purchase.remainingSessions,
+      success: true,
+    };
   }
 
   private isUuid(value: string): boolean {
@@ -175,8 +434,11 @@ export class BookingService {
   // Step 1 — Confirm/Initialize Booking Payment
   // ------------------------------------------------------
   async confirmBooking(confirmBookingDto: any, user: User): Promise<any> {
-    const { orderId, payAtVenue, cardId, giftCard, paymentProvider } =
+    const { orderId, payAtVenue, cardId, giftCard, paymentProvider, depositOnly } =
       confirmBookingDto;
+    if (depositOnly && paymentProvider !== 'stripe') {
+      throw new BadRequestException('Deposit-only payment is only available with Stripe');
+    }
 
     // Find all appointments for this orderId
     const appointments = await this.bookingRepository.find({
@@ -196,16 +458,35 @@ export class BookingService {
       throw new BadRequestException('Booking is already confirmed');
     }
 
-    // Get platform fee percentage
-    const paymentsSettings = await this.platformSettingsService.getPayments();
-    const platformFeePercent = Number(paymentsSettings.platformFee) || 0;
+    // Membership redemption is a standalone payment path — the client
+    // already paid in full at purchase time, so this bypasses card/gift
+    // card/Stripe entirely and just consumes session(s) from the purchase.
+    if (confirmBookingDto.membershipPurchaseId) {
+      return this.redeemMembershipForBooking(
+        confirmBookingDto.membershipPurchaseId,
+        appointments,
+        orderId,
+        user,
+      );
+    }
 
     // Calculate amounts
     const bookingAmount = appointments.reduce(
       (sum, appt) => sum + Number(appt.amount),
       0,
     );
-    const feeAmount = bookingAmount * (platformFeePercent / 100);
+
+    // Acquisition fee (tier %, one-time per business+client) + flat
+    // commission — replaces the old single flat platformFee. See
+    // calculateBookingFees for the race-safe first-booking detection.
+    const { acquisitionFeeAmount, commissionAmount } =
+      await this.calculateBookingFees(
+        appointments[0].business,
+        user.id,
+        orderId,
+        bookingAmount,
+      );
+    const feeAmount = acquisitionFeeAmount + commissionAmount;
     const totalAmount = bookingAmount + feeAmount;
 
     // Round to 2 decimal places
@@ -279,14 +560,15 @@ export class BookingService {
         });
         await manager.save(Transaction, bookingTx);
 
-        // Create platform fee transaction
-        if (feeAmount > 0) {
-          const feeTx = manager.create(Transaction, {
+        // Create acquisition + commission fee transactions
+        if (acquisitionFeeAmount > 0) {
+          const acqTx = manager.create(Transaction, {
             senderId: user.id,
-            amount: feeAmount,
+            amount: acquisitionFeeAmount,
             type: TransactionType.FEE,
+            feeSubtype: 'Acquisition',
             currency: WalletCurrency.USD,
-            description: `Platform fee for appointment order ${orderId}`,
+            description: `Acquisition fee for appointment order ${orderId}`,
             mode: 'Web',
             referenceId: orderId,
             status: TxnStatus.COMPLETED,
@@ -294,7 +576,24 @@ export class BookingService {
             service: 'Booking-Fee',
             customerName: `${user.firstName} ${user.surname}`,
           });
-          await manager.save(Transaction, feeTx);
+          await manager.save(Transaction, acqTx);
+        }
+        if (commissionAmount > 0) {
+          const commTx = manager.create(Transaction, {
+            senderId: user.id,
+            amount: commissionAmount,
+            type: TransactionType.FEE,
+            feeSubtype: 'Commission',
+            currency: WalletCurrency.USD,
+            description: `Commission for appointment order ${orderId}`,
+            mode: 'Web',
+            referenceId: orderId,
+            status: TxnStatus.COMPLETED,
+            method: PaymentMethod.GIFTCARD,
+            service: 'Booking-Fee',
+            customerName: `${user.firstName} ${user.surname}`,
+          });
+          await manager.save(Transaction, commTx);
         }
 
         // Add funds to business wallet for gift card payment
@@ -331,6 +630,19 @@ export class BookingService {
           }
         } catch (walletError) {
           console.error('Failed to add funds to business wallet:', walletError);
+          // Customer is already charged (via gift card) and the booking is
+          // confirmed below — if crediting the merchant fails here, the
+          // merchant is never paid, with nothing else set up to retry it.
+          StructuredSlackService.notify({
+            node: SlackNode.PAYMENT,
+            provider: SlackProvider.STRIPE,
+            severity: SlackSeverity.CRITICAL,
+            type: SlackEventType.ERROR_ALERT,
+            trigger: `Gift-card booking wallet credit failed for order ${orderId}`,
+            body: `A gift-card-paid booking was confirmed, but crediting the merchant's wallet for it failed — the merchant is not paid.
+• Order: ${orderId}
+• Error: ${walletError instanceof Error ? walletError.message : String(walletError)}`,
+          });
         }
 
         if (user.email && (await this.shouldSendBookingConfirmationEmail(user))) {
@@ -367,7 +679,7 @@ export class BookingService {
         return {
           message: 'Booking confirmed successfully with gift card',
           bookingAmount,
-          platformFee: feeAmount,
+          fees: { acquisitionFee: acquisitionFeeAmount, commission: commissionAmount },
           totalAmount,
           giftCardAmountUsed: totalAmount,
           success: true,
@@ -375,7 +687,10 @@ export class BookingService {
       });
     }
 
-    // Handle pay at venue - no online payment needed
+    // Pay-at-venue disabled — no longer an offered payment option. Kept
+    // commented out (not deleted) rather than removing payAtVenue from the
+    // DTO, since the frontend still always sends payAtVenue: false.
+    /*
     if (payAtVenue && remainingToPay > 0) {
       return await this.dataSource.manager.transaction(async (manager) => {
         // Deduct from gift card if provided
@@ -439,14 +754,15 @@ export class BookingService {
         });
         await manager.save(Transaction, venueTx);
 
-        // Create platform fee transaction
-        if (feeAmount > 0) {
-          const feeTx = manager.create(Transaction, {
+        // Create acquisition + commission fee transactions
+        if (acquisitionFeeAmount > 0) {
+          const acqTx = manager.create(Transaction, {
             senderId: user.id,
-            amount: feeAmount,
+            amount: acquisitionFeeAmount,
             type: TransactionType.FEE,
+            feeSubtype: 'Acquisition',
             currency: WalletCurrency.USD,
-            description: `Platform fee for appointment order ${orderId}`,
+            description: `Acquisition fee for appointment order ${orderId}`,
             mode: 'Web',
             referenceId: orderId,
             status: TxnStatus.PENDING,
@@ -454,7 +770,24 @@ export class BookingService {
             service: 'Booking-Fee',
             customerName: `${user.firstName} ${user.surname}`,
           });
-          await manager.save(Transaction, feeTx);
+          await manager.save(Transaction, acqTx);
+        }
+        if (commissionAmount > 0) {
+          const commTx = manager.create(Transaction, {
+            senderId: user.id,
+            amount: commissionAmount,
+            type: TransactionType.FEE,
+            feeSubtype: 'Commission',
+            currency: WalletCurrency.USD,
+            description: `Commission for appointment order ${orderId}`,
+            mode: 'Web',
+            referenceId: orderId,
+            status: TxnStatus.PENDING,
+            method: PaymentMethod.CASH,
+            service: 'Booking-Fee',
+            customerName: `${user.firstName} ${user.surname}`,
+          });
+          await manager.save(Transaction, commTx);
         }
 
         if (user.email && (await this.shouldSendBookingConfirmationEmail(user))) {
@@ -528,7 +861,7 @@ export class BookingService {
           message: 'Booking confirmed. Payment will be collected at venue.',
           user,
           bookingAmount,
-          platformFee: feeAmount,
+          fees: { acquisitionFee: acquisitionFeeAmount, commission: commissionAmount },
           totalAmount: roundedTotalAmount,
           giftCardAmountUsed: giftCardPayment,
           payAtVenueAmount: remainingToPay + payAtVenueSurcharge,
@@ -536,6 +869,7 @@ export class BookingService {
         };
       });
     }
+    */
 
     // If remaining amount exists and no card ID provided, throw error —
     // Stripe doesn't use a pre-saved cardId the way Paystack does, so this
@@ -566,8 +900,43 @@ export class BookingService {
     // Completed, unlike Paystack's immediate-credit-on-payment model.
     if (paymentProvider === 'stripe' && remainingToPay > 0) {
       const businessId = appointments[0].business.id;
+
+      // Deposit-only: charge 50% of the raw service price (e.g. $250 ->
+      // $125), not 50% of remainingToPay (which already has acquisition/
+      // commission added in) — a $250 service is always a $125 deposit,
+      // regardless of what tier/fees apply. Acquisition/commission stay
+      // computed on the full bookingAmount above (unchanged) — they're
+      // extracted from this smaller deposit charge at completion time
+      // (see BusinessService.completeBooking), not added on top of it.
+      // The other 50% of the full price is paid directly to the merchant
+      // at the venue — KHS never charges, tracks, or takes a cut of it.
+      // Gift cards aren't accounted for here — a deposit-only booking
+      // combined with a gift card isn't a specified scenario.
+      const depositChargeBase = depositOnly ? bookingAmount * 0.5 : remainingToPay;
+
+      // Stripe passthrough is computed on the actual amount going through
+      // Stripe (the deposit base above, or the full remainder for a
+      // normal booking) — and added on top of the charge, not subtracted
+      // from anything. This is the one fee that's genuinely new charge-
+      // side logic (acquisition/commission just replace the old single
+      // flat fee, computed the same additive way).
+      const passthroughPayments = await this.platformSettingsService.getPayments();
+      const stripePassthroughAmount =
+        Math.round(
+          (depositChargeBase * (Number(passthroughPayments.stripePassthroughRate) || 0) / 100 +
+            (Number(passthroughPayments.stripePassthroughFixedFee) || 0)) *
+            100,
+        ) / 100;
+      const stripeChargeAmount = depositChargeBase + stripePassthroughAmount;
+      // Informational only — the other 50% of the full price, due
+      // directly to the merchant at the venue. Not persisted anywhere;
+      // KHS has no further involvement with it.
+      const remainingAtVenue = depositOnly
+        ? Math.round((bookingAmount - depositChargeBase) * 100) / 100
+        : 0;
+
       const paymentIntent = await this.stripeService.createPaymentIntent({
-        amount: Math.round(remainingToPay * 100), // Convert to cents
+        amount: Math.round(stripeChargeAmount * 100), // Convert to cents
         currency: 'usd',
         customerEmail: user.email,
         metadata: {
@@ -576,6 +945,8 @@ export class BookingService {
           businessId,
           bookingAmount,
           feeAmount,
+          stripePassthroughAmount,
+          isDeposit: String(!!depositOnly),
         },
       });
 
@@ -584,10 +955,13 @@ export class BookingService {
         businessId,
         userId: user.id,
         stripePaymentIntentId: paymentIntent.id,
-        amount: remainingToPay,
+        amount: stripeChargeAmount,
         currency: 'usd',
-        bookingAmount,
-        feeAmount,
+        bookingAmount: depositChargeBase,
+        acquisitionFeeAmount,
+        commissionFeeAmount: commissionAmount,
+        stripePassthroughFeeAmount: stripePassthroughAmount,
+        isDeposit: !!depositOnly,
         status: StripeEscrowStatus.PENDING,
       });
       await this.stripePaymentIntentRepository.save(stripePaymentIntent);
@@ -617,10 +991,12 @@ export class BookingService {
         this.transactionRepository.create({
           senderId: user.id,
           recipientId: appointments[0].business.owner?.id,
-          amount: remainingToPay,
+          amount: depositChargeBase,
           type: TransactionType.DEBIT,
           currency: WalletCurrency.USD,
-          description: `Card payment (Stripe) for appointment order ${orderId}`,
+          description: depositOnly
+            ? `50% deposit (Stripe) for appointment order ${orderId}`
+            : `Card payment (Stripe) for appointment order ${orderId}`,
           mode: 'Web',
           referenceId: paymentIntent.id,
           status: TxnStatus.PENDING,
@@ -630,14 +1006,53 @@ export class BookingService {
         }),
       );
 
-      if (feeAmount > 0) {
+      if (acquisitionFeeAmount > 0) {
         stripeTransactions.push(
           this.transactionRepository.create({
             senderId: user.id,
-            amount: feeAmount,
+            amount: acquisitionFeeAmount,
             type: TransactionType.FEE,
+            feeSubtype: 'Acquisition',
             currency: WalletCurrency.USD,
-            description: `Platform fee for appointment order ${orderId}`,
+            description: `Acquisition fee for appointment order ${orderId}`,
+            mode: 'Web',
+            referenceId: paymentIntent.id,
+            status: TxnStatus.PENDING,
+            method: PaymentMethod.STRIPE,
+            service: 'Booking-Fee',
+            customerName: `${user.firstName} ${user.surname}`,
+          }),
+        );
+      }
+
+      if (commissionAmount > 0) {
+        stripeTransactions.push(
+          this.transactionRepository.create({
+            senderId: user.id,
+            amount: commissionAmount,
+            type: TransactionType.FEE,
+            feeSubtype: 'Commission',
+            currency: WalletCurrency.USD,
+            description: `Commission for appointment order ${orderId}`,
+            mode: 'Web',
+            referenceId: paymentIntent.id,
+            status: TxnStatus.PENDING,
+            method: PaymentMethod.STRIPE,
+            service: 'Booking-Fee',
+            customerName: `${user.firstName} ${user.surname}`,
+          }),
+        );
+      }
+
+      if (stripePassthroughAmount > 0) {
+        stripeTransactions.push(
+          this.transactionRepository.create({
+            senderId: user.id,
+            amount: stripePassthroughAmount,
+            type: TransactionType.FEE,
+            feeSubtype: 'StripePassthrough',
+            currency: WalletCurrency.USD,
+            description: `Stripe processing fee passthrough for appointment order ${orderId}`,
             mode: 'Web',
             referenceId: paymentIntent.id,
             status: TxnStatus.PENDING,
@@ -655,10 +1070,15 @@ export class BookingService {
       return {
         message: 'Payment initialized',
         bookingAmount,
-        platformFee: feeAmount,
+        fees: {
+          acquisitionFee: acquisitionFeeAmount,
+          commission: commissionAmount,
+          stripePassthrough: stripePassthroughAmount,
+        },
         totalAmount: roundedTotalAmount,
         giftCardAmountUsed: giftCardPayment,
-        cardAmountToPay: remainingToPay,
+        cardAmountToPay: stripeChargeAmount,
+        remainingAtVenue,
         clientSecret: paymentIntent.client_secret,
         paymentIntentId: paymentIntent.id,
       };
@@ -681,7 +1101,8 @@ export class BookingService {
           giftCard,
           giftCardAmount: giftCardPayment,
           bookingAmount,
-          feeAmount,
+          acquisitionFeeAmount,
+          commissionAmount,
           reference,
         },
       });
@@ -732,14 +1153,17 @@ export class BookingService {
       transactions.push(cardTx);
     }
 
-    // Transaction for platform fee
-    if (feeAmount > 0) {
-      const feeTx = this.transactionRepository.create({
+    // Transaction for acquisition + commission fees (no Stripe passthrough
+    // on Paystack — that's Stripe-specific, Paystack has its own fee
+    // structure not addressed by this ticket)
+    if (acquisitionFeeAmount > 0) {
+      const acqTx = this.transactionRepository.create({
         senderId: user.id,
-        amount: feeAmount,
+        amount: acquisitionFeeAmount,
         type: TransactionType.FEE,
+        feeSubtype: 'Acquisition',
         currency: WalletCurrency.USD,
-        description: `Platform fee for appointment order ${orderId}`,
+        description: `Acquisition fee for appointment order ${orderId}`,
         mode: 'Web',
         referenceId: reference,
         status: TxnStatus.PENDING,
@@ -747,7 +1171,24 @@ export class BookingService {
         service: 'Booking-Fee',
         customerName: `${user.firstName} ${user.surname}`,
       });
-      transactions.push(feeTx);
+      transactions.push(acqTx);
+    }
+    if (commissionAmount > 0) {
+      const commTx = this.transactionRepository.create({
+        senderId: user.id,
+        amount: commissionAmount,
+        type: TransactionType.FEE,
+        feeSubtype: 'Commission',
+        currency: WalletCurrency.USD,
+        description: `Commission for appointment order ${orderId}`,
+        mode: 'Web',
+        referenceId: reference,
+        status: TxnStatus.PENDING,
+        method: PaymentMethod.PAYSTACK,
+        service: 'Booking-Fee',
+        customerName: `${user.firstName} ${user.surname}`,
+      });
+      transactions.push(commTx);
     }
 
     await this.transactionRepository.save(transactions);
@@ -755,7 +1196,7 @@ export class BookingService {
     return {
       message: 'Payment initialized',
       bookingAmount,
-      platformFee: feeAmount,
+      fees: { acquisitionFee: acquisitionFeeAmount, commission: commissionAmount },
       totalAmount: roundedTotalAmount,
       giftCardAmountUsed: giftCardPayment,
       cardAmountToPay: remainingToPay,
@@ -783,7 +1224,9 @@ export class BookingService {
 
     const meta = verification.metadata;
     const bookingAmount = Number(meta.bookingAmount) || 0;
-    const feeAmount = Number(meta.feeAmount) || 0;
+    const acquisitionFeeAmount = Number(meta.acquisitionFeeAmount) || 0;
+    const commissionAmount = Number(meta.commissionAmount) || 0;
+    const feeAmount = acquisitionFeeAmount + commissionAmount;
     const giftCardAmount = Number(meta.giftCardAmount) || 0;
     const orderId = meta.orderId;
 
@@ -887,7 +1330,7 @@ export class BookingService {
           appointments,
           user,
           bookingAmount,
-          platformFee: feeAmount,
+          fees: { acquisitionFee: acquisitionFeeAmount, commission: commissionAmount },
           giftCardAmountUsed: giftCardAmount,
           cardAmountUsed: verification.amount / 100, // Convert from kobo
           totalPaid: verification.amount / 100 + giftCardAmount,
@@ -992,6 +1435,20 @@ export class BookingService {
     } catch (walletError) {
       // Log the error but don't fail the entire operation since booking was confirmed successfully
       console.error('Failed to add funds to business wallet:', walletError);
+      // Customer is already charged via Paystack and the booking is
+      // confirmed — if crediting the merchant fails here, the merchant is
+      // never paid, with nothing else set up to retry it.
+      StructuredSlackService.notify({
+        node: SlackNode.PAYMENT,
+        provider: SlackProvider.STRIPE,
+        severity: SlackSeverity.CRITICAL,
+        type: SlackEventType.ERROR_ALERT,
+        trigger: `Paystack booking wallet credit failed for order ${orderId}`,
+        body: `A Paystack-paid booking was confirmed, but crediting the merchant's wallet for it failed — the merchant is not paid.
+• Order: ${orderId}
+• Reference: ${reference}
+• Error: ${walletError instanceof Error ? walletError.message : String(walletError)}`,
+      });
     }
 
     return {
@@ -1203,6 +1660,10 @@ export class BookingService {
 
   // Stripe — Handle payment_intent.payment_failed webhook
   async handleStripePaymentFailed(paymentIntentId: string): Promise<void> {
+    const spi = await this.stripePaymentIntentRepository.findOne({
+      where: { stripePaymentIntentId: paymentIntentId },
+    });
+
     await this.stripePaymentIntentRepository.update(
       { stripePaymentIntentId: paymentIntentId },
       { status: StripeEscrowStatus.FAILED },
@@ -1211,29 +1672,73 @@ export class BookingService {
       { referenceId: paymentIntentId },
       { status: TxnStatus.FAILED },
     );
+
+    if (!spi) return;
+
+    this.slackService.notify(
+      `❌ *Card Payment Declined*\n` +
+      `• *Order ID*: \`${spi.orderId}\`\n` +
+      `• *Payment Intent*: \`${paymentIntentId}\`\n` +
+      `• *Amount*: $${spi.amount}`,
+    );
+
+    const user = await this.userRepository.findOne({ where: { id: spi.userId } });
+    if (user?.email) {
+      const frontendUrl = process.env.FRONTEND_URL || 'https://kinkyhairstylists.com';
+      const message = `Your card payment for order ${spi.orderId} was declined and your booking could not be confirmed. Please try again with a different card.`;
+      const html = this.templateService.render('communication-bulk', {
+        businessName: 'Kinky Hairstylist',
+        subject: 'Your payment could not be processed',
+        clientName: user.firstName || 'there',
+        message,
+        closingRemarks: null,
+        frontendUrl,
+        year: new Date().getFullYear(),
+      });
+      this.emailService.sendEmail(user.email, 'Your payment could not be processed', message, html);
+    }
   }
 
-  // Refund policy: the customer gets back the service amount minus KHS's
-  // own platform fee minus Stripe's real processing fee for that specific
-  // charge (looked up from Stripe, not estimated — the exact rate varies
-  // by card type/country). Returns the refundable amount in cents: 0 or
-  // negative means there's nothing left to refund after those deductions.
-  private async calculateStripeRefundAmountCents(
+  // Cancellation policy constants — see cancelBooking. A cancellation
+  // 24h+ before the (earliest) appointment is "early"; inside that window
+  // is "late" (treated the same as a no-show, since there's no separate
+  // no-show detection today).
+  private static readonly EARLY_CANCELLATION_WINDOW_HOURS = 24;
+  private static readonly EARLY_CANCELLATION_FEE = 10; // flat dollars
+  // No deposit concept exists yet — every Stripe booking is paid in full
+  // up front — so on a late cancellation the full amount already
+  // collected plays the role a deposit would: forfeited, split 70/30
+  // stylist/KHS, same as the eventual deposit-forfeiture rule will do.
+  private static readonly LATE_CANCELLATION_STYLIST_SHARE = 0.7;
+
+  // This codebase stores appointment date/time as two separate strings —
+  // date "2024-01-15", time "2:00 PM" (12-hour, not ISO) — so naively
+  // building `new Date(`${date}T${time}`)` silently produces Invalid
+  // Date. This mirrors the one existing correct precedent
+  // (parseDateTime in integration/services/google-calendar.service.ts).
+  private parseAppointmentDateTime(date: string, time: string): Date {
+    const [timePart, meridiem] = time.split(' ');
+    const [hoursRaw, minutes] = timePart.split(':').map(Number);
+    let hours = hoursRaw;
+    if (meridiem === 'PM' && hours !== 12) hours += 12;
+    else if (meridiem === 'AM' && hours === 12) hours = 0;
+
+    const dt = new Date(date);
+    dt.setHours(hours, minutes, 0, 0);
+    return dt;
+  }
+
+  // Refund policy — early cancellation (24h+ before): the customer gets
+  // back the full booking amount minus a flat $10 cancellation fee. This
+  // REPLACES the earlier acquisition/commission/real-Stripe-fee
+  // withholding for this path entirely; it does not stack with it.
+  // Returns cents: 0 or negative means nothing left to refund.
+  private calculateEarlyCancellationRefundCents(
     spi: StripePaymentIntent,
-  ): Promise<number> {
-    if (!spi.stripeChargeId) {
-      throw new BadRequestException(
-        `Stripe charge ID missing for payment intent ${spi.stripePaymentIntentId} — cannot compute refund`,
-      );
-    }
-
-    const stripeFeeCents = await this.stripeService.getChargeFee(
-      spi.stripeChargeId,
-    );
+  ): number {
     const bookingAmountCents = Math.round(spi.bookingAmount * 100);
-    const platformFeeCents = Math.round(spi.feeAmount * 100);
-
-    return bookingAmountCents - platformFeeCents - stripeFeeCents;
+    const feeCents = Math.round(BookingService.EARLY_CANCELLATION_FEE * 100);
+    return bookingAmountCents - feeCents;
   }
 
   // Get User Bookings
@@ -1267,10 +1772,18 @@ export class BookingService {
   async getUserBookings(userId: string): Promise<Appointment[]> {
     await this.expireStalePendingBookings(userId);
 
-    return await this.bookingRepository.find({
+    const appointments = await this.bookingRepository.find({
       where: { client: { id: userId } },
       relations: ['business', 'service', 'staff'],
     });
+
+    const orderIds = [...new Set(appointments.map((a) => a.orderId))];
+    const reviewedOrderIds = await this.reviewService.getReviewedOrderIds(orderIds);
+
+    return appointments.map((a) => ({
+      ...a,
+      hasReview: reviewedOrderIds.has(a.orderId),
+    })) as Appointment[];
   }
 
   // Get Booking by ID
@@ -1291,7 +1804,14 @@ export class BookingService {
     if (!appointments || appointments.length === 0) {
       throw new NotFoundException('No appointments found for this order ID');
     }
-    return appointments;
+
+    const orderIds = [...new Set(appointments.map((a) => a.orderId))];
+    const reviewedOrderIds = await this.reviewService.getReviewedOrderIds(orderIds);
+
+    return appointments.map((a) => ({
+      ...a,
+      hasReview: reviewedOrderIds.has(a.orderId),
+    })) as Appointment[];
   }
 
   // Cancel Booking
@@ -1304,11 +1824,18 @@ export class BookingService {
     message: string;
     cancelledCount: number;
     remainingCount: number;
+    // Early cancellation only — mutually exclusive with forfeiture below.
     refund?: {
       amount: number;
       currency: string;
-      platformFeeWithheld: number;
-      stripeFeeWithheld: number;
+      cancellationFeeWithheld: number;
+    };
+    // Late cancellation only — no refund happens on this path at all.
+    forfeiture?: {
+      amount: number;
+      currency: string;
+      stylistShare: number;
+      khsShare: number;
     };
   }> {
     if (!acceptedTerms) {
@@ -1368,25 +1895,49 @@ export class BookingService {
       );
     }
 
+    // Cancellation policy: 24h+ before the *earliest* appointment among
+    // the ones being cancelled is "early" (flat $10 fee); inside that
+    // window is "late" (full forfeiture, split 70/30 stylist/KHS — see
+    // the class constants above). Order-level Stripe escrow is one row
+    // per order, but appointments are per-service with their own date/
+    // time, so the earliest one governs the whole order-level refund.
+    let earliestAppointmentDateTime: Date | null = null;
+    for (const appt of appointmentsToCancel) {
+      const dt = this.parseAppointmentDateTime(appt.date, appt.time);
+      if (!isNaN(dt.getTime()) && (!earliestAppointmentDateTime || dt < earliestAppointmentDateTime)) {
+        earliestAppointmentDateTime = dt;
+      }
+    }
+    // No parseable date/time at all — don't penalize the customer for a
+    // data gap, treat as early (matches the existing fail-open convention
+    // used elsewhere in this file for missing data).
+    const hoursUntilAppointment = earliestAppointmentDateTime
+      ? (earliestAppointmentDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
+      : Infinity;
+    const isEarlyCancellation =
+      hoursUntilAppointment >= BookingService.EARLY_CANCELLATION_WINDOW_HOURS;
+
     // Pre-flight: work out the actual refund amount for any Stripe escrow
-    // held on this booking BEFORE cancelling anything. The customer gets
-    // back the service amount minus KHS's own platform fee minus Stripe's
-    // real processing fee (looked up from the charge, not estimated) — if
-    // that math goes to zero or negative, the whole cancellation is
-    // blocked rather than silently refunding nothing.
+    // held on this booking BEFORE cancelling anything, for the early-
+    // cancellation path only — if that math goes to zero or negative,
+    // the whole cancellation is blocked rather than silently refunding
+    // nothing. Late cancellation has no such check: the full amount is
+    // always forfeited, there's nothing to validate up front.
     const heldPaymentIntents = await this.stripePaymentIntentRepository.find({
       where: { orderId, status: StripeEscrowStatus.HELD },
     });
 
     const refundPlans: { spi: StripePaymentIntent; refundAmountCents: number }[] = [];
-    for (const spi of heldPaymentIntents) {
-      const refundAmountCents = await this.calculateStripeRefundAmountCents(spi);
-      if (refundAmountCents <= 0) {
-        throw new BadRequestException(
-          `Cannot cancel: after deducting the platform fee and Stripe's processing fee, no refundable amount remains for order ${orderId}. Contact an admin to review.`,
-        );
+    if (isEarlyCancellation) {
+      for (const spi of heldPaymentIntents) {
+        const refundAmountCents = this.calculateEarlyCancellationRefundCents(spi);
+        if (refundAmountCents <= 0) {
+          throw new BadRequestException(
+            `Cannot cancel: after the $${BookingService.EARLY_CANCELLATION_FEE} cancellation fee, no refundable amount remains for order ${orderId}. Contact an admin to review.`,
+          );
+        }
+        refundPlans.push({ spi, refundAmountCents });
       }
-      refundPlans.push({ spi, refundAmountCents });
     }
 
     // Update status and add cancellation note. paymentStatus is reset to
@@ -1408,73 +1959,209 @@ export class BookingService {
 
     await this.bookingRepository.save(appointmentsToCancel);
 
-    // Refund any Stripe escrow held for this booking — a no-op for
-    // Paystack/gift-card/cash appointments, which have no
-    // StripePaymentIntent row. Nothing was ever credited to the wallet at
-    // HELD time, so unlike Paystack there's no wallet balance to reverse
-    // here — only the Stripe-side charge itself needs refunding.
+    const firstAppt = appointmentsToCancel[0];
+
+    // Refund/forfeiture of any Stripe escrow held for this booking — a
+    // no-op for Paystack/gift-card/cash appointments, which have no
+    // StripePaymentIntent row (pre-existing gap, not addressed here).
     let refundSummary:
-      | { amount: number; currency: string; platformFeeWithheld: number; stripeFeeWithheld: number }
+      | { amount: number; currency: string; cancellationFeeWithheld: number }
+      | undefined;
+    let forfeitureSummary:
+      | { amount: number; currency: string; stylistShare: number; khsShare: number }
       | undefined;
 
-    try {
-      for (const { spi, refundAmountCents } of refundPlans) {
-        const stripeRefund = await this.stripeService.createRefund({
-          paymentIntentId: spi.stripePaymentIntentId,
-          amount: refundAmountCents,
-        });
+    if (isEarlyCancellation) {
+      try {
+        for (const { spi, refundAmountCents } of refundPlans) {
+          const stripeRefund = await this.stripeService.createRefund({
+            paymentIntentId: spi.stripePaymentIntentId,
+            amount: refundAmountCents,
+          });
 
-        spi.status = StripeEscrowStatus.REFUNDED;
-        spi.refundedAt = new Date();
-        await this.stripePaymentIntentRepository.save(spi);
+          spi.status = StripeEscrowStatus.REFUNDED;
+          spi.refundedAt = new Date();
+          await this.stripePaymentIntentRepository.save(spi);
 
-        const bookingAmountCents = Math.round(spi.bookingAmount * 100);
-        const platformFeeCents = Math.round(spi.feeAmount * 100);
-        const stripeFeeCents =
-          bookingAmountCents - platformFeeCents - refundAmountCents;
+          const bookingAmountCents = Math.round(spi.bookingAmount * 100);
+          const feeCents = bookingAmountCents - refundAmountCents;
 
-        refundSummary = {
-          amount: refundAmountCents / 100,
-          currency: spi.currency.toUpperCase(),
-          platformFeeWithheld: platformFeeCents / 100,
-          stripeFeeWithheld: stripeFeeCents / 100,
-        };
+          refundSummary = {
+            amount: refundAmountCents / 100,
+            currency: spi.currency.toUpperCase(),
+            cancellationFeeWithheld: feeCents / 100,
+          };
 
-        const debitTx = await this.transactionRepository.findOne({
-          where: {
-            referenceId: spi.stripePaymentIntentId,
-            service: 'Booking',
-            method: PaymentMethod.STRIPE,
-          },
-        });
+          const debitTx = await this.transactionRepository.findOne({
+            where: {
+              referenceId: spi.stripePaymentIntentId,
+              service: 'Booking',
+              method: PaymentMethod.STRIPE,
+            },
+          });
 
-        if (debitTx) {
-          await this.refundRepository.save(
-            this.refundRepository.create({
-              transactionId: debitTx.id,
-              userId: spi.userId,
-              amount: refundAmountCents / 100,
-              currency: spi.currency.toUpperCase(),
-              reason: cancellationsNote || 'Booking cancelled before completion',
-              adminNote: `Stripe refund ${stripeRefund.id} (platform fee + Stripe processing fee withheld)`,
-              status: RefundStatus.PROCESSED,
-              refundMethod: RefundMethod.CARD_REFUND,
-            }),
+          if (debitTx) {
+            await this.refundRepository.save(
+              this.refundRepository.create({
+                transactionId: debitTx.id,
+                userId: spi.userId,
+                amount: refundAmountCents / 100,
+                currency: spi.currency.toUpperCase(),
+                reason: cancellationsNote || 'Booking cancelled before completion',
+                adminNote: `Stripe refund ${stripeRefund.id} ($${BookingService.EARLY_CANCELLATION_FEE} cancellation fee withheld)`,
+                status: RefundStatus.PROCESSED,
+                refundMethod: RefundMethod.CARD_REFUND,
+              }),
+            );
+          }
+        }
+
+        if (refundSummary) {
+          this.slackService.notify(
+            `↩️ *Booking Cancellation Refunded*\n` +
+            `• *Order ID*: \`${orderId}\`\n` +
+            `• *Refunded*: $${refundSummary.amount.toFixed(2)} ${refundSummary.currency}\n` +
+            `• *Cancellation Fee Withheld*: $${refundSummary.cancellationFeeWithheld.toFixed(2)}`,
           );
         }
+      } catch (refundError) {
+        this.logger.error(
+          `Failed to refund Stripe escrow for order ${orderId}: ${refundError.message}`,
+          refundError.stack,
+        );
+        // The appointment is already saved CANCELLED above (:1868) — if the
+        // Stripe refund itself failed, the customer's money is now stranded
+        // with no automatic retry, so this needs a human, not just a log line.
+        StructuredSlackService.notify({
+          node: SlackNode.PAYMENT,
+          provider: SlackProvider.STRIPE,
+          severity: SlackSeverity.CRITICAL,
+          type: SlackEventType.ERROR_ALERT,
+          trigger: `Cancellation refund failed for order ${orderId}`,
+          body: `A booking was cancelled and marked as such, but the Stripe refund failed — the customer's money is stranded, not automatically retried.
+• Order: ${orderId}
+• Error: ${refundError instanceof Error ? refundError.message : String(refundError)}`,
+        });
       }
-    } catch (refundError) {
-      this.logger.error(
-        `Failed to refund Stripe escrow for order ${orderId}: ${refundError.message}`,
-        refundError.stack,
-      );
-    }
+    } else {
+      // Late cancellation (inside the 24h window) — no refund at all. No
+      // deposit concept exists yet, so the full amount already collected
+      // plays the role a deposit would once deposits ship: forfeited,
+      // split 70/30 stylist/KHS, mirroring completeBooking's own escrow-
+      // release-to-wallet mechanism (src/business/services/business.service.ts)
+      // exactly, just at a 70% share instead of 100%.
+      try {
+        for (const spi of heldPaymentIntents) {
+          const businessId = firstAppt?.business?.id;
+          // `ownerId` is a direct column, always populated; `.owner` is a
+          // non-eager relation that's frequently absent unless explicitly
+          // requested — prefer the column (see finding logged separately:
+          // several pre-existing call sites in this file rely on
+          // `.owner?.id` alone, which silently no-ops when unset).
+          const ownerId = firstAppt?.business?.ownerId || firstAppt?.business?.owner?.id;
+          if (!businessId || !ownerId) continue;
 
-    const firstAppt = appointmentsToCancel[0];
+          const stylistShareAmount =
+            Math.round(spi.bookingAmount * BookingService.LATE_CANCELLATION_STYLIST_SHARE * 100) / 100;
+          const khsShareAmount = Math.round((spi.bookingAmount - stylistShareAmount) * 100) / 100;
+
+          try {
+            await this.walletService.getWalletByBusinessId(businessId);
+          } catch {
+            await this.walletService.createWalletForBusiness({
+              businessId,
+              ownerId,
+              currency: WalletCurrency.USD,
+              description: 'Business wallet - auto-created from late-cancellation forfeiture',
+            });
+          }
+
+          await this.walletService.addFunds({
+            businessId,
+            recipientId: ownerId,
+            senderId: spi.userId,
+            amount: stylistShareAmount,
+            type: TransactionType.EARNING,
+            description: `Late-cancellation forfeiture payout for order ${orderId}`,
+            referenceId: spi.stripePaymentIntentId,
+            currency: WalletCurrency.USD,
+            mode: 'Web',
+            method: PaymentMethod.STRIPE,
+          });
+
+          await this.transactionRepository.save(
+            this.transactionRepository.create({
+              senderId: spi.userId,
+              amount: khsShareAmount,
+              type: TransactionType.FEE,
+              feeSubtype: 'LateCancellationForfeiture',
+              currency: WalletCurrency.USD,
+              description: `KHS share of late-cancellation forfeiture for order ${orderId}`,
+              mode: 'Web',
+              referenceId: orderId,
+              status: TxnStatus.COMPLETED,
+              method: PaymentMethod.STRIPE,
+              service: 'Booking-Fee',
+              customerName: `${firstAppt?.client?.firstName ?? ''} ${firstAppt?.client?.surname ?? ''}`.trim(),
+            }),
+          );
+
+          spi.status = StripeEscrowStatus.RELEASED;
+          spi.releasedAt = new Date();
+          await this.stripePaymentIntentRepository.save(spi);
+
+          forfeitureSummary = {
+            amount: spi.bookingAmount,
+            currency: spi.currency.toUpperCase(),
+            stylistShare: stylistShareAmount,
+            khsShare: khsShareAmount,
+          };
+        }
+
+        if (forfeitureSummary) {
+          StructuredSlackService.notify({
+            node: SlackNode.PAYMENT,
+            provider: SlackProvider.STRIPE,
+            severity: SlackSeverity.INFO,
+            type: SlackEventType.PAYMENT_SUCCESS,
+            trigger: `Late-cancellation forfeiture for order ${orderId}`,
+            body: `A late cancellation forfeited the full amount already paid, split 70/30 stylist/KHS.
+• Order: ${orderId}
+• Total forfeited: $${forfeitureSummary.amount} ${forfeitureSummary.currency}
+• Stylist share: $${forfeitureSummary.stylistShare}
+• KHS share: $${forfeitureSummary.khsShare}`,
+          });
+        }
+      } catch (forfeitureError) {
+        this.logger.error(
+          `Failed to process late-cancellation forfeiture for order ${orderId}: ${forfeitureError.message}`,
+          forfeitureError.stack,
+        );
+        // Escrow stays HELD forever if this fails — the business is never
+        // credited its 70% share and KHS's fee row is never written, with
+        // nothing else in the system positioned to retry it.
+        StructuredSlackService.notify({
+          node: SlackNode.PAYMENT,
+          provider: SlackProvider.STRIPE,
+          severity: SlackSeverity.CRITICAL,
+          type: SlackEventType.ERROR_ALERT,
+          trigger: `Late-cancellation forfeiture failed for order ${orderId}`,
+          body: `A late cancellation was processed, but crediting the stylist's 70% forfeiture share and recording KHS's fee failed — Stripe escrow is left HELD indefinitely with no automatic retry.
+• Order: ${orderId}
+• Error: ${forfeitureError instanceof Error ? forfeitureError.message : String(forfeitureError)}`,
+        });
+      }
+    }
     if (firstAppt?.client?.email) {
       const serviceNames = [
         ...new Set(appointmentsToCancel.map((a) => a.serviceName)),
       ].join(', ');
+      let moneyNote: string | undefined;
+      if (refundSummary) {
+        moneyNote = `A refund of $${refundSummary.amount.toFixed(2)} ${refundSummary.currency} has been issued to your original payment method${refundSummary.cancellationFeeWithheld > 0 ? ` ($${refundSummary.cancellationFeeWithheld.toFixed(2)} cancellation fee withheld)` : ''}.`;
+      } else if (forfeitureSummary) {
+        moneyNote = `As this cancellation was made within 24 hours of the appointment, the $${forfeitureSummary.amount.toFixed(2)} ${forfeitureSummary.currency} already paid is non-refundable per our late-cancellation policy.`;
+      }
       this.emailService.sendCancellationConfirmationEmail(
         firstAppt.client.email,
         firstAppt.client.firstName || 'Valued Customer',
@@ -1482,6 +2169,7 @@ export class BookingService {
         serviceNames,
         firstAppt.date,
         firstAppt.time,
+        moneyNote,
       );
     }
 
@@ -1515,6 +2203,7 @@ export class BookingService {
       cancelledCount: appointmentsToCancel.length,
       remainingCount,
       refund: refundSummary,
+      forfeiture: forfeitureSummary,
     };
   }
 
@@ -1550,8 +2239,13 @@ export class BookingService {
     // is still far enough out — a same-day-tomorrow slot may already be
     // unavailable/re-booked by someone else. Rebook (which picks a new
     // date/time) is the correct path once this close; Restore is not.
-    const appointmentDateTime = new Date(
-      `${appointment.date}T${appointment.time}`,
+    // (Was previously `new Date(`${date}T${time}`)`, which silently
+    // produced Invalid Date since `time` is "2:00 PM"-style, not ISO —
+    // this check never actually fired. parseAppointmentDateTime handles
+    // the real format correctly.)
+    const appointmentDateTime = this.parseAppointmentDateTime(
+      appointment.date,
+      appointment.time,
     );
     const hoursUntilAppointment =
       (appointmentDateTime.getTime() - Date.now()) / (1000 * 60 * 60);
@@ -1660,6 +2354,19 @@ export class BookingService {
       throw new NotFoundException('Appointment not found');
     }
 
+    if (!newTime) {
+      throw new BadRequestException('A time must be selected');
+    }
+    const requestedDateTime = this.parseAppointmentDateTime(
+      newDate.toISOString().split('T')[0],
+      newTime,
+    );
+    if (isNaN(requestedDateTime.getTime()) || requestedDateTime <= new Date()) {
+      throw new BadRequestException(
+        'Cannot reschedule to a past date/time',
+      );
+    }
+
     // Rebooking a previously-cancelled appointment onto a new date must go
     // through real payment again — any earlier payment was already
     // refunded (Stripe) or never taken (pay-at-venue) at cancellation
@@ -1710,10 +2417,55 @@ export class BookingService {
     };
   }
 
-  // Get Booking Fees
-  async getBookingFees(): Promise<{ platformFee: number }> {
+  // Get Booking Fees — read-only preview of what confirmBooking would
+  // charge. Deliberately does NOT perform the atomic acquisition-fee claim
+  // (that only happens for real inside confirmBooking) — this just checks
+  // whether a claim row already exists, so repeatedly viewing this preview
+  // can never itself consume a client's one-time acquisition-fee status.
+  async getBookingFees(
+    businessId?: string,
+    clientId?: string,
+  ): Promise<{
+    acquisitionFeeRate: number | null;
+    commissionRate: number;
+    stripePassthroughRate: number;
+    stripePassthroughFixedFee: number;
+  }> {
     const payments = await this.platformSettingsService.getPayments();
-    return { platformFee: payments.platformFee };
+    const commissionRate = Number(payments.commissionRate) || 0;
+    const stripePassthroughRate = Number(payments.stripePassthroughRate) || 0;
+    const stripePassthroughFixedFee = Number(payments.stripePassthroughFixedFee) || 0;
+
+    if (!businessId) {
+      return {
+        acquisitionFeeRate: null,
+        commissionRate,
+        stripePassthroughRate,
+        stripePassthroughFixedFee,
+      };
+    }
+
+    const business = await this.businessRepository.findOne({ where: { id: businessId } });
+    if (!business) {
+      throw new NotFoundException('Business not found');
+    }
+
+    let acquisitionFeeRate: number | null = null;
+    if (clientId) {
+      const existingClaim = await this.businessClientAcquisitionRepository.findOne({
+        where: { businessId, clientId },
+      });
+      acquisitionFeeRate = existingClaim
+        ? 0
+        : Number(payments.acquisitionFeeTiers?.[business.planTier]) || 0;
+    }
+
+    return {
+      acquisitionFeeRate,
+      commissionRate,
+      stripePassthroughRate,
+      stripePassthroughFixedFee,
+    };
   }
 
   // Rate Business
@@ -1755,7 +2507,13 @@ export class BookingService {
       clientId: client!.id,
       ownerId: business.owner.id,
       businessId: business.id,
-      orderId: appointment.orderId, 
+      orderId: appointment.orderId,
+      // Auto-attributed to whichever staff member worked this appointment
+      // — Review had no link to Staff at all before this, so a per-staff
+      // rating could never be computed. Appointment.staff is a
+      // many-to-many (eager) but a booking is almost always one staff
+      // member in practice; null if none was assigned.
+      staffId: appointment.staff?.[0]?.id ?? null,
       rating,
       comment,
       service: appointment.serviceName,

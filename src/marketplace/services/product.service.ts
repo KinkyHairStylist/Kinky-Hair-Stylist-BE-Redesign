@@ -172,7 +172,7 @@ export class ProductService {
     return product;
   }
 
-  async getProductList(filters: ProductFiltersDto) {
+  async getProductList(filters: ProductFiltersDto, ownerId: string) {
     const {
       search,
       sortBy = 'createdAt',
@@ -184,11 +184,19 @@ export class ProductService {
       status,
     } = filters;
 
+    const business = await this.businessRepo.findOne({ where: { ownerId } });
+    if (!business) {
+      throw new BadRequestException(`No business found for this user`);
+    }
+
     const queryBuilder = this.productRepository.createQueryBuilder('product');
 
     queryBuilder.leftJoinAndSelect('product.business', 'business');
 
     queryBuilder.andWhere('product.isActive = :isActive', { isActive: true });
+    queryBuilder.andWhere('product.businessId = :businessId', {
+      businessId: business.id,
+    });
 
     if (category && category !== 'all') {
       queryBuilder.andWhere('product.category = :category', { category });

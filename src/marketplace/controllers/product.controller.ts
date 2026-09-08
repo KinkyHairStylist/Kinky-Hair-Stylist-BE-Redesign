@@ -184,7 +184,7 @@ export class ProductController {
         );
       }
 
-      const result = await this.productService.getProductList(filters);
+      const result = await this.productService.getProductList(filters, ownerId);
 
       return {
         success: true,

@@ -51,7 +51,7 @@ export class PlatformSettingsService {
       },
     };
     settings.payments = {
-      platformFee: 5, // Default 5% platform fee
+      platformFee: 5, // Deprecated — see acquisitionFeeTiers/commissionRate
       minWithdrawal: 10,
       methods: {
         creditCard: true,
@@ -59,6 +59,21 @@ export class PlatformSettingsService {
         bankTransfers: true,
       },
       payoutSchedule: 'Weekly',
+      acquisitionFeeTiers: {
+        Starter: 10,
+        Growth: 5,
+        Pro: 0,
+      },
+      commissionRate: 12,
+      stripePassthroughRate: 1.75,
+      stripePassthroughFixedFee: 0.30,
+      // priceId is blank until scripts/create-subscription-stripe-prices.ts
+      // is run and an admin pastes the real Stripe Price IDs in.
+      subscriptionPrices: {
+        Starter: { priceId: '', displayAmount: 29.99 },
+        Growth: { priceId: '', displayAmount: 59.99 },
+        Pro: { priceId: '', displayAmount: 99.99 },
+      },
     };
     settings.features = {
       user: {
@@ -109,6 +124,32 @@ export class PlatformSettingsService {
     }
     if (!settings.payments?.methods) {
       settings.payments = { ...defaults.payments, ...settings.payments };
+      dirty = true;
+    }
+    if (!settings.payments?.acquisitionFeeTiers) {
+      settings.payments = { ...defaults.payments, ...settings.payments };
+      dirty = true;
+    }
+    if (!settings.payments?.subscriptionPrices) {
+      settings.payments = { ...defaults.payments, ...settings.payments };
+      dirty = true;
+    }
+    // Scalar fields — `!settings.payments?.methods` above only catches a
+    // row from before ANY of these fields existed. A row that already had
+    // `methods` (e.g. from before the fee-model ticket) never re-triggers
+    // that check, so these three need their own presence check or they
+    // silently stay missing forever, and every fee computation reading
+    // them falls back to 0.
+    if (settings.payments?.commissionRate == null) {
+      settings.payments.commissionRate = defaults.payments.commissionRate;
+      dirty = true;
+    }
+    if (settings.payments?.stripePassthroughRate == null) {
+      settings.payments.stripePassthroughRate = defaults.payments.stripePassthroughRate;
+      dirty = true;
+    }
+    if (settings.payments?.stripePassthroughFixedFee == null) {
+      settings.payments.stripePassthroughFixedFee = defaults.payments.stripePassthroughFixedFee;
       dirty = true;
     }
     if (!settings.features?.user) {
@@ -163,6 +204,15 @@ export class PlatformSettingsService {
       ...s.payments,
       ...dto,
       methods: { ...s.payments.methods, ...(dto.methods || {}) },
+      acquisitionFeeTiers: {
+        ...s.payments.acquisitionFeeTiers,
+        ...(dto.acquisitionFeeTiers || {}),
+      },
+      subscriptionPrices: {
+        Starter: { ...s.payments.subscriptionPrices.Starter, ...(dto.subscriptionPrices?.Starter || {}) },
+        Growth: { ...s.payments.subscriptionPrices.Growth, ...(dto.subscriptionPrices?.Growth || {}) },
+        Pro: { ...s.payments.subscriptionPrices.Pro, ...(dto.subscriptionPrices?.Pro || {}) },
+      },
     };
     return this.repo.save(s);
   }

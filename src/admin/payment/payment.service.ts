@@ -34,6 +34,15 @@ import {
   RefundStatus,
   RefundMethod,
 } from 'src/user/user_entities/refund.entity';
+import { SlackService } from 'src/services/slack.service';
+import {
+  SlackEventType,
+  SlackNode,
+  SlackProvider,
+  SlackSeverity,
+} from 'src/utils/enum';
+import { EmailService } from 'src/email/email.service';
+import { TemplateService } from 'src/email/template.service';
 
 @Injectable()
 export class PaymentService {
@@ -57,6 +66,8 @@ export class PaymentService {
     private readonly refundRepo: Repository<Refund>,
     private readonly businessWalletService: BusinessWalletService,
     private readonly stripeService: StripeService,
+    private readonly emailService: EmailService,
+    private readonly templateService: TemplateService,
   ) {
     this.frontendUrl = process.env.FRONTEND_URL ?? '';
     this.paystackAcessKey = process.env.PAYSTACK_SECRET_KEY!;
@@ -275,6 +286,15 @@ export class PaymentService {
         existingPayment.status = 'failed';
         await this.paymentRepo.save(existingPayment);
         this.logger.log(`Payment marked as failed: ${reference}`);
+        SlackService.notify({
+          node: SlackNode.PAYMENT,
+          provider: SlackProvider.SYSTEM,
+          severity: SlackSeverity.INFO,
+          type: SlackEventType.PAYMENT_FAILURE,
+          trigger: `Paystack verification failed (${reference})`,
+          body: `Paystack payment verification returned status: false.
+• Reference: ${reference}`,
+        });
       }
 
       return { payment: existingPayment, message: 'Payment Completed' };
@@ -321,6 +341,20 @@ export class PaymentService {
     payment.status = TransactionStatus.COMPLETED;
     payment.reason = reason ?? 'No reason provided';
     await this.transactionRepo.save(payment);
+
+    // Ledger-only — this flips the Transaction's own type/status but makes
+    // no actual gateway call, unlike refundStripeEscrow below. Flagging via
+    // Slack since nothing else here signals that money didn't really move.
+    SlackService.notify({
+      node: SlackNode.PAYMENT,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.PAYMENT_FAILURE,
+      trigger: `Ledger-only refund recorded (${transactionId})`,
+      body: `A transaction was marked REFUND/COMPLETED with no accompanying gateway call — this only updates the ledger, it does not move any real money.
+• Transaction: ${transactionId}
+• Reason: ${payment.reason}`,
+    });
 
     return { message: 'Refund successful', payment };
   }
@@ -388,6 +422,21 @@ export class PaymentService {
       await this.stripePaymentIntentRepo.save(spi);
       released.push(spi.stripePaymentIntentId);
     }
+
+    // An admin-support override that bypasses BusinessService.completeBooking
+    // entirely — worth its own trail since it's an untracked path to the
+    // same money movement.
+    SlackService.notify({
+      node: SlackNode.PAYMENT,
+      provider: SlackProvider.STRIPE,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.ADMIN_ACTION,
+      trigger: `Escrow manually released for order ${orderId}`,
+      body: `An admin manually released Stripe escrow to the merchant's wallet, bypassing the normal completeBooking flow.
+• Order: ${orderId}
+• Business: ${appointment.business?.businessName || businessId}
+• Payment intents released: ${released.length}`,
+    });
 
     return { message: 'Escrow released successfully', released };
   }
@@ -475,6 +524,38 @@ export class PaymentService {
       }
 
       refunded.push(spi.stripePaymentIntentId);
+    }
+
+    const totalRefundedCents = refundPlans.reduce((sum, p) => sum + p.refundAmountCents, 0);
+    SlackService.notify({
+      node: SlackNode.PAYMENT,
+      provider: SlackProvider.STRIPE,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.PAYMENT_FAILURE,
+      trigger: `Admin refund issued for order ${orderId}`,
+      body: `An admin issued a refund for a held Stripe escrow booking.
+• Order: ${orderId}
+• Amount: $${(totalRefundedCents / 100).toFixed(2)}
+• Reason: ${reason || 'Admin-initiated refund'}`,
+    });
+
+    const appointment = await this.appointmentRepo.findOne({
+      where: { orderId },
+      relations: ['client', 'business'],
+    });
+    if (appointment?.client?.email) {
+      const frontendUrl = this.frontendUrl || 'https://kinkyhairstylists.com';
+      const message = `Your booking with ${appointment.business?.businessName || 'the salon'} (order ${orderId}) has been refunded $${(totalRefundedCents / 100).toFixed(2)}.${reason ? ` Reason: ${reason}` : ''}`;
+      const html = this.templateService.render('communication-bulk', {
+        businessName: appointment.business?.businessName || 'Kinky Hairstylist',
+        subject: 'Your booking has been refunded',
+        clientName: appointment.client.firstName || 'there',
+        message,
+        closingRemarks: null,
+        frontendUrl,
+        year: new Date().getFullYear(),
+      });
+      this.emailService.sendEmail(appointment.client.email, 'Your booking has been refunded', message, html);
     }
 
     return { message: 'Escrow refunded successfully', refunded };

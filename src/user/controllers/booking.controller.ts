@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, Patch, UseGuards, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Patch, Query, UseGuards, BadRequestException } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { Role } from 'src/middleware/role.enum';
@@ -86,8 +86,8 @@ export class BookingController {
   @Get('fees')
   @ApiOperation({ summary: 'Get platform booking fees' })
   @ApiResponse({ status: 200, description: 'Booking fees retrieved successfully' })
-  async getBookingFees() {
-    return this.bookingService.getBookingFees();
+  async getBookingFees(@Query('businessId') businessId: string, @GetUser() user: User) {
+    return this.bookingService.getBookingFees(businessId, user?.id);
   }
 
   // Get user bookings (admin use - secured by roles)

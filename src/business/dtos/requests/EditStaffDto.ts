@@ -1,4 +1,4 @@
-import {IsString, IsOptional, IsArray, IsEmail, IsObject} from 'class-validator';
+import {IsString, IsOptional, IsArray, IsEmail, IsObject, IsNumber, Min, Max} from 'class-validator';
 import { BusinessStaffRole } from 'src/middleware/business-staff-role.enum';
 
 export class EditStaffDto {
@@ -60,4 +60,10 @@ export class EditStaffDto {
     @IsString()
     @IsOptional()
     selectedLocation?: string;
+
+    @IsNumber()
+    @IsOptional()
+    @Min(0)
+    @Max(100)
+    commissionRate?: number;
 }

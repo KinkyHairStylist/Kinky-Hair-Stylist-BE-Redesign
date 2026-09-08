@@ -15,6 +15,7 @@ import { Role } from 'src/middleware/role.enum';
 import { RolesGuard } from 'src/middleware/roles.guard';
 import { AdminService } from '../services/admin.service';
 import { CreateMembershipPlanDto } from '../../business/dtos/requests/CreateMembershipDto';
+import { BusinessPlanTier } from '../../business/entities/business.entity';
 
 @ApiTags('Admin User Management')
 @ApiBearerAuth('access-token')
@@ -137,6 +138,13 @@ export class AdminController {
   @Post('unmarkBusinessLuxury')
   async unmarkBusinessLuxury(@Body() body: { id: string }) {
     return this.adminService.unmarkBusinessLuxury(body.id);
+  }
+
+  @Post('setBusinessPlanTier')
+  async setBusinessPlanTier(
+    @Body() body: { id: string; planTier: BusinessPlanTier },
+  ) {
+    return this.adminService.setBusinessPlanTier(body.id, body.planTier);
   }
 
   @Post('rejectApplication')

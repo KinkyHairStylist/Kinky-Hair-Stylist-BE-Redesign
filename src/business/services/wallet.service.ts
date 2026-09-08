@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   InternalServerErrorException,
@@ -20,6 +21,7 @@ import {
   Transaction,
   TransactionStatus,
   TransactionType,
+  PaymentMethod,
 } from '../entities/transaction.entity';
 import {
   PaymentMethodType,
@@ -29,9 +31,19 @@ import {
 import { WalletPaymentMethod } from '../entities/payment-method.entity';
 import { Withdrawal } from 'src/admin/withdrawal/entities/withdrawal.entity';
 import { Business } from '../entities/business.entity';
+import { StripePaymentIntent } from 'src/payment/entities/stripe-payment-intent.entity';
+import { SlackService } from 'src/services/slack.service';
+import {
+  SlackEventType,
+  SlackNode,
+  SlackProvider,
+  SlackSeverity,
+} from '../../utils/enum';
 
 @Injectable()
 export class BusinessWalletService {
+  private readonly logger = new Logger(BusinessWalletService.name);
+
   constructor(
     @InjectRepository(Wallet)
     private walletRepository: Repository<Wallet>,
@@ -41,6 +53,8 @@ export class BusinessWalletService {
     private paymentMethodRepository: Repository<WalletPaymentMethod>,
     @InjectRepository(Withdrawal)
     private withdrawalRepository: Repository<Withdrawal>,
+    @InjectRepository(StripePaymentIntent)
+    private stripePaymentIntentRepository: Repository<StripePaymentIntent>,
   ) {}
 
   async createWalletForBusiness(
@@ -239,10 +253,204 @@ export class BusinessWalletService {
       wallet.balance,
     );
 
+    // Largest outbound money movement in the system — same shape as the
+    // business "goes live" notification (business.service.ts:167).
+    SlackService.notify({
+      node: SlackNode.PAYMENT,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.PAYMENT_ATTEMPT,
+      trigger: `Payout requested: ${wallet.business.businessName}`,
+      body: `A merchant requested a payout.
+• Business: ${wallet.business.businessName}
+• Amount: $${debitWalletDto.transaction.amount}
+• Withdrawal ID: ${withdrawal.id}`,
+    });
+
     return {
       transaction,
       withdrawal,
     };
+  }
+
+  // Stripe-sourced booking earnings sit here before becoming withdrawable
+  // — see Wallet.pendingBalance and Transaction.availableAt for why.
+  private static readonly PAYOUT_HOLD_HOURS = 48;
+
+  /**
+   * Credit funds to the wallet's *pending* balance instead of the live
+   * balance — held for PAYOUT_HOLD_HOURS before WalletReleaseCronService
+   * moves it to balance. Used only for Stripe-sourced booking completions
+   * (BusinessService.completeBooking) — the one path a chargeback can
+   * apply to.
+   */
+  async addFundsPending(addTransactionDto: AddTransactionDto): Promise<Transaction> {
+    if (addTransactionDto.type !== TransactionType.EARNING) {
+      throw new BadRequestException('addFundsPending is for earning transactions only');
+    }
+
+    const wallet = await this.walletRepository.findOne({
+      where: { businessId: addTransactionDto.businessId },
+    });
+    if (!wallet) {
+      throw new NotFoundException('Wallet not found');
+    }
+    if (wallet.status !== WalletStatus.ACTIVE) {
+      throw new BadRequestException('Wallet is not active');
+    }
+
+    const availableAt = new Date();
+    availableAt.setHours(availableAt.getHours() + BusinessWalletService.PAYOUT_HOLD_HOURS);
+
+    const transaction = this.transactionRepository.create({
+      walletId: wallet.id,
+      amount: addTransactionDto.amount,
+      senderId: addTransactionDto.senderId,
+      recipientId: addTransactionDto.recipientId,
+      method: addTransactionDto.method,
+      type: TransactionType.EARNING,
+      referenceId: addTransactionDto.referenceId,
+      currency: addTransactionDto.currency,
+      status: TransactionStatus.COMPLETED,
+      mode: addTransactionDto.mode,
+      description: addTransactionDto.description,
+      availableAt,
+    });
+    const saved = await this.transactionRepository.save(transaction);
+
+    wallet.pendingBalance = Number(wallet.pendingBalance) + Number(addTransactionDto.amount);
+    wallet.totalIncome = Number(wallet.totalIncome) + Number(addTransactionDto.amount);
+    await this.walletRepository.save(wallet);
+
+    return saved;
+  }
+
+  /**
+   * Debit the business for a lost Stripe dispute (or its $15 fee) — pulls
+   * from whatever's still held in pendingBalance first (money never
+   * handed out at all), then from the released balance for any
+   * remainder, which can go negative. No reserve system prevents that;
+   * the payout hold only reduces how often it happens. Called twice by
+   * the dispute handler: once for the disputed amount, once for the fee.
+   */
+  async debitWithPendingFallback(params: {
+    businessId: string;
+    amount: number;
+    type: TransactionType;
+    feeSubtype?: Transaction['feeSubtype'];
+    referenceId: string;
+    description: string;
+    senderId?: string;
+  }): Promise<Transaction> {
+    const wallet = await this.walletRepository.findOne({
+      where: { businessId: params.businessId },
+    });
+    if (!wallet) {
+      throw new NotFoundException('Wallet not found for chargeback recovery');
+    }
+
+    let remaining = params.amount;
+    const fromPending = Math.min(remaining, Number(wallet.pendingBalance));
+    if (fromPending > 0) {
+      wallet.pendingBalance = Number(wallet.pendingBalance) - fromPending;
+      remaining -= fromPending;
+    }
+    if (remaining > 0) {
+      wallet.balance = Number(wallet.balance) - remaining;
+    }
+    wallet.totalExpenses = Number(wallet.totalExpenses) + Number(params.amount);
+    await this.walletRepository.save(wallet);
+
+    return this.transactionRepository.save(
+      this.transactionRepository.create({
+        walletId: wallet.id,
+        amount: params.amount,
+        type: params.type,
+        feeSubtype: params.feeSubtype ?? null,
+        currency: wallet.currency,
+        description: params.description,
+        referenceId: params.referenceId,
+        senderId: params.senderId,
+        status: TransactionStatus.COMPLETED,
+        mode: 'Web',
+        method: PaymentMethod.STRIPE,
+      }),
+    );
+  }
+
+  // Flat per-dispute fee passed to the business, matching what card
+  // networks charge KHS's own Stripe account for a dispute existing.
+  private static readonly CHARGEBACK_FEE = 15;
+
+  /**
+   * A Stripe dispute was permanently lost — recover the disputed amount
+   * plus the flat chargeback fee from the business whose booking it was.
+   * Called only on `charge.dispute.closed` with status "lost" (a "won"
+   * dispute is a no-op elsewhere — nothing was taken from the business
+   * prematurely, so nothing needs reversing here).
+   */
+  async handleChargeback(chargeId: string, disputedAmount: number): Promise<void> {
+    const spi = await this.stripePaymentIntentRepository.findOne({
+      where: { stripeChargeId: chargeId },
+    });
+    if (!spi) {
+      this.logger.warn(`No StripePaymentIntent found for disputed charge ${chargeId} — ignoring`);
+      SlackService.notify({
+        node: SlackNode.PAYMENT,
+        provider: SlackProvider.STRIPE,
+        severity: SlackSeverity.ERROR,
+        type: SlackEventType.ERROR_ALERT,
+        trigger: `Chargeback for charge ${chargeId}`,
+        body: `A Stripe dispute was lost for charge ${chargeId}, but no matching StripePaymentIntent exists — the disputed amount ($${disputedAmount}) could not be recovered from any business. KHS absorbs this loss.`,
+      });
+      return;
+    }
+
+    try {
+      await this.debitWithPendingFallback({
+        businessId: spi.businessId,
+        amount: disputedAmount,
+        type: TransactionType.DEBIT,
+        referenceId: spi.stripePaymentIntentId,
+        description: `Chargeback recovered for order tied to charge ${chargeId}`,
+        senderId: spi.userId,
+      });
+
+      await this.debitWithPendingFallback({
+        businessId: spi.businessId,
+        amount: BusinessWalletService.CHARGEBACK_FEE,
+        type: TransactionType.FEE,
+        feeSubtype: 'ChargebackFee',
+        referenceId: spi.stripePaymentIntentId,
+        description: `Chargeback fee for order tied to charge ${chargeId}`,
+        senderId: spi.userId,
+      });
+
+      SlackService.notify({
+        node: SlackNode.PAYMENT,
+        provider: SlackProvider.STRIPE,
+        severity: SlackSeverity.CRITICAL,
+        type: SlackEventType.PAYMENT_FAILURE,
+        trigger: `Chargeback for charge ${chargeId}`,
+        body: `A Stripe dispute was lost — $${disputedAmount} plus a $${BusinessWalletService.CHARGEBACK_FEE} chargeback fee were debited from business ${spi.businessId}'s wallet.
+• Charge: ${chargeId}
+• Order: ${spi.stripePaymentIntentId}
+• Business: ${spi.businessId}`,
+      });
+    } catch (err) {
+      SlackService.notify({
+        node: SlackNode.PAYMENT,
+        provider: SlackProvider.STRIPE,
+        severity: SlackSeverity.CRITICAL,
+        type: SlackEventType.ERROR_ALERT,
+        trigger: `Chargeback for charge ${chargeId}`,
+        body: `Failed to debit business ${spi.businessId} for a lost Stripe dispute — the $${disputedAmount} charge plus $${BusinessWalletService.CHARGEBACK_FEE} fee were NOT recovered. Manual intervention needed.
+• Charge: ${chargeId}
+• Order: ${spi.stripePaymentIntentId}
+• Error: ${err instanceof Error ? err.message : String(err)}`,
+      });
+      throw err;
+    }
   }
 
   /**

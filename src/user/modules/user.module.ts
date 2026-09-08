@@ -11,6 +11,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Card } from 'src/all_user_entities/card.entity';
 import { BusinessGiftCard } from 'src/business/entities/business-giftcard.entity';
 import { Transaction } from 'src/business/entities/transaction.entity';
+import { MerchantMembershipPackage } from 'src/business/entities/merchant-membership-package.entity';
+import { MerchantMembershipPurchase } from 'src/business/entities/merchant-membership-purchase.entity';
+import { Business } from 'src/business/entities/business.entity';
 import { User } from '../../all_user_entities/user.entity';
 import { Referral } from '../user_entities/referrals.entity';
 import { Article } from 'src/all_user_entities/article.entity';
@@ -19,6 +22,7 @@ import { UserAddress } from '../user_entities/address.entity';
 
 import { UserController } from '../controllers/user.controller';
 import { GiftCardController } from '../controllers/gift-card.controller';
+import { MembershipPackageController } from '../controllers/membership-package.controller';
 import { ArticleController } from '../controllers/article.controller';
 import { TransactionController } from '../controllers/transaction.controller';
 import { AddressController } from '../controllers/address.controller';
@@ -26,6 +30,7 @@ import { UserProfileController } from '../controllers/user-profile.controller';
 
 import { UserService } from '../services/user.service';
 import { GiftCardService } from '../services/gift-card.service';
+import { MembershipPackagePurchaseService } from '../services/membership-package-purchase.service';
 import { ArticleService } from '../services/article.service';
 import { TransactionService } from '../services/transaction.service';
 import { AddressService } from '../services/address.service';
@@ -62,6 +67,9 @@ import { SlackModule } from 'src/slack/slack.module';
       Refund,
       UserAddress,
       PhoneVerification,
+      MerchantMembershipPackage,
+      MerchantMembershipPurchase,
+      Business,
     ]),
     forwardRef(() => BusinessModule),
     BusinessWalletModule,
@@ -78,6 +86,7 @@ import { SlackModule } from 'src/slack/slack.module';
   controllers: [
     UserController,
     GiftCardController,
+    MembershipPackageController,
     ArticleController,
     TransactionController,
     AddressController,
@@ -88,6 +97,7 @@ import { SlackModule } from 'src/slack/slack.module';
     UserService,
     JwtRefreshStrategy,
     GiftCardService,
+    MembershipPackagePurchaseService,
     ArticleService,
     TransactionService,
     AddressService,
