@@ -8,6 +8,14 @@ import {
 import { Business, BusinessStatus } from '../entities/business.entity';
 import { StripeService } from '../../payment/stripe.service';
 import { EmailService } from '../../email/email.service';
+import { TemplateService } from '../../email/template.service';
+import { SlackService } from '../../services/slack.service';
+import {
+  SlackEventType,
+  SlackNode,
+  SlackProvider,
+  SlackSeverity,
+} from '../../utils/enum';
 
 const TRIAL_DAYS = 14;
 
@@ -22,6 +30,7 @@ export class MerchantSubscriptionService {
     private readonly businessRepo: Repository<Business>,
     private readonly stripeService: StripeService,
     private readonly emailService: EmailService,
+    private readonly templateService: TemplateService,
   ) {}
 
   // Called from admin approveApplication. Idempotent — a reject→reapprove
@@ -141,7 +150,21 @@ export class MerchantSubscriptionService {
     );
 
     sub.stripeSubscriptionId = stripeSubscription.id;
-    return this.merchantSubscriptionRepo.save(sub);
+    const saved = await this.merchantSubscriptionRepo.save(sub);
+
+    const business = await this.businessRepo.findOne({ where: { id: businessId } });
+    SlackService.notify({
+      node: SlackNode.PAYMENT,
+      provider: SlackProvider.STRIPE,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.SUBSCRIPTION_UPDATE,
+      trigger: `Merchant converted trial to paid: ${business?.businessName || businessId}`,
+      body: `A merchant added a payment method and started real Stripe billing.
+• Business: ${business?.businessName || businessId}
+• Subscription: ${stripeSubscription.id}`,
+    });
+
+    return saved;
   }
 
   // ---- Stripe webhook handlers — thin, idempotent, log not throw ----
@@ -174,6 +197,36 @@ export class MerchantSubscriptionService {
         `Failed to send subscription-lapsed email for business ${business.id}: ${error.message}`,
       );
     }
+
+    // Going live posts to Slack (business.service.ts) — going dark from a
+    // cancelled subscription previously didn't.
+    SlackService.notify({
+      node: SlackNode.PAYMENT,
+      provider: SlackProvider.STRIPE,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.SUBSCRIPTION_CANCEL,
+      trigger: `Merchant subscription cancelled: ${business.businessName}`,
+      body: `A merchant's Stripe subscription was cancelled and their storefront has been suspended.
+• Business: ${business.businessName}
+• Stripe subscription: ${stripeSubscriptionId}`,
+    });
+  }
+
+  private sendPaymentFailedEmail(business: Business): void {
+    if (!business.ownerEmail) return;
+    const frontendUrl = process.env.FRONTEND_URL || 'https://kinkyhairstylists.com';
+    const subject = 'Your KHS billing payment failed';
+    const message = `We couldn't process your latest KHS subscription payment for ${business.businessName}. You have 7 days to update your payment method before your storefront is suspended.`;
+    const html = this.templateService.render('communication-bulk', {
+      businessName: business.businessName,
+      subject,
+      clientName: business.ownerName || 'there',
+      message,
+      closingRemarks: null,
+      frontendUrl,
+      year: new Date().getFullYear(),
+    });
+    this.emailService.sendEmail(business.ownerEmail, subject, message, html);
   }
 
   async handlePaymentFailed(stripeSubscriptionId: string): Promise<void> {
@@ -183,11 +236,31 @@ export class MerchantSubscriptionService {
     if (!sub) return;
     // Don't reset the grace-period clock on Stripe's own repeated retries
     // of the same invoice — only set pastDueSince the first time.
-    if (sub.status !== MerchantSubscriptionStatus.PAST_DUE) {
+    const isFirstFailure = sub.status !== MerchantSubscriptionStatus.PAST_DUE;
+    if (isFirstFailure) {
       sub.pastDueSince = new Date();
     }
     sub.status = MerchantSubscriptionStatus.PAST_DUE;
     await this.merchantSubscriptionRepo.save(sub);
+
+    // Previously the merchant only found out 7 days later when the cron
+    // suspended them — notify immediately instead.
+    if (isFirstFailure) {
+      const business = await this.businessRepo.findOne({ where: { id: sub.businessId } });
+      if (business) {
+        this.sendPaymentFailedEmail(business);
+      }
+      SlackService.notify({
+        node: SlackNode.PAYMENT,
+        provider: SlackProvider.STRIPE,
+        severity: SlackSeverity.ERROR,
+        type: SlackEventType.PAYMENT_FAILURE,
+        trigger: `Merchant billing payment failed: ${business?.businessName || sub.businessId}`,
+        body: `A merchant's KHS subscription payment failed. 7-day grace period started before suspension.
+• Business: ${business?.businessName || sub.businessId}
+• Stripe subscription: ${stripeSubscriptionId}`,
+      });
+    }
   }
 
   async handlePaymentSucceeded(
@@ -202,5 +275,17 @@ export class MerchantSubscriptionService {
     sub.pastDueSince = null;
     sub.currentPeriodEnd = currentPeriodEnd;
     await this.merchantSubscriptionRepo.save(sub);
+
+    SlackService.notify({
+      node: SlackNode.PAYMENT,
+      provider: SlackProvider.STRIPE,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.PAYMENT_SUCCESS,
+      trigger: `Merchant billing payment succeeded (${sub.businessId})`,
+      body: `Recurring merchant billing revenue landed.
+• Business: ${sub.businessId}
+• Stripe subscription: ${stripeSubscriptionId}
+• Current period end: ${currentPeriodEnd.toLocaleDateString('en-US')}`,
+    });
   }
 }

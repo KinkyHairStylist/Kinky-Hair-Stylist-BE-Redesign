@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { MerchantSubscriptionService } from '../../business/services/merchant-subscription.service';
 import { EmailService } from '../../email/email.service';
+import { TemplateService } from '../../email/template.service';
 import { SlackService } from '../../services/slack.service';
 import {
   SlackEventType,
@@ -66,6 +67,7 @@ export class AdminService {
     @InjectRepository(Transaction)
     private transactionRepo: Repository<Transaction>,
     private emailService: EmailService,
+    private templateService: TemplateService,
     private paymentService: PaymentService,
     private readonly merchantSubscriptionService: MerchantSubscriptionService,
     private readonly dataSource: DataSource,
@@ -617,7 +619,36 @@ async getAllBusinesses() {
       throw new UnauthorizedException('Application not found');
     }
     application.status = BusinessStatus.REJECTED;
-    return this.businessRepo.save(application);
+    const saved = await this.businessRepo.save(application);
+
+    SlackService.notify({
+      node: SlackNode.FINANCE,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.ADMIN_ACTION,
+      trigger: `Merchant application rejected: ${saved.businessName}`,
+      body: `An admin rejected a merchant application.
+• Business: ${saved.businessName}
+• Owner: ${saved.ownerEmail || 'unknown'}`,
+    });
+
+    if (saved.ownerEmail) {
+      const frontendUrl = process.env.FRONTEND_URL || 'https://kinkyhairstylists.com';
+      const subject = 'Your KHS merchant application';
+      const message = `Thanks for applying to join KHS as a merchant. After review, we're unable to approve your application for ${saved.businessName} at this time.`;
+      const html = this.templateService.render('communication-bulk', {
+        businessName: saved.businessName,
+        subject,
+        clientName: saved.ownerName || 'there',
+        message,
+        closingRemarks: null,
+        frontendUrl,
+        year: new Date().getFullYear(),
+      });
+      this.emailService.sendEmail(saved.ownerEmail, subject, message, html);
+    }
+
+    return saved;
   }
 
   async approveApplication(id: string) {
@@ -721,6 +752,32 @@ async getAllBusinesses() {
     business.status = BusinessStatus.SUSPENDED;
     await this.businessRepo.save(business);
 
+    SlackService.notify({
+      node: SlackNode.FINANCE,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.ADMIN_ACTION,
+      trigger: `Admin suspended business: ${business.businessName}`,
+      body: `An admin manually suspended a live storefront.
+• Business: ${business.businessName}`,
+    });
+
+    if (business.ownerEmail) {
+      const frontendUrl = process.env.FRONTEND_URL || 'https://kinkyhairstylists.com';
+      const subject = 'Your KHS storefront has been suspended';
+      const message = `Your storefront for ${business.businessName} has been suspended by KHS. Please contact support for more information.`;
+      const html = this.templateService.render('communication-bulk', {
+        businessName: business.businessName,
+        subject,
+        clientName: business.ownerName || 'there',
+        message,
+        closingRemarks: null,
+        frontendUrl,
+        year: new Date().getFullYear(),
+      });
+      this.emailService.sendEmail(business.ownerEmail, subject, message, html);
+    }
+
     return { message: `Business has been suspended.` };
   }
 
@@ -745,6 +802,16 @@ async getAllBusinesses() {
 
     business.status = BusinessStatus.APPROVED;
     await this.businessRepo.save(business);
+
+    SlackService.notify({
+      node: SlackNode.FINANCE,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.ADMIN_ACTION,
+      trigger: `Admin unsuspended business: ${business.businessName}`,
+      body: `An admin restored a suspended storefront.
+• Business: ${business.businessName}`,
+    });
 
     return { message: `Business has been unsuspended.` };
   }

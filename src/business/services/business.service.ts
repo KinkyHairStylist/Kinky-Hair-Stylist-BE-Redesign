@@ -995,6 +995,18 @@ async getBooking(id: string) {
 
     await this.appointmentRepo.save(appointment);
 
+    if (appointment.client?.email) {
+      this.emailService.sendCancellationConfirmationEmail(
+        appointment.client.email,
+        appointment.client.firstName || 'Valued Customer',
+        appointment.business?.businessName || 'the salon',
+        appointment.serviceName || 'your service',
+        appointment.date,
+        appointment.time,
+        'This booking was rejected by the business.',
+      );
+    }
+
     const settings = await this.businessOwnerSettingsService.findByBusinessId(
       appointment.business.id,
     );

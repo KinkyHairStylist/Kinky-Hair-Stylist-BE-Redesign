@@ -483,7 +483,29 @@ export class BusinessGiftCardsService {
   async markAsExpired(id: string): Promise<BusinessGiftCard> {
     const giftCard = await this.findOne(id);
     giftCard.status = BusinessGiftCardStatus.INACTIVE;
-    return await this.giftCardRepository.save(giftCard);
+    const saved = await this.giftCardRepository.save(giftCard);
+    this.notifyGiftCardDeactivated(giftCard, 'marked expired');
+    return saved;
+  }
+
+  private notifyGiftCardDeactivated(giftCard: BusinessGiftCard, reason: string): void {
+    const holderEmail = giftCard.recipientEmail || giftCard.ownerEmail;
+    const holderName = giftCard.recipientName || giftCard.ownerFullName || 'there';
+    if (!holderEmail || Number(giftCard.remainingAmount) <= 0) return;
+
+    const frontendUrl = process.env.FRONTEND_URL || 'https://kinkyhairstylists.com';
+    const subject = 'Your gift card has been deactivated';
+    const message = `Your gift card "${giftCard.title}" (${giftCard.code}) was ${reason} with a remaining balance of $${Number(giftCard.remainingAmount).toFixed(2)}. Please contact the business if you believe this is a mistake.`;
+    const html = this.templateService.render('communication-bulk', {
+      businessName: 'Kinky Hairstylist',
+      subject,
+      clientName: holderName,
+      message,
+      closingRemarks: null,
+      frontendUrl,
+      year: new Date().getFullYear(),
+    });
+    this.emailService.sendEmail(holderEmail, subject, message, html);
   }
 
   async markAsDelivered(id: string): Promise<BusinessGiftCard> {
@@ -500,7 +522,9 @@ export class BusinessGiftCardsService {
     }
 
     giftCard.status = BusinessGiftCardStatus.INACTIVE;
-    return await this.giftCardRepository.save(giftCard);
+    const saved = await this.giftCardRepository.save(giftCard);
+    this.notifyGiftCardDeactivated(giftCard, 'cancelled by the business');
+    return saved;
   }
 
   async remove(id: string): Promise<void> {

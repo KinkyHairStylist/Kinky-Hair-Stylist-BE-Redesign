@@ -9,6 +9,13 @@ import {
 import { Business, BusinessStatus } from '../entities/business.entity';
 import { StripeService } from '../../payment/stripe.service';
 import { EmailService } from '../../email/email.service';
+import { SlackService } from '../../services/slack.service';
+import {
+  SlackEventType,
+  SlackNode,
+  SlackProvider,
+  SlackSeverity,
+} from '../../utils/enum';
 
 const PAST_DUE_GRACE_DAYS = 7;
 
@@ -68,6 +75,18 @@ export class MerchantSubscriptionCronService {
           this.logger.error(
             `Failed to cancel Stripe subscription ${sub.stripeSubscriptionId} during grace-period sweep: ${error.message}`,
           );
+          // The business is suspended below regardless of this failure —
+          // meaning Stripe keeps billing a merchant KHS has already cut off.
+          SlackService.notify({
+            node: SlackNode.PAYMENT,
+            provider: SlackProvider.STRIPE,
+            severity: SlackSeverity.ERROR,
+            type: SlackEventType.ERROR_ALERT,
+            trigger: `Stripe subscription cancel failed (${sub.businessId})`,
+            body: `Failed to cancel Stripe subscription ${sub.stripeSubscriptionId} during the grace-period sweep — the business is being suspended anyway, so Stripe will keep billing a suspended merchant until this is fixed manually.
+• Business: ${sub.businessId}
+• Error: ${error instanceof Error ? error.message : String(error)}`,
+          });
         }
       }
       await this.suspendForBilling(sub, 'payment_failed_grace_period_exceeded');
@@ -101,5 +120,18 @@ export class MerchantSubscriptionCronService {
         `Failed to send subscription-lapsed email for business ${business.id}: ${error.message}`,
       );
     }
+
+    // A business going live posts to Slack (business.service.ts) — going
+    // dark for non-payment previously didn't.
+    SlackService.notify({
+      node: SlackNode.PAYMENT,
+      provider: SlackProvider.STRIPE,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.SUBSCRIPTION_CANCEL,
+      trigger: `Business suspended for billing: ${business.businessName}`,
+      body: `A merchant's storefront was suspended for non-payment.
+• Business: ${business.businessName}
+• Reason: ${cancelReason}`,
+    });
   }
 }
