@@ -224,6 +224,11 @@ async getBooking(id: string) {
     }
 
     appointment.status = AppointmentStatus.COMPLETED;
+    // Completing a service means it was paid for one way or another,
+    // regardless of which payment method was used (cash/walk-in bookings
+    // previously stayed stuck at Unpaid forever since nothing else here
+    // sets this for non-Stripe payment methods).
+    appointment.paymentStatus = PaymentStatus.PAID;
 
     if (appointment.client?.id) {
       try {
@@ -278,15 +283,16 @@ async getBooking(id: string) {
           });
         }
 
-        // Deposit-only booking: KHS's commission + acquisition fee come
-        // out of the deposit at completion time (the client already paid
-        // the other 50% of the full price directly to the merchant at the
-        // venue, outside the platform entirely) — cancellation logic is
-        // unaffected, it already operates on the gross bookingAmount for
+        // KHS's commission + acquisition fee are charged to the client at
+        // checkout, so they must come back out of the merchant's payout
+        // here — for both booking types. (Previously only the deposit
+        // path subtracted them; a full/non-deposit booking credited the
+        // merchant the entire client charge, fees included, so KHS's cut
+        // never actually landed anywhere.) Cancellation logic is
+        // unaffected — it already operates on the gross bookingAmount for
         // both booking types.
-        const netAmount = spi.isDeposit
-          ? spi.bookingAmount - Number(spi.acquisitionFeeAmount) - Number(spi.commissionFeeAmount)
-          : spi.bookingAmount;
+        const netAmount =
+          spi.bookingAmount - Number(spi.acquisitionFeeAmount) - Number(spi.commissionFeeAmount);
 
         // Informational staff commission — no staff wallet exists (staff
         // have no working login yet), so this only ever records a number
