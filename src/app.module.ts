@@ -10,6 +10,7 @@ import { GiftcardModule } from './admin/giftcard/admin_giftcard.module';
 import { PaymentModule } from './admin/payment/payment.module';
 import { TransactionFeeModule } from './admin/transaction-fee/transaction-fee.module';
 import { WithdrawalModule } from './admin/withdrawal/withdrawal.module';
+import { AlertsModule } from './admin/alerts/alerts.module';
 import { WalletModule } from './admin/wallet/wallet.module';
 import { SalonModule } from './user/modules/salon.module';
 import { BookingModule } from './user/modules/booking.module';
@@ -96,6 +97,7 @@ import { LandingModule } from './landing/landing.module';
     PaymentModule,
     TransactionFeeModule,
     WithdrawalModule,
+    AlertsModule,
     WalletModule,
     ClientModule,
     ReminderModule,
