@@ -1680,10 +1680,18 @@ export class BookingService {
   async getUserBookings(userId: string): Promise<Appointment[]> {
     await this.expireStalePendingBookings(userId);
 
-    return await this.bookingRepository.find({
+    const appointments = await this.bookingRepository.find({
       where: { client: { id: userId } },
       relations: ['business', 'service', 'staff'],
     });
+
+    const orderIds = [...new Set(appointments.map((a) => a.orderId))];
+    const reviewedOrderIds = await this.reviewService.getReviewedOrderIds(orderIds);
+
+    return appointments.map((a) => ({
+      ...a,
+      hasReview: reviewedOrderIds.has(a.orderId),
+    })) as Appointment[];
   }
 
   // Get Booking by ID
@@ -1704,7 +1712,14 @@ export class BookingService {
     if (!appointments || appointments.length === 0) {
       throw new NotFoundException('No appointments found for this order ID');
     }
-    return appointments;
+
+    const orderIds = [...new Set(appointments.map((a) => a.orderId))];
+    const reviewedOrderIds = await this.reviewService.getReviewedOrderIds(orderIds);
+
+    return appointments.map((a) => ({
+      ...a,
+      hasReview: reviewedOrderIds.has(a.orderId),
+    })) as Appointment[];
   }
 
   // Cancel Booking
@@ -2343,7 +2358,13 @@ export class BookingService {
       clientId: client!.id,
       ownerId: business.owner.id,
       businessId: business.id,
-      orderId: appointment.orderId, 
+      orderId: appointment.orderId,
+      // Auto-attributed to whichever staff member worked this appointment
+      // — Review had no link to Staff at all before this, so a per-staff
+      // rating could never be computed. Appointment.staff is a
+      // many-to-many (eager) but a booking is almost always one staff
+      // member in practice; null if none was assigned.
+      staffId: appointment.staff?.[0]?.id ?? null,
       rating,
       comment,
       service: appointment.serviceName,
