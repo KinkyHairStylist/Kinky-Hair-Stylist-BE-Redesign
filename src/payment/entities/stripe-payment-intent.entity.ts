@@ -57,8 +57,29 @@ export class StripePaymentIntent {
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   bookingAmount: number;
 
+  // Deprecated — kept so historical rows stay readable. New rows use the
+  // three itemized columns below instead (Phase 1 fee-model split).
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   feeAmount: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  acquisitionFeeAmount: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  commissionFeeAmount: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  stripePassthroughFeeAmount: number;
+
+  // True for a deposit-only booking — bookingAmount above is the 50%
+  // deposit charge (gross, matching its normal meaning), not the full
+  // service price. Read only by BusinessService.completeBooking, which
+  // nets acquisitionFeeAmount + commissionFeeAmount out of it before
+  // crediting the wallet (KHS's cut comes out of the deposit at
+  // completion; cancellation logic is unaffected, it already operates
+  // generically on the gross bookingAmount for both booking types).
+  @Column({ type: 'boolean', default: false })
+  isDeposit: boolean;
 
   @Column({
     type: 'enum',

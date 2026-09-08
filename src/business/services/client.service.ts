@@ -3,6 +3,7 @@ import {
   HttpStatus,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -25,6 +26,7 @@ import {
 } from './business-cloudinary.service';
 import { PasswordHashingHelper } from 'src/helpers/password-hashing.helper';
 import { User } from 'src/all_user_entities/user.entity';
+import { Appointment } from '../entities/appointment.entity';
 import sgMail from '@sendgrid/mail';
 
 @Injectable()
@@ -53,6 +55,9 @@ export class ClientService {
 
     @InjectRepository(Review)
     private readonly reviewRepo: Repository<Review>,
+
+    @InjectRepository(Appointment)
+    private readonly appointmentRepo: Repository<Appointment>,
 
     private readonly businessCloudinaryService: BusinessCloudinaryService,
     private readonly dataSource: DataSource,
@@ -705,6 +710,53 @@ export class ClientService {
     }
   }
 
+  // A client's real booking history — previously the merchant's
+  // client-details page rendered a hardcoded mock array here instead of
+  // fetching anything. Matches on either side of how an appointment can
+  // be linked to a client: businessClient (merchant added them directly)
+  // or client (a real platform account whose email matches this client
+  // record, scoped to this merchant so it can't leak another business's
+  // history for the same email).
+  async getClientAppointments(
+    clientId: string,
+    ownerId: string,
+  ): Promise<ApiResponse<any[]>> {
+    try {
+      const client = await this.clientRepo.findOne({
+        where: { id: clientId, ownerId },
+      });
+      if (!client) {
+        return {
+          success: false,
+          error: 'Client not found',
+          message: 'Client not found or access denied',
+        };
+      }
+
+      const appointments = await this.appointmentRepo.find({
+        where: [
+          { businessClient: { id: clientId } },
+          { client: { email: client.email }, business: { ownerId } },
+        ],
+        relations: ['service', 'staff', 'business'],
+        order: { createdAt: 'DESC' },
+      });
+
+      return {
+        success: true,
+        data: appointments,
+        message: 'Client appointments retrieved successfully',
+      };
+    } catch (error) {
+      console.error('Get client appointments error:', error);
+      return {
+        success: false,
+        error: error.message,
+        message: 'Failed to fetch client appointments',
+      };
+    }
+  }
+
   async updateClient(
     clientId: string,
     ownerId: string,
@@ -867,15 +919,29 @@ export class ClientService {
   }
 
   private async getClientWithRelations(clientId: string): Promise<any> {
-    const [client, addresses, emergencyContacts, settings] = await Promise.all([
+    const [client, addresses, emergencyContacts, settings, avgRatingRow] = await Promise.all([
       this.clientRepo.findOneBy({ id: clientId }),
       this.clientAddressRepo.findBy({ clientId }),
       this.emergencyContactRepo.findBy({ clientId }),
       this.clientSettingsRepo.findOneBy({ clientId }),
+      // Same aggregation the client list uses — average rating THIS
+      // client has given out in their own reviews (not a score of them).
+      this.reviewRepo
+        .createQueryBuilder('review')
+        .select('AVG(review.rating)', 'avgRating')
+        .addSelect('COUNT(review.id)', 'reviewCount')
+        .where('review.clientId = :clientId', { clientId })
+        .getRawOne<{ avgRating: string | null; reviewCount: string }>(),
     ]);
 
     return {
-      profile: client,
+      profile: client
+        ? {
+            ...client,
+            averageRating: avgRatingRow?.avgRating ? Number(avgRatingRow.avgRating) : 0,
+            reviewCount: Number(avgRatingRow?.reviewCount ?? 0),
+          }
+        : client,
       addresses,
       emergencyContacts,
       settings,

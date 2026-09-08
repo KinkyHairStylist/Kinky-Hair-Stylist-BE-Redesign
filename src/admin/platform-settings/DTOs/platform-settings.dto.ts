@@ -33,6 +33,19 @@ export class UpdatePaymentSettingsDto {
     bankTransfers?: boolean;
   };
   @IsOptional() payoutSchedule?: 'Weekly' | 'Bi-Weekly' | 'Monthly';
+  @IsOptional() acquisitionFeeTiers?: {
+    Starter?: number;
+    Growth?: number;
+    Pro?: number;
+  };
+  @IsOptional() @IsNumber() commissionRate?: number;
+  @IsOptional() @IsNumber() stripePassthroughRate?: number;
+  @IsOptional() @IsNumber() stripePassthroughFixedFee?: number;
+  @IsOptional() subscriptionPrices?: {
+    Starter?: { priceId?: string; displayAmount?: number };
+    Growth?: { priceId?: string; displayAmount?: number };
+    Pro?: { priceId?: string; displayAmount?: number };
+  };
 }
 
 export class UpdateFeaturesSettingsDto {

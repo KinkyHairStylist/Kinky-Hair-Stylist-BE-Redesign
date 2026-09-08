@@ -5,7 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Not, Repository } from 'typeorm';
+import { DataSource, Not, Repository } from 'typeorm';
 import { BusinessGiftCard } from '../entities/business-giftcard.entity';
 import {
   BusinessGiftCardFiltersDto,
@@ -19,6 +19,24 @@ import {
   BusinessSentStatus,
 } from '../enum/gift-card.enum';
 import { Business } from '../entities/business.entity';
+import {
+  Transaction,
+  TransactionType,
+  PaymentMethod,
+  TransactionStatus as TxnStatus,
+} from '../entities/transaction.entity';
+import { WalletCurrency } from '../../admin/payment/enums/wallet.enum';
+import { PlatformSettingsService } from '../../admin/platform-settings/platform-settings.service';
+import { BusinessWalletService } from './wallet.service';
+import { SlackService } from 'src/services/slack.service';
+import {
+  SlackEventType,
+  SlackNode,
+  SlackProvider,
+  SlackSeverity,
+} from '../../utils/enum';
+import { EmailService } from 'src/email/email.service';
+import { TemplateService } from 'src/email/template.service';
 
 @Injectable()
 export class BusinessGiftCardsService {
@@ -27,6 +45,13 @@ export class BusinessGiftCardsService {
     private giftCardRepository: Repository<BusinessGiftCard>,
     @InjectRepository(Business)
     private businessRepository: Repository<Business>,
+    @InjectRepository(Transaction)
+    private transactionRepository: Repository<Transaction>,
+    private readonly dataSource: DataSource,
+    private readonly platformSettingsService: PlatformSettingsService,
+    private readonly walletService: BusinessWalletService,
+    private readonly emailService: EmailService,
+    private readonly templateService: TemplateService,
   ) {}
 
   async create(
@@ -317,14 +342,130 @@ export class BusinessGiftCardsService {
       );
     }
 
-    giftCard.remainingAmount -= amountToRedeem;
+    // Commission (flat rate) is skimmed here, on redemption — not at
+    // purchase, when the full value just enters the pre-paid pool. The
+    // business gets the net share credited to their wallet; KHS's cut is
+    // recorded as its own Transaction row for the ledger.
+    const payments = await this.platformSettingsService.getPayments();
+    const commissionRate = Number(payments.commissionRate) || 0;
+    const commissionAmount = amountToRedeem * (commissionRate / 100);
+    const netToBusiness = amountToRedeem - commissionAmount;
 
-    if (giftCard.remainingAmount === 0) {
-      giftCard.status = BusinessGiftCardStatus.USED;
-      giftCard.redeemedAt = new Date();
+    const business = await this.businessRepository.findOne({
+      where: { id: giftCard.businessId },
+      relations: ['owner'],
+    });
+
+    const savedGiftCard = await this.dataSource.manager.transaction(
+      async (manager) => {
+        giftCard.remainingAmount -= amountToRedeem;
+        if (giftCard.remainingAmount === 0) {
+          giftCard.status = BusinessGiftCardStatus.USED;
+          giftCard.redeemedAt = new Date();
+        }
+        const saved = await manager.save(BusinessGiftCard, giftCard);
+
+        if (commissionAmount > 0) {
+          const commissionTx = manager.create(Transaction, {
+            recipientId: business?.owner?.id,
+            amount: commissionAmount,
+            type: TransactionType.FEE,
+            feeSubtype: 'Commission',
+            currency: WalletCurrency.USD,
+            description: `Commission for gift card redemption (${giftCard.code})`,
+            mode: 'Web',
+            referenceId: giftCard.code,
+            status: TxnStatus.COMPLETED,
+            method: PaymentMethod.GIFTCARD,
+            service: 'GiftCard-Redemption-Fee',
+          });
+          await manager.save(Transaction, commissionTx);
+        }
+
+        return saved;
+      },
+    );
+
+    // Credit the business's net share — mirrors how a booking's
+    // bookingAmount (never the fee) gets credited via addFunds.
+    if (netToBusiness > 0 && business?.id && business?.owner?.id) {
+      try {
+        // Mirrors booking.service.ts's own fallback: a business that's
+        // never had a paid booking (only ever sold prepaid gift cards)
+        // may genuinely have no wallet row yet.
+        try {
+          await this.walletService.getWalletByBusinessId(business.id);
+        } catch {
+          await this.walletService.createWalletForBusiness({
+            businessId: business.id,
+            ownerId: business.owner.id,
+            currency: WalletCurrency.USD,
+            description: 'Business wallet - auto-created from gift card redemption',
+          });
+        }
+
+        await this.walletService.addFunds({
+          businessId: business.id,
+          recipientId: business.owner.id,
+          senderId: business.owner.id,
+          amount: netToBusiness,
+          type: TransactionType.EARNING,
+          description: `Gift card redemption (${giftCard.code})`,
+          referenceId: giftCard.code,
+          currency: WalletCurrency.USD,
+          mode: 'Web',
+          method: PaymentMethod.GIFTCARD,
+        });
+      } catch (walletError) {
+        console.error('Failed to credit business wallet for gift card redemption:', walletError);
+        // The card is already saved USED/decremented inside the committed
+        // transaction above — if crediting the wallet fails here, the
+        // business is never paid for a redemption that already happened.
+        SlackService.notify({
+          node: SlackNode.PAYMENT,
+          provider: SlackProvider.SYSTEM,
+          severity: SlackSeverity.CRITICAL,
+          type: SlackEventType.ERROR_ALERT,
+          trigger: `Gift card redemption wallet credit failed (${giftCard.code})`,
+          body: `A business gift card was redeemed and its balance already decremented, but crediting the business's wallet for the net amount ($${netToBusiness}) failed.
+• Gift card: ${giftCard.code}
+• Business: ${business?.businessName || business?.id}
+• Error: ${walletError instanceof Error ? walletError.message : String(walletError)}`,
+        });
+      }
     }
 
-    return await this.giftCardRepository.save(giftCard);
+    SlackService.notify({
+      node: SlackNode.PAYMENT,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.PAYMENT_SUCCESS,
+      trigger: `Gift card redeemed in-store (${giftCard.code})`,
+      body: `A business gift card was redeemed in-store by the merchant.
+• Gift card: ${giftCard.title} (${giftCard.code})
+• Business: ${business?.businessName || business?.id}
+• Amount redeemed: $${amountToRedeem.toFixed(2)}
+• Remaining balance: $${savedGiftCard.remainingAmount.toFixed(2)}`,
+    });
+
+    const holderEmail = giftCard.recipientEmail || giftCard.ownerEmail;
+    const holderName = giftCard.recipientName || giftCard.ownerFullName;
+    if (holderEmail) {
+      const frontendUrl = process.env.FRONTEND_URL || 'https://kinkyhairstylists.com';
+      const message = `$${amountToRedeem.toFixed(2)} was redeemed from your gift card "${giftCard.title}" (${giftCard.code}) at ${business?.businessName || 'the salon'}. Remaining balance: $${savedGiftCard.remainingAmount.toFixed(2)}.`;
+      const html = this.templateService.render('communication-bulk', {
+        businessName: business?.businessName || 'Kinky Hairstylist',
+        subject: 'Your gift card was redeemed',
+        clientName: holderName || 'there',
+        message,
+        closingRemarks: null,
+        frontendUrl,
+        year: new Date().getFullYear(),
+      });
+      this.emailService.sendEmail(holderEmail, 'Your gift card was redeemed', message, html);
+    }
+
+    return savedGiftCard;
   }
 
   async markAsSent(id: string): Promise<BusinessGiftCard> {
@@ -342,7 +483,29 @@ export class BusinessGiftCardsService {
   async markAsExpired(id: string): Promise<BusinessGiftCard> {
     const giftCard = await this.findOne(id);
     giftCard.status = BusinessGiftCardStatus.INACTIVE;
-    return await this.giftCardRepository.save(giftCard);
+    const saved = await this.giftCardRepository.save(giftCard);
+    this.notifyGiftCardDeactivated(giftCard, 'marked expired');
+    return saved;
+  }
+
+  private notifyGiftCardDeactivated(giftCard: BusinessGiftCard, reason: string): void {
+    const holderEmail = giftCard.recipientEmail || giftCard.ownerEmail;
+    const holderName = giftCard.recipientName || giftCard.ownerFullName || 'there';
+    if (!holderEmail || Number(giftCard.remainingAmount) <= 0) return;
+
+    const frontendUrl = process.env.FRONTEND_URL || 'https://kinkyhairstylists.com';
+    const subject = 'Your gift card has been deactivated';
+    const message = `Your gift card "${giftCard.title}" (${giftCard.code}) was ${reason} with a remaining balance of $${Number(giftCard.remainingAmount).toFixed(2)}. Please contact the business if you believe this is a mistake.`;
+    const html = this.templateService.render('communication-bulk', {
+      businessName: 'Kinky Hairstylist',
+      subject,
+      clientName: holderName,
+      message,
+      closingRemarks: null,
+      frontendUrl,
+      year: new Date().getFullYear(),
+    });
+    this.emailService.sendEmail(holderEmail, subject, message, html);
   }
 
   async markAsDelivered(id: string): Promise<BusinessGiftCard> {
@@ -359,7 +522,9 @@ export class BusinessGiftCardsService {
     }
 
     giftCard.status = BusinessGiftCardStatus.INACTIVE;
-    return await this.giftCardRepository.save(giftCard);
+    const saved = await this.giftCardRepository.save(giftCard);
+    this.notifyGiftCardDeactivated(giftCard, 'cancelled by the business');
+    return saved;
   }
 
   async remove(id: string): Promise<void> {

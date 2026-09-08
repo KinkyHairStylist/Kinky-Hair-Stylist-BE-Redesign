@@ -5,13 +5,23 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
+import { MerchantSubscriptionService } from '../../business/services/merchant-subscription.service';
 import { EmailService } from '../../email/email.service';
+import { TemplateService } from '../../email/template.service';
+import { SlackService } from '../../services/slack.service';
+import {
+  SlackEventType,
+  SlackNode,
+  SlackProvider,
+  SlackSeverity,
+} from '../../utils/enum';
 import { invalidateCache } from '../../cache/cache.interceptor';
 import { User } from '../../all_user_entities/user.entity';
 import {
   Business,
   BusinessStatus,
+  BusinessPlanTier,
 } from '../../business/entities/business.entity';
 import { ApplicationStatus } from '../../business/types/constants';
 import {
@@ -57,7 +67,10 @@ export class AdminService {
     @InjectRepository(Transaction)
     private transactionRepo: Repository<Transaction>,
     private emailService: EmailService,
+    private templateService: TemplateService,
     private paymentService: PaymentService,
+    private readonly merchantSubscriptionService: MerchantSubscriptionService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async getNearbySalons(body: { latitude: number; longitude: number }) {
@@ -363,7 +376,36 @@ export class AdminService {
       throw new Error('Subscription plan not found');
     }
     subscription.status = Status.CANCELLED;
-    return await this.subscriptionRepo.save(subscription);
+    const saved = await this.subscriptionRepo.save(subscription);
+
+    SlackService.notify({
+      node: SlackNode.FINANCE,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.ADMIN_ACTION,
+      trigger: `Admin cancelled customer subscription (${id})`,
+      body: `An admin cancelled a customer's KHS membership subscription.
+• Subscription: ${id}
+• Customer: ${subscription.user?.email || 'unknown'}`,
+    });
+
+    if (subscription.user?.email) {
+      const frontendUrl = process.env.FRONTEND_URL || 'https://kinkyhairstylists.com';
+      const subject = 'Your KHS membership has been cancelled';
+      const message = `Your KHS membership subscription has been cancelled by our team. If you believe this is a mistake, please contact support.`;
+      const html = this.templateService.render('communication-bulk', {
+        businessName: 'Kinky Hairstylist',
+        subject,
+        clientName: subscription.user.firstName || 'there',
+        message,
+        closingRemarks: null,
+        frontendUrl,
+        year: new Date().getFullYear(),
+      });
+      this.emailService.sendEmail(subscription.user.email, subject, message, html);
+    }
+
+    return saved;
   }
 
   async getAllSubscribers(): Promise<GetSubscriptionDto[]> {
@@ -451,6 +493,7 @@ export class AdminService {
   async cancelAppointment(appointmentId: string, reason: string) {
     const appointment = await this.appointmentRepo.findOne({
       where: { id: appointmentId },
+      relations: ['client', 'business'],
     });
     if (!appointment) {
       throw new UnauthorizedException('appointment does not exist');
@@ -474,6 +517,31 @@ export class AdminService {
     appointment.status = AppointmentStatus.CANCELLED;
     appointment.cancellationsNote = reason;
     await this.appointmentRepo.save(appointment);
+
+    SlackService.notify({
+      node: SlackNode.PAYMENT,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.ADMIN_ACTION,
+      trigger: `Admin cancelled appointment ${appointmentId}`,
+      body: `An admin cancelled an appointment${payment ? ' and issued a refund' : ''}.
+• Appointment: ${appointmentId}
+• Business: ${appointment.business?.businessName || appointment.business?.id}
+• Reason: ${reason}`,
+    });
+
+    if (appointment.client?.email) {
+      this.emailService.sendCancellationConfirmationEmail(
+        appointment.client.email,
+        appointment.client.firstName || 'Valued Customer',
+        appointment.business?.businessName || 'the salon',
+        appointment.serviceName || 'your service',
+        appointment.date,
+        appointment.time,
+        payment ? 'A refund for this appointment has been issued.' : undefined,
+      );
+    }
+
     return 'done!';
   }
 
@@ -498,6 +566,16 @@ export class AdminService {
   }
 
   await this.userRepo.save(user);
+
+  SlackService.notify({
+    node: SlackNode.HUMAN_RESOURCE,
+    provider: SlackProvider.SYSTEM,
+    severity: SlackSeverity.INFO,
+    type: SlackEventType.ADMIN_ACTION,
+    trigger: `Admin role ${user.isStaff ? 'granted to' : 'revoked from'} ${user.email}`,
+    body: `A user's Admin role was ${user.isStaff ? 'granted' : 'revoked'} — a privilege change.
+• User: ${user.firstName ?? ''} ${user.surname ?? ''} (${user.email})`,
+  });
 
   return {
     message: user.isStaff
@@ -571,7 +649,20 @@ async getAllBusinesses() {
     }
     dispute.status = DisputeStatus.RESOLVED;
     dispute.resolutionNotes = resolutionNote;
-    return this.disputeRepo.save(dispute);
+    const saved = await this.disputeRepo.save(dispute);
+
+    SlackService.notify({
+      node: SlackNode.FINANCE,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.ADMIN_ACTION,
+      trigger: `Dispute resolved (${id})`,
+      body: `An admin resolved a dispute.
+• Dispute: ${id}
+• Resolution: ${resolutionNote}`,
+    });
+
+    return saved;
   }
 
   async rejectApplication(id: string) {
@@ -580,7 +671,36 @@ async getAllBusinesses() {
       throw new UnauthorizedException('Application not found');
     }
     application.status = BusinessStatus.REJECTED;
-    return this.businessRepo.save(application);
+    const saved = await this.businessRepo.save(application);
+
+    SlackService.notify({
+      node: SlackNode.FINANCE,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.ADMIN_ACTION,
+      trigger: `Merchant application rejected: ${saved.businessName}`,
+      body: `An admin rejected a merchant application.
+• Business: ${saved.businessName}
+• Owner: ${saved.ownerEmail || 'unknown'}`,
+    });
+
+    if (saved.ownerEmail) {
+      const frontendUrl = process.env.FRONTEND_URL || 'https://kinkyhairstylists.com';
+      const subject = 'Your KHS merchant application';
+      const message = `Thanks for applying to join KHS as a merchant. After review, we're unable to approve your application for ${saved.businessName} at this time.`;
+      const html = this.templateService.render('communication-bulk', {
+        businessName: saved.businessName,
+        subject,
+        clientName: saved.ownerName || 'there',
+        message,
+        closingRemarks: null,
+        frontendUrl,
+        year: new Date().getFullYear(),
+      });
+      this.emailService.sendEmail(saved.ownerEmail, subject, message, html);
+    }
+
+    return saved;
   }
 
   async approveApplication(id: string) {
@@ -588,8 +708,19 @@ async getAllBusinesses() {
     if (!application) {
       throw new UnauthorizedException('Application not found');
     }
-    application.status = BusinessStatus.APPROVED;
-    const saved = await this.businessRepo.save(application);
+
+    // "Approved" must always imply a subscription record exists (the
+    // 14-day Starter trial) — wrapped in one DB transaction so the two
+    // writes are never left half-true. The Stripe Customer API call
+    // itself can't participate in a Postgres transaction; an orphaned
+    // Stripe Customer if the transaction later fails is an accepted,
+    // low-cost edge case (see merchant-subscription plan notes).
+    const saved = await this.dataSource.transaction(async (manager) => {
+      application.status = BusinessStatus.APPROVED;
+      const savedBusiness = await manager.save(Business, application);
+      await this.merchantSubscriptionService.startTrialForBusiness(savedBusiness);
+      return savedBusiness;
+    });
 
     try {
       this.emailService.sendMerchantVerifiedEmail(
@@ -661,6 +792,17 @@ async getAllBusinesses() {
     user.suspensionHistory += Date.now() + ': reason ' + reason;
     await this.userRepo.save(user);
 
+    SlackService.notify({
+      node: SlackNode.HUMAN_RESOURCE,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.ADMIN_ACTION,
+      trigger: `Admin suspended customer account: ${user.email}`,
+      body: `A customer account was suspended.
+• User: ${user.firstName ?? ''} ${user.surname ?? ''} (${user.email})
+• Reason: ${reason}`,
+    });
+
     return { message: `User ${user.email} has been suspended.` };
   }
 
@@ -673,6 +815,32 @@ async getAllBusinesses() {
     business.status = BusinessStatus.SUSPENDED;
     await this.businessRepo.save(business);
 
+    SlackService.notify({
+      node: SlackNode.FINANCE,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.ADMIN_ACTION,
+      trigger: `Admin suspended business: ${business.businessName}`,
+      body: `An admin manually suspended a live storefront.
+• Business: ${business.businessName}`,
+    });
+
+    if (business.ownerEmail) {
+      const frontendUrl = process.env.FRONTEND_URL || 'https://kinkyhairstylists.com';
+      const subject = 'Your KHS storefront has been suspended';
+      const message = `Your storefront for ${business.businessName} has been suspended by KHS. Please contact support for more information.`;
+      const html = this.templateService.render('communication-bulk', {
+        businessName: business.businessName,
+        subject,
+        clientName: business.ownerName || 'there',
+        message,
+        closingRemarks: null,
+        frontendUrl,
+        year: new Date().getFullYear(),
+      });
+      this.emailService.sendEmail(business.ownerEmail, subject, message, html);
+    }
+
     return { message: `Business has been suspended.` };
   }
 
@@ -682,8 +850,31 @@ async getAllBusinesses() {
       throw new BadRequestException('Business not found');
     }
 
+    // Uniform gate, regardless of why this business was suspended:
+    // "approved" must always imply an active subscription. A business
+    // suspended for an unrelated cause can't be unsuspended if its
+    // subscription has separately lapsed in the meantime — billing has
+    // to be fixed first.
+    const hasActiveSubscription =
+      await this.merchantSubscriptionService.hasActiveOrTrialingSubscription(id);
+    if (!hasActiveSubscription) {
+      throw new BadRequestException(
+        'Cannot unsuspend: business has no active subscription. Merchant must add or update a payment method first.',
+      );
+    }
+
     business.status = BusinessStatus.APPROVED;
     await this.businessRepo.save(business);
+
+    SlackService.notify({
+      node: SlackNode.FINANCE,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.ADMIN_ACTION,
+      trigger: `Admin unsuspended business: ${business.businessName}`,
+      body: `An admin restored a suspended storefront.
+• Business: ${business.businessName}`,
+    });
 
     return { message: `Business has been unsuspended.` };
   }
@@ -697,6 +888,16 @@ async getAllBusinesses() {
     user.isSuspended = false;
     user.isVerified = true;
     await this.userRepo.save(user);
+
+    SlackService.notify({
+      node: SlackNode.HUMAN_RESOURCE,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.ADMIN_ACTION,
+      trigger: `Admin unsuspended customer account: ${user.email}`,
+      body: `A customer account was unsuspended.
+• User: ${user.firstName ?? ''} ${user.surname ?? ''} (${user.email})`,
+    });
 
     return { message: `User ${user.email} has been unsuspended.` };
   }
@@ -727,6 +928,28 @@ async getAllBusinesses() {
     await invalidateCache('/api/salons');
 
     return { message: `Business has been removed from luxury.` };
+  }
+
+  // Sets a business's acquisition-fee tier (drives the % in booking.service.ts).
+  // No merchant self-serve upgrade path exists yet — this is the only lever.
+  async setBusinessPlanTier(id: string, planTier: BusinessPlanTier) {
+    if (!Object.values(BusinessPlanTier).includes(planTier)) {
+      throw new BadRequestException(
+        `Invalid planTier "${planTier}" — must be one of: ${Object.values(BusinessPlanTier).join(', ')}`,
+      );
+    }
+
+    const business = await this.businessRepo.findOne({ where: { id } });
+    if (!business) {
+      throw new BadRequestException('Business not found');
+    }
+
+    business.planTier = planTier;
+
+    await this.businessRepo.save(business);
+    await invalidateCache('/api/salons');
+
+    return { message: `Business plan tier set to ${planTier}.` };
   }
 
   async getDashboardStats() {

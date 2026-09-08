@@ -3,30 +3,24 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Reminder } from '../entities/reminder.entity';
 import { Repository } from 'typeorm';
 import { SendReminderDto } from '../dtos/requests/Reminder.dto';
-import sgMail from '@sendgrid/mail';
 import { ClientSchema } from '../entities/client.entity';
+import { Business } from '../entities/business.entity';
 import { capitalizeString } from '../utils/client.utils';
+import { EmailService } from 'src/email/email.service';
+import { TemplateService } from 'src/email/template.service';
 
 @Injectable()
 export class ReminderService {
-  private fromEmail: string;
-
   constructor(
     @InjectRepository(Reminder)
     private reminderRepo: Repository<Reminder>,
     @InjectRepository(ClientSchema)
     private readonly clientRepo: Repository<ClientSchema>,
-  ) {
-    const apiKey = process.env.SENDGRID_API_KEY;
-    const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-
-    if (!apiKey || !fromEmail) {
-      throw new Error('SENDGRID_API_KEY and SENDGRID_FROM_EMAIL must be set');
-    }
-
-    sgMail.setApiKey(apiKey);
-    this.fromEmail = fromEmail;
-  }
+    @InjectRepository(Business)
+    private readonly businessRepo: Repository<Business>,
+    private readonly emailService: EmailService,
+    private readonly templateService: TemplateService,
+  ) {}
 
   async sendReminder(payload: SendReminderDto) {
     try {
@@ -45,7 +39,11 @@ export class ReminderService {
         };
       }
 
-      await this.sendEmailReminder(payload);
+      const business = payload.businessId
+        ? await this.businessRepo.findOne({ where: { id: payload.businessId } })
+        : null;
+
+      await this.sendEmailReminder(payload, business?.businessName ?? 'Kinky Hairstylist');
 
       reminder.sent = true;
       await this.reminderRepo.save(reminder);
@@ -64,59 +62,45 @@ export class ReminderService {
     }
   }
 
-  private async sendEmailReminder(data: SendReminderDto): Promise<void> {
-    let emailText = data.message;
+  private async sendEmailReminder(
+    data: SendReminderDto,
+    businessName: string,
+  ): Promise<void> {
     const type = data.reminderType.toLowerCase();
+    let message: string;
 
     switch (type) {
       case 'appointment':
-        emailText = `Dear ${data.clientName},
-  
-  ${data.message}
-        
-  Please be reminded of your appointment scheduled for ${data.date} at ${data.time}.
-  
-  Thank you.`;
+        message = `${data.message}\n\nPlease be reminded of your appointment scheduled for ${data.date} at ${data.time}.`;
         break;
 
       case 'upcoming':
-        emailText = `Dear ${data.clientName},
-  
-  ${data.message}
-        
-  This is a reminder about your upcoming scheduled item on ${data.date} at ${data.time}.
-  
-  If you need assistance or wish to make changes, feel free to contact us.`;
+        message = `${data.message}\n\nThis is a reminder about your upcoming scheduled item on ${data.date} at ${data.time}. If you need assistance or wish to make changes, feel free to contact us.`;
         break;
 
       case 'follow_up':
-        emailText = `Hello ${data.clientName},
-  
-  ${data.message} 
-        
-  This is a quick follow-up regarding the previous appointment on ${data.date} at ${data.time}.
-  
-  Please let us know if you have any questions or require additional support.`;
+        message = `${data.message}\n\nThis is a quick follow-up regarding the previous appointment on ${data.date} at ${data.time}. Please let us know if you have any questions or require additional support.`;
         break;
 
       case 'custom':
-        emailText = `Hi ${data.clientName},
-  
-  ${data.message}
-
-  Here is your reminder set for ${data.date} at ${data.time}:
-  
-  Thank you.`;
+      default:
+        message = `${data.message}\n\nHere is your reminder set for ${data.date} at ${data.time}.`;
         break;
     }
 
-    const msg = {
-      to: data.clientEmail,
-      from: this.fromEmail,
-      subject: `${capitalizeString(data.reminderType)} Reminder`,
-      text: emailText,
-    };
+    const subject = `${capitalizeString(data.reminderType)} Reminder`;
+    const frontendUrl = process.env.FRONTEND_URL || 'https://kinkyhairstylists.com';
 
-    await sgMail.send(msg);
+    const html = this.templateService.render('communication-bulk', {
+      businessName,
+      subject,
+      clientName: data.clientName,
+      message,
+      closingRemarks: null,
+      frontendUrl,
+      year: new Date().getFullYear(),
+    });
+
+    this.emailService.sendEmail(data.clientEmail, subject, message, html);
   }
 }

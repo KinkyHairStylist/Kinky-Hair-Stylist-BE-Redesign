@@ -5,6 +5,11 @@
 <p style="margin:0 0 24px 0; font-size:15px; line-height:1.6; color:#52525b;">
   Your appointment at <strong><%= businessName %></strong> for <strong><%= serviceName %></strong> on <strong><%= date %></strong> at <strong><%= time %></strong> has been cancelled as requested.
 </p>
+<% if (typeof moneyNote !== 'undefined' && moneyNote) { %>
+<p style="margin:0 0 24px 0; font-size:15px; line-height:1.6; color:#52525b;">
+  <%= moneyNote %>
+</p>
+<% } %>
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px 0;">
   <tr>

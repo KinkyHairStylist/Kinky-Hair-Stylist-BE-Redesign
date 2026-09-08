@@ -14,6 +14,15 @@ import { Public } from 'src/business/middlewares/public.decorator';
 import { WebhookService } from '../services/webhook.service';
 import { StripeService } from 'src/payment/stripe.service';
 import { BookingService } from 'src/user/services/booking.service';
+import { MerchantSubscriptionService } from 'src/business/services/merchant-subscription.service';
+import { BusinessWalletService } from 'src/business/services/wallet.service';
+import { SlackService } from 'src/services/slack.service';
+import {
+  SlackEventType,
+  SlackNode,
+  SlackProvider,
+  SlackSeverity,
+} from 'src/utils/enum';
 
 @Controller('webhook')
 export class WebhookController {
@@ -23,6 +32,8 @@ export class WebhookController {
     private readonly webhookService: WebhookService,
     private readonly stripeService: StripeService,
     private readonly bookingService: BookingService,
+    private readonly merchantSubscriptionService: MerchantSubscriptionService,
+    private readonly businessWalletService: BusinessWalletService,
   ) {}
 
   /**
@@ -47,6 +58,17 @@ export class WebhookController {
       this.logger.error(
         `Stripe webhook signature verification failed: ${error.message}`,
       );
+      // Could be misconfiguration (wrong webhook secret) or hostile
+      // traffic hitting this endpoint — either way, worth a human looking.
+      SlackService.notify({
+        node: SlackNode.PAYMENT,
+        provider: SlackProvider.STRIPE,
+        severity: SlackSeverity.ERROR,
+        type: SlackEventType.ERROR_ALERT,
+        trigger: 'Stripe webhook signature verification failed',
+        body: `A Stripe webhook request failed signature verification and was ignored.
+• Error: ${error instanceof Error ? error.message : String(error)}`,
+      });
       // A bad signature is not a transient failure — acknowledge so Stripe
       // doesn't retry-storm, but do not process the (unverified) payload.
       return { received: true };
@@ -72,6 +94,89 @@ export class WebhookController {
           );
           break;
         }
+        case 'customer.subscription.deleted': {
+          const subscription = event.data.object as { id: string };
+          await this.merchantSubscriptionService.handleSubscriptionDeleted(
+            subscription.id,
+          );
+          break;
+        }
+        case 'invoice.payment_failed': {
+          const invoice = event.data.object as {
+            subscription: string | null;
+            parent?: { subscription_details?: { subscription: string | null } | null } | null;
+          };
+          // Stripe moved this field under `parent.subscription_details` in
+          // newer API versions; the flat field is kept as a fallback.
+          const subscriptionId =
+            invoice.parent?.subscription_details?.subscription ?? invoice.subscription;
+          if (subscriptionId) {
+            await this.merchantSubscriptionService.handlePaymentFailed(subscriptionId);
+          }
+          break;
+        }
+        case 'invoice.payment_succeeded': {
+          const invoice = event.data.object as {
+            subscription: string | null;
+            parent?: { subscription_details?: { subscription: string | null } | null } | null;
+            period_end: number;
+          };
+          const subscriptionId =
+            invoice.parent?.subscription_details?.subscription ?? invoice.subscription;
+          if (subscriptionId) {
+            await this.merchantSubscriptionService.handlePaymentSucceeded(
+              subscriptionId,
+              new Date(invoice.period_end * 1000),
+            );
+          }
+          break;
+        }
+        case 'charge.dispute.created': {
+          // Previously nobody heard about a dispute until it was already
+          // closed — this is the earliest possible signal a chargeback is
+          // coming, so KHS can react before money moves.
+          const dispute = event.data.object as { charge: string; amount: number; reason?: string };
+          SlackService.notify({
+            node: SlackNode.PAYMENT,
+            provider: SlackProvider.STRIPE,
+            severity: SlackSeverity.ERROR,
+            type: SlackEventType.PAYMENT_FAILURE,
+            trigger: `Stripe dispute opened for charge ${dispute.charge}`,
+            body: `A customer disputed a Stripe charge. This will debit the business's wallet plus a chargeback fee if lost.
+• Charge: ${dispute.charge}
+• Amount: $${(dispute.amount / 100).toFixed(2)}
+• Reason: ${dispute.reason || 'not provided'}`,
+          });
+          break;
+        }
+        case 'charge.dispute.closed': {
+          const dispute = event.data.object as {
+            status: string;
+            charge: string;
+            amount: number;
+          };
+          // Only a permanently lost dispute recovers anything from the
+          // business — a "won" dispute (or any other closed status) means
+          // nothing was actually taken from KHS, so nothing needs to be
+          // recovered.
+          if (dispute.status === 'lost') {
+            await this.businessWalletService.handleChargeback(
+              dispute.charge,
+              dispute.amount / 100,
+            );
+          } else {
+            SlackService.notify({
+              node: SlackNode.PAYMENT,
+              provider: SlackProvider.STRIPE,
+              severity: SlackSeverity.INFO,
+              type: SlackEventType.PAYMENT_SUCCESS,
+              trigger: `Stripe dispute closed (${dispute.status}) for charge ${dispute.charge}`,
+              body: `A Stripe dispute closed with status "${dispute.status}" — nothing was taken from the business.
+• Charge: ${dispute.charge}`,
+            });
+          }
+          break;
+        }
         default:
           this.logger.log(`Unhandled Stripe event type: ${event.type}`);
       }
@@ -82,6 +187,17 @@ export class WebhookController {
         `Error processing Stripe webhook event ${event.type} (${event.id}): ${error.message}`,
         error.stack,
       );
+      SlackService.notify({
+        node: SlackNode.PAYMENT,
+        provider: SlackProvider.STRIPE,
+        severity: SlackSeverity.CRITICAL,
+        type: SlackEventType.ERROR_ALERT,
+        trigger: `Stripe webhook handler failed: ${event.type}`,
+        body: `Processing a Stripe webhook event threw — this covers payment succeeded/failed, subscription deleted, invoice payment failed/succeeded, and dispute closed. Stripe has already acted on this event; KHS's side effects (payout, status change, etc.) may not have happened.
+• Event type: ${event.type}
+• Event ID: ${event.id}
+• Error: ${error instanceof Error ? error.message : String(error)}`,
+      });
     }
 
     return { received: true };

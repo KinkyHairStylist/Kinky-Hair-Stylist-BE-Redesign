@@ -1,4 +1,4 @@
-import {IsString, IsOptional, IsArray, IsEmail, IsObject} from 'class-validator';
+import {IsString, IsOptional, IsArray, IsEmail, IsObject, IsNumber, Min, Max} from 'class-validator';
 import { BusinessStaffRole } from 'src/middleware/business-staff-role.enum';
 
 export class CreateStaffDto {
@@ -58,4 +58,13 @@ export class CreateStaffDto {
   @IsString()
   @IsOptional()
   selectedLocation?: string;
+
+  // Informational only — no staff wallet/payout exists yet. Recorded per
+  // completed booking as a StaffCommissionEarning row the merchant can see;
+  // does not move any money. Percentage, 0-100.
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  commissionRate?: number;
 }
