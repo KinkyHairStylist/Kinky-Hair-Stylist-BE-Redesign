@@ -255,7 +255,12 @@ async getBooking(id: string) {
 
       for (const spi of heldPaymentIntents) {
         const businessId = appointment.business.id;
-        const ownerId = appointment.business.owner?.id;
+        // `ownerId` is a direct column, always populated; `.owner` is a
+        // non-eager relation that's often absent unless explicitly
+        // requested (found while building the deposit-booking feature —
+        // this exact line was silently no-op'ing the wallet payout
+        // whenever `.owner` wasn't loaded).
+        const ownerId = appointment.business.ownerId || appointment.business.owner?.id;
         if (!businessId || !ownerId) continue;
 
         try {
@@ -269,11 +274,21 @@ async getBooking(id: string) {
           });
         }
 
+        // Deposit-only booking: KHS's commission + acquisition fee come
+        // out of the deposit at completion time (the client already paid
+        // the other 50% of the full price directly to the merchant at the
+        // venue, outside the platform entirely) — cancellation logic is
+        // unaffected, it already operates on the gross bookingAmount for
+        // both booking types.
+        const netAmount = spi.isDeposit
+          ? spi.bookingAmount - Number(spi.acquisitionFeeAmount) - Number(spi.commissionFeeAmount)
+          : spi.bookingAmount;
+
         await this.walletService.addFunds({
           businessId,
           recipientId: ownerId,
           senderId: spi.userId,
-          amount: spi.bookingAmount,
+          amount: netAmount,
           type: TransactionType.EARNING,
           description: `Escrow release for completed booking ${appointment.orderId}`,
           referenceId: spi.stripePaymentIntentId,

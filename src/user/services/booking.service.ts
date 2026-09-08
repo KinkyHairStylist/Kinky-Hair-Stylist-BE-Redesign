@@ -216,8 +216,11 @@ export class BookingService {
   // Step 1 — Confirm/Initialize Booking Payment
   // ------------------------------------------------------
   async confirmBooking(confirmBookingDto: any, user: User): Promise<any> {
-    const { orderId, payAtVenue, cardId, giftCard, paymentProvider } =
+    const { orderId, payAtVenue, cardId, giftCard, paymentProvider, depositOnly } =
       confirmBookingDto;
+    if (depositOnly && paymentProvider !== 'stripe') {
+      throw new BadRequestException('Deposit-only payment is only available with Stripe');
+    }
 
     // Find all appointments for this orderId
     const appointments = await this.bookingRepository.find({
@@ -655,19 +658,39 @@ export class BookingService {
     if (paymentProvider === 'stripe' && remainingToPay > 0) {
       const businessId = appointments[0].business.id;
 
-      // Stripe passthrough is computed on the post-gift-card remainder —
-      // the amount actually going through Stripe — and added on top of the
-      // charge, not subtracted from anything. This is the one fee that's
-      // genuinely new charge-side logic (acquisition/commission just
-      // replace the old single flat fee, computed the same additive way).
+      // Deposit-only: charge 50% of the raw service price (e.g. $250 ->
+      // $125), not 50% of remainingToPay (which already has acquisition/
+      // commission added in) — a $250 service is always a $125 deposit,
+      // regardless of what tier/fees apply. Acquisition/commission stay
+      // computed on the full bookingAmount above (unchanged) — they're
+      // extracted from this smaller deposit charge at completion time
+      // (see BusinessService.completeBooking), not added on top of it.
+      // The other 50% of the full price is paid directly to the merchant
+      // at the venue — KHS never charges, tracks, or takes a cut of it.
+      // Gift cards aren't accounted for here — a deposit-only booking
+      // combined with a gift card isn't a specified scenario.
+      const depositChargeBase = depositOnly ? bookingAmount * 0.5 : remainingToPay;
+
+      // Stripe passthrough is computed on the actual amount going through
+      // Stripe (the deposit base above, or the full remainder for a
+      // normal booking) — and added on top of the charge, not subtracted
+      // from anything. This is the one fee that's genuinely new charge-
+      // side logic (acquisition/commission just replace the old single
+      // flat fee, computed the same additive way).
       const passthroughPayments = await this.platformSettingsService.getPayments();
       const stripePassthroughAmount =
         Math.round(
-          (remainingToPay * (Number(passthroughPayments.stripePassthroughRate) || 0) / 100 +
+          (depositChargeBase * (Number(passthroughPayments.stripePassthroughRate) || 0) / 100 +
             (Number(passthroughPayments.stripePassthroughFixedFee) || 0)) *
             100,
         ) / 100;
-      const stripeChargeAmount = remainingToPay + stripePassthroughAmount;
+      const stripeChargeAmount = depositChargeBase + stripePassthroughAmount;
+      // Informational only — the other 50% of the full price, due
+      // directly to the merchant at the venue. Not persisted anywhere;
+      // KHS has no further involvement with it.
+      const remainingAtVenue = depositOnly
+        ? Math.round((bookingAmount - depositChargeBase) * 100) / 100
+        : 0;
 
       const paymentIntent = await this.stripeService.createPaymentIntent({
         amount: Math.round(stripeChargeAmount * 100), // Convert to cents
@@ -680,6 +703,7 @@ export class BookingService {
           bookingAmount,
           feeAmount,
           stripePassthroughAmount,
+          isDeposit: String(!!depositOnly),
         },
       });
 
@@ -690,10 +714,11 @@ export class BookingService {
         stripePaymentIntentId: paymentIntent.id,
         amount: stripeChargeAmount,
         currency: 'usd',
-        bookingAmount,
+        bookingAmount: depositChargeBase,
         acquisitionFeeAmount,
         commissionFeeAmount: commissionAmount,
         stripePassthroughFeeAmount: stripePassthroughAmount,
+        isDeposit: !!depositOnly,
         status: StripeEscrowStatus.PENDING,
       });
       await this.stripePaymentIntentRepository.save(stripePaymentIntent);
@@ -723,10 +748,12 @@ export class BookingService {
         this.transactionRepository.create({
           senderId: user.id,
           recipientId: appointments[0].business.owner?.id,
-          amount: remainingToPay,
+          amount: depositChargeBase,
           type: TransactionType.DEBIT,
           currency: WalletCurrency.USD,
-          description: `Card payment (Stripe) for appointment order ${orderId}`,
+          description: depositOnly
+            ? `50% deposit (Stripe) for appointment order ${orderId}`
+            : `Card payment (Stripe) for appointment order ${orderId}`,
           mode: 'Web',
           referenceId: paymentIntent.id,
           status: TxnStatus.PENDING,
@@ -808,6 +835,7 @@ export class BookingService {
         totalAmount: roundedTotalAmount,
         giftCardAmountUsed: giftCardPayment,
         cardAmountToPay: stripeChargeAmount,
+        remainingAtVenue,
         clientSecret: paymentIntent.client_secret,
         paymentIntentId: paymentIntent.id,
       };

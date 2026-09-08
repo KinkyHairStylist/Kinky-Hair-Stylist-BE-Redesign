@@ -42,4 +42,13 @@ export class ConfirmBookingDto {
   @IsString()
   @IsOptional()
   giftCard?: string;
+
+  @ApiProperty({
+    example: true,
+    description: 'Pay a 50% deposit now via Stripe, the rest directly to the merchant at the venue (Stripe only)',
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  depositOnly?: boolean;
 }
