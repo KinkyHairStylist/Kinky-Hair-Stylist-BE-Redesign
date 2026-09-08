@@ -286,6 +286,15 @@ export class PaymentService {
         existingPayment.status = 'failed';
         await this.paymentRepo.save(existingPayment);
         this.logger.log(`Payment marked as failed: ${reference}`);
+        SlackService.notify({
+          node: SlackNode.PAYMENT,
+          provider: SlackProvider.SYSTEM,
+          severity: SlackSeverity.INFO,
+          type: SlackEventType.PAYMENT_FAILURE,
+          trigger: `Paystack verification failed (${reference})`,
+          body: `Paystack payment verification returned status: false.
+• Reference: ${reference}`,
+        });
       }
 
       return { payment: existingPayment, message: 'Payment Completed' };

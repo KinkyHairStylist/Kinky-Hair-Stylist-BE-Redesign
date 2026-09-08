@@ -30,6 +30,7 @@ import { CreateBookingDto } from '../dtos/requests/CreateBookingDto';
 import { Staff } from '../entities/staff.entity';
 import { StaffCommissionEarning } from '../entities/staff-commission-earning.entity';
 import { EmailService } from '../../email/email.service';
+import { TemplateService } from '../../email/template.service';
 import { BookingDay } from '../entities/booking-day.entity';
 import { BlockedTimeSlot } from '../entities/blocked-time-slot.entity';
 import { CreateBlockedTimeDto } from '../dtos/requests/CreateBlockedTimeDto';
@@ -108,6 +109,7 @@ export class BusinessService {
     private googleCalendarService: GoogleCalendarService,
     private mailchimpService: MailchimpService,
     private emailService: EmailService,
+    private templateService: TemplateService,
     private readonly walletService: BusinessWalletService,
     private readonly businessOwnerSettingsService: BusinessOwnerSettingsService,
     private readonly zohoBooksService: ZohoBooksService,
@@ -319,6 +321,18 @@ async getBooking(id: string) {
           this.logger.error(
             `Failed to record staff commission for order ${appointment.orderId}: ${commissionError.message}`,
           );
+          // Low priority — this is an informational ledger only (no staff
+          // wallets exist yet), so nothing financial is actually stuck.
+          SlackService.notify({
+            node: SlackNode.PAYMENT,
+            provider: SlackProvider.SYSTEM,
+            severity: SlackSeverity.ERROR,
+            type: SlackEventType.ERROR_ALERT,
+            trigger: `Staff commission record failed for order ${appointment.orderId}`,
+            body: `Failed to record an informational staff commission entry.
+• Order: ${appointment.orderId}
+• Error: ${commissionError instanceof Error ? commissionError.message : String(commissionError)}`,
+          });
         }
 
         // Goes to pendingBalance, not balance — held for 48h so a
@@ -1064,6 +1078,18 @@ async getBooking(id: string) {
 
     await this.appointmentRepo.save(appointment);
 
+    if (appointment.client?.email) {
+      this.emailService.sendBookingConfirmationEmail(
+        appointment.client.email,
+        appointment.client.firstName || 'Valued Customer',
+        appointment.business?.businessName || 'the salon',
+        appointment.serviceName || 'your service',
+        appointment.date,
+        appointment.time,
+        appointment.orderId,
+      );
+    }
+
     const settings = await this.businessOwnerSettingsService.findByBusinessId(
       appointment.business.id,
     );
@@ -1493,7 +1519,10 @@ async getBooking(id: string) {
   }
 
   async deactivateStaff(id: string) {
-    const staff = await this.staffRepo.findOne({ where: { id: id } });
+    const staff = await this.staffRepo.findOne({
+      where: { id: id },
+      relations: ['business'],
+    });
     if (!staff) throw new Error('Staff not found');
     staff.isActive = false;
     await this.staffRepo.save(staff);
@@ -1507,6 +1536,20 @@ async getBooking(id: string) {
         user.isCustomer = true;
         await this.userRepo.save(user);
       }
+
+      const frontendUrl = process.env.FRONTEND_URL || 'https://kinkyhairstylists.com';
+      const subject = 'Your staff account has been deactivated';
+      const message = `Your staff account at ${staff.business?.businessName || 'your salon'} has been deactivated by the business.`;
+      const html = this.templateService.render('communication-bulk', {
+        businessName: staff.business?.businessName || 'Kinky Hairstylist',
+        subject,
+        clientName: staff.firstName || 'there',
+        message,
+        closingRemarks: null,
+        frontendUrl,
+        year: new Date().getFullYear(),
+      });
+      this.emailService.sendEmail(staff.email, subject, message, html);
     }
 
     return staff;

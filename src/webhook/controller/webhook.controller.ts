@@ -58,6 +58,17 @@ export class WebhookController {
       this.logger.error(
         `Stripe webhook signature verification failed: ${error.message}`,
       );
+      // Could be misconfiguration (wrong webhook secret) or hostile
+      // traffic hitting this endpoint — either way, worth a human looking.
+      SlackService.notify({
+        node: SlackNode.PAYMENT,
+        provider: SlackProvider.STRIPE,
+        severity: SlackSeverity.ERROR,
+        type: SlackEventType.ERROR_ALERT,
+        trigger: 'Stripe webhook signature verification failed',
+        body: `A Stripe webhook request failed signature verification and was ignored.
+• Error: ${error instanceof Error ? error.message : String(error)}`,
+      });
       // A bad signature is not a transient failure — acknowledge so Stripe
       // doesn't retry-storm, but do not process the (unverified) payload.
       return { received: true };
@@ -120,6 +131,24 @@ export class WebhookController {
           }
           break;
         }
+        case 'charge.dispute.created': {
+          // Previously nobody heard about a dispute until it was already
+          // closed — this is the earliest possible signal a chargeback is
+          // coming, so KHS can react before money moves.
+          const dispute = event.data.object as { charge: string; amount: number; reason?: string };
+          SlackService.notify({
+            node: SlackNode.PAYMENT,
+            provider: SlackProvider.STRIPE,
+            severity: SlackSeverity.ERROR,
+            type: SlackEventType.PAYMENT_FAILURE,
+            trigger: `Stripe dispute opened for charge ${dispute.charge}`,
+            body: `A customer disputed a Stripe charge. This will debit the business's wallet plus a chargeback fee if lost.
+• Charge: ${dispute.charge}
+• Amount: $${(dispute.amount / 100).toFixed(2)}
+• Reason: ${dispute.reason || 'not provided'}`,
+          });
+          break;
+        }
         case 'charge.dispute.closed': {
           const dispute = event.data.object as {
             status: string;
@@ -135,6 +164,16 @@ export class WebhookController {
               dispute.charge,
               dispute.amount / 100,
             );
+          } else {
+            SlackService.notify({
+              node: SlackNode.PAYMENT,
+              provider: SlackProvider.STRIPE,
+              severity: SlackSeverity.INFO,
+              type: SlackEventType.PAYMENT_SUCCESS,
+              trigger: `Stripe dispute closed (${dispute.status}) for charge ${dispute.charge}`,
+              body: `A Stripe dispute closed with status "${dispute.status}" — nothing was taken from the business.
+• Charge: ${dispute.charge}`,
+            });
           }
           break;
         }

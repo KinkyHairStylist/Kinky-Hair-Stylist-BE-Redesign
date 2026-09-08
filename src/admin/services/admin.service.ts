@@ -376,7 +376,36 @@ export class AdminService {
       throw new Error('Subscription plan not found');
     }
     subscription.status = Status.CANCELLED;
-    return await this.subscriptionRepo.save(subscription);
+    const saved = await this.subscriptionRepo.save(subscription);
+
+    SlackService.notify({
+      node: SlackNode.FINANCE,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.ADMIN_ACTION,
+      trigger: `Admin cancelled customer subscription (${id})`,
+      body: `An admin cancelled a customer's KHS membership subscription.
+• Subscription: ${id}
+• Customer: ${subscription.user?.email || 'unknown'}`,
+    });
+
+    if (subscription.user?.email) {
+      const frontendUrl = process.env.FRONTEND_URL || 'https://kinkyhairstylists.com';
+      const subject = 'Your KHS membership has been cancelled';
+      const message = `Your KHS membership subscription has been cancelled by our team. If you believe this is a mistake, please contact support.`;
+      const html = this.templateService.render('communication-bulk', {
+        businessName: 'Kinky Hairstylist',
+        subject,
+        clientName: subscription.user.firstName || 'there',
+        message,
+        closingRemarks: null,
+        frontendUrl,
+        year: new Date().getFullYear(),
+      });
+      this.emailService.sendEmail(subscription.user.email, subject, message, html);
+    }
+
+    return saved;
   }
 
   async getAllSubscribers(): Promise<GetSubscriptionDto[]> {
@@ -538,6 +567,16 @@ export class AdminService {
 
   await this.userRepo.save(user);
 
+  SlackService.notify({
+    node: SlackNode.HUMAN_RESOURCE,
+    provider: SlackProvider.SYSTEM,
+    severity: SlackSeverity.INFO,
+    type: SlackEventType.ADMIN_ACTION,
+    trigger: `Admin role ${user.isStaff ? 'granted to' : 'revoked from'} ${user.email}`,
+    body: `A user's Admin role was ${user.isStaff ? 'granted' : 'revoked'} — a privilege change.
+• User: ${user.firstName ?? ''} ${user.surname ?? ''} (${user.email})`,
+  });
+
   return {
     message: user.isStaff
       ? `User ${user.firstName ?? user.email} updated to Admin role.`
@@ -610,7 +649,20 @@ async getAllBusinesses() {
     }
     dispute.status = DisputeStatus.RESOLVED;
     dispute.resolutionNotes = resolutionNote;
-    return this.disputeRepo.save(dispute);
+    const saved = await this.disputeRepo.save(dispute);
+
+    SlackService.notify({
+      node: SlackNode.FINANCE,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.ADMIN_ACTION,
+      trigger: `Dispute resolved (${id})`,
+      body: `An admin resolved a dispute.
+• Dispute: ${id}
+• Resolution: ${resolutionNote}`,
+    });
+
+    return saved;
   }
 
   async rejectApplication(id: string) {
@@ -740,6 +792,17 @@ async getAllBusinesses() {
     user.suspensionHistory += Date.now() + ': reason ' + reason;
     await this.userRepo.save(user);
 
+    SlackService.notify({
+      node: SlackNode.HUMAN_RESOURCE,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.ADMIN_ACTION,
+      trigger: `Admin suspended customer account: ${user.email}`,
+      body: `A customer account was suspended.
+• User: ${user.firstName ?? ''} ${user.surname ?? ''} (${user.email})
+• Reason: ${reason}`,
+    });
+
     return { message: `User ${user.email} has been suspended.` };
   }
 
@@ -825,6 +888,16 @@ async getAllBusinesses() {
     user.isSuspended = false;
     user.isVerified = true;
     await this.userRepo.save(user);
+
+    SlackService.notify({
+      node: SlackNode.HUMAN_RESOURCE,
+      provider: SlackProvider.SYSTEM,
+      severity: SlackSeverity.INFO,
+      type: SlackEventType.ADMIN_ACTION,
+      trigger: `Admin unsuspended customer account: ${user.email}`,
+      body: `A customer account was unsuspended.
+• User: ${user.firstName ?? ''} ${user.surname ?? ''} (${user.email})`,
+    });
 
     return { message: `User ${user.email} has been unsuspended.` };
   }
