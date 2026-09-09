@@ -22,7 +22,11 @@ describe('SalonService', () => {
       find: jest.fn().mockResolvedValue([]),
     } as any;
 
-    const service = new SalonService(businessRepo, serviceRepo);
+    const reviewRepo = {
+      find: jest.fn().mockResolvedValue([]),
+    } as any;
+
+    const service = new SalonService(businessRepo, serviceRepo, reviewRepo);
 
     await service.findAll({ date: '2026-07-14', time: '14:30' });
 
