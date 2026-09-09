@@ -10,7 +10,7 @@ export const getTokens = async (
   const [accessToken, refreshToken] = await Promise.all([
     jwtService.signAsync(payload, {
       secret: process.env.JWT_ACCESS_SECRET,
-      expiresIn: '2d',
+      expiresIn: '3d',
     }),
     jwtService.signAsync(payload, {
       secret: process.env.JWT_REFRESH_SECRET,
