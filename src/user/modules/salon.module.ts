@@ -3,12 +3,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { Service } from 'src/business/entities/service.entity';
 import { Business } from 'src/business/entities/business.entity';
+import { Review } from 'src/business/entities/review.entity';
 import { SalonController } from '../controllers/salon.controller';
 import { SalonService } from '../services/salon.service';
 import { BusinessRepository } from '../user_utilities/salon.repository';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Business, Service])],
+  imports: [TypeOrmModule.forFeature([Business, Service, Review])],
   controllers: [SalonController],
   providers: [SalonService, BusinessRepository],
   exports: [SalonService],
