@@ -26,10 +26,11 @@ import { MerchantMembershipPurchase } from 'src/business/entities/merchant-membe
 import { NotificationSettingsModule } from './notification-settings.module';
 import { NotificationModule } from 'src/notifications/notification.module';
 import { SlackModule } from 'src/slack/slack.module';
+import { User } from 'src/all_user_entities/user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Appointment, Business, Service, Staff, Transaction, BusinessGiftCard, PlatformSettingsEntity, Review, ClientSchema, Card, StripePaymentIntent, Refund, BusinessClientAcquisition, MerchantMembershipPackage, MerchantMembershipPurchase]),
+    TypeOrmModule.forFeature([Appointment, Business, Service, Staff, Transaction, BusinessGiftCard, PlatformSettingsEntity, Review, ClientSchema, Card, StripePaymentIntent, Refund, BusinessClientAcquisition, MerchantMembershipPackage, MerchantMembershipPurchase, User]),
     ReviewModule,
     BusinessWalletModule,
     EmailModule,
