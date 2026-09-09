@@ -332,8 +332,12 @@ export class ReviewService {
         }
       }
 
-      const review = this.reviewRepo.create(payload);
+      const review = this.reviewRepo.create(payload as Review);
       const newReview = await this.reviewRepo.save(review);
+
+      if (newReview.businessId) {
+        await this.recomputeBusinessPerformance(newReview.businessId);
+      }
 
       return {
         success: true,
@@ -347,6 +351,29 @@ export class ReviewService {
         message: 'Failed to create client review',
       };
     }
+  }
+
+  // business.performance.rating/.reviews previously just sat at whatever
+  // was seeded and never actually reflected real reviews — recompute both
+  // from the reviews table itself every time a new one is created, so the
+  // salon-listing/detail-page star rating stays true rather than stale.
+  private async recomputeBusinessPerformance(businessId: string): Promise<void> {
+    const { average, count } = await this.reviewRepo
+      .createQueryBuilder('review')
+      .select('AVG(review.rating)', 'average')
+      .addSelect('COUNT(review.id)', 'count')
+      .where('review.businessId = :businessId', { businessId })
+      .getRawOne();
+
+    const business = await this.businessRepo.findOne({ where: { id: businessId } });
+    if (!business) return;
+
+    business.performance = {
+      ...business.performance,
+      rating: Math.round(Number(average) * 10) / 10,
+      reviews: Number(count),
+    };
+    await this.businessRepo.save(business);
   }
 
   async clearAllReviews() {
