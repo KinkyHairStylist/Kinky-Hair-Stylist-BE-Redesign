@@ -18,6 +18,7 @@ import {
   BusinessStatus,
 } from 'src/business/entities/business.entity';
 import { ServiceType } from 'src/business/types/service-type.enum';
+import { Review } from 'src/business/entities/review.entity';
 
 @Injectable()
 export class SalonService {
@@ -26,6 +27,8 @@ export class SalonService {
     private readonly businessRepository: Repository<Business>,
     @InjectRepository(Service)
     private serviceRepo: Repository<Service>,
+    @InjectRepository(Review)
+    private readonly reviewRepo: Repository<Review>,
   ) {}
 
   async findAll(options: {
@@ -234,6 +237,76 @@ export class SalonService {
     }
 
     return business;
+  }
+
+  // Real reviews + a per-star breakdown for the salon detail page's review
+  // section, replacing what was previously hardcoded frontend content.
+  async getBusinessReviews(businessId: string) {
+    const reviews = await this.reviewRepo.find({
+      where: { businessId },
+      order: { createdAt: 'DESC' },
+    });
+
+    const breakdown = [5, 4, 3, 2, 1].map((stars) => ({
+      stars,
+      count: reviews.filter((r) => Math.round(Number(r.rating)) === stars).length,
+    }));
+
+    const average =
+      reviews.length > 0
+        ? Math.round((reviews.reduce((sum, r) => sum + Number(r.rating), 0) / reviews.length) * 10) / 10
+        : 0;
+
+    return {
+      reviews,
+      average,
+      total: reviews.length,
+      breakdown,
+    };
+  }
+
+  // Other approved salons in the same category — "similar services" isn't
+  // a concept that existed anywhere before this; category is the closest
+  // existing signal for "what kind of salon this is." `category` is a
+  // jsonb string array (a business can have more than one), so this needs
+  // an overlap check (`?|`), not `=` equality against the whole array.
+  async getSimilarSalons(businessId: string, limit = 4): Promise<Business[]> {
+    const current = await this.businessRepository.findOne({
+      where: { id: businessId },
+    });
+    if (!current) {
+      throw new NotFoundException('Business not found');
+    }
+
+    if (!current.category || current.category.length === 0) {
+      return [];
+    }
+
+    return this.businessRepository
+      .createQueryBuilder('business')
+      .leftJoinAndSelect('business.serviceList', 'serviceList')
+      .where('business.status = :status', { status: BusinessStatus.APPROVED })
+      .andWhere('business.category ?| ARRAY[:...categories]', {
+        categories: current.category,
+      })
+      .andWhere('business.id != :businessId', { businessId })
+      .orderBy("COALESCE((business.performance->>'rating')::FLOAT, 0)", 'DESC')
+      .limit(limit)
+      .getMany();
+  }
+
+  // Simple counter, no per-user dedup table -- matches the existing `likes`
+  // column's shape (a bare int, no vote-tracking infrastructure at all
+  // before this). A user can vote more than once; flagged as a known
+  // tradeoff rather than silently building new schema for it.
+  async markReviewHelpful(reviewId: string): Promise<{ likes: number }> {
+    const review = await this.reviewRepo.findOne({ where: { id: reviewId } });
+    if (!review) {
+      throw new NotFoundException('Review not found');
+    }
+    review.likes = Number(review.likes) + 1;
+    await this.reviewRepo.save(review);
+    return { likes: review.likes };
   }
 
   async getServicesByBusinessId(businessId: string) {

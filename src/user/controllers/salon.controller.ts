@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Param,
   Query,
   UseInterceptors,
@@ -131,5 +132,29 @@ export class SalonController {
   @ApiResponse({ status: 404, description: 'Business not found' })
   async getBusiness(@Param('id') id: string) {
     return this.salonService.getBusinessById(id);
+  }
+
+  @Public()
+  @Get(':id/reviews')
+  @ApiOperation({ summary: 'Get a business\'s reviews with a star-rating breakdown' })
+  @ApiResponse({ status: 200, description: 'Return reviews, average, and breakdown' })
+  async getBusinessReviews(@Param('id') id: string) {
+    return this.salonService.getBusinessReviews(id);
+  }
+
+  @Public()
+  @Get(':id/similar')
+  @ApiOperation({ summary: 'Get other approved salons in the same category' })
+  @ApiResponse({ status: 200, description: 'Return similar salons' })
+  async getSimilarSalons(@Param('id') id: string) {
+    return this.salonService.getSimilarSalons(id);
+  }
+
+  @Public()
+  @Post('reviews/:reviewId/helpful')
+  @ApiOperation({ summary: 'Mark a review as helpful (increments its like count)' })
+  @ApiResponse({ status: 200, description: 'Return the updated like count' })
+  async markReviewHelpful(@Param('reviewId') reviewId: string) {
+    return this.salonService.markReviewHelpful(reviewId);
   }
 }
